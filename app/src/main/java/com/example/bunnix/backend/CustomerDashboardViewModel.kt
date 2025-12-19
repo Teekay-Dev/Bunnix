@@ -1,0 +1,48 @@
+package com.example.bunnix.backend
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class CustomerDashboardViewModel @Inject constructor(
+    private val repository: CustomerDashboardRepository
+) : ViewModel() {
+
+
+    val dashboardProducts: StateFlow<List<Product>> =
+        repository.getDashboardProducts()
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
+
+
+
+
+    private val _dashboardState =
+        MutableStateFlow<NetworkResult<List<Product>>>(NetworkResult.Loading())
+    val dashboardState: StateFlow<NetworkResult<List<Product>>> =
+        _dashboardState.asStateFlow() //here NetworkResult is red and asStateFlow and MutableStateFlow are underlined red
+
+    init {
+        loadDashboard()
+    }
+
+
+    private fun loadDashboard() {
+        viewModelScope.launch {
+            repository.getDashboardProducts().collect { products ->
+                _dashboardState.value = NetworkResult.Success(products)
+            }
+        }
+    }
+}
