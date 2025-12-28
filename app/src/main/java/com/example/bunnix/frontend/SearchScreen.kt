@@ -24,20 +24,12 @@ import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bunnix.backend.NetworkResult
-import com.example.bunnix.backend.Product
+import com.example.bunnix.model.Product
 import com.example.bunnix.backend.SearchViewModel
 
-/**
- * Main Search Screen composable.
- *
- * This screen is responsible ONLY for:
- * - Displaying UI
- * - Sending user actions to the ViewModel
- * - Reacting to state changes from the ViewModel
- *
- * All business logic (filtering, searching, history) lives in SearchViewModel.
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
@@ -45,7 +37,6 @@ fun SearchScreen(
     onNavigateToDetail: (Product) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
-    // Collect search-related state from the ViewModel
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.filteredResults.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
@@ -53,30 +44,22 @@ fun SearchScreen(
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val productsState by viewModel.productsState.collectAsState()
 
-    // Used to automatically focus the search text field
     val focusRequester = remember { FocusRequester() }
-
-    // Used to control (hide) the software keyboard
     val keyboardController = LocalSoftwareKeyboardController.current
-
-    // Coroutine scope used for refresh actions
     val coroutineScope = rememberCoroutineScope()
 
-    // Automatically focus the search bar when the screen opens
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
     Scaffold(
         topBar = {
-            // Top bar that contains the search input field
             SearchTopBar(
                 searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.updateSearchQuery(it) },
-                onClearClick = { viewModel.clearSearch() },
+                onSearchQueryChange = viewModel::updateSearchQuery,
+                onClearClick = viewModel::clearSearch,
                 onBackClick = onNavigateBack,
                 onSearch = {
-                    // When user presses search on the keyboard
                     if (searchQuery.isNotBlank()) {
                         viewModel.addToSearchHistory(searchQuery)
                         keyboardController?.hide()
@@ -87,61 +70,44 @@ fun SearchScreen(
         }
     ) { padding ->
 
-        // Pull-to-refresh wrapper
         SwipeRefresh(
             state = rememberSwipeRefreshState(
-                isRefreshing = productsState is com.example.bunnix.backend.NetworkResult.Loading
+                isRefreshing = productsState is NetworkResult.Loading
             ),
-            onRefresh = {
-                coroutineScope.launch {
-                    viewModel.clearSearch()
-                }
-            },
+            onRefresh = { coroutineScope.launch { viewModel.clearSearch() } },
             modifier = Modifier.padding(padding)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
+            Column(Modifier.fillMaxSize()) {
 
-                // Show category filters only when searching
                 AnimatedVisibility(
                     visible = searchQuery.isNotBlank() && availableCategories.isNotEmpty()
                 ) {
-                    CategoryFilterChips( //CategoryFilterChips is red
+                    CategoryFilterChips(
                         categories = availableCategories,
                         selectedCategory = selectedCategory,
-                        onCategorySelected = { viewModel.selectCategory(it) } // it is red
+                        onCategorySelected = viewModel::selectCategory
                     )
                 }
 
-                /**
-                 * UI state handling:
-                 * - No query → show search history
-                 * - Loading → show loader
-                 * - Empty results → show empty state
-                 * - Results → show products
-                 */
                 when {
                     searchQuery.isBlank() -> {
-                        SearchHistoryContent( // SearchHistoryContent is red
+                        SearchHistoryContent(
                             history = searchHistory,
-                            onHistoryItemClick = { query -> //query is underlined  red
-                                viewModel.updateSearchQuery(query)
-                                viewModel.addToSearchHistory(query)
+                            onHistoryItemClick = {
+                                viewModel.updateSearchQuery(it)
+                                viewModel.addToSearchHistory(it)
                             },
-                            onClearHistory = { viewModel.clearSearchHistory() },
-                            onRemoveItem = { viewModel.removeFromHistory(it) }
+                            onClearHistory = viewModel::clearSearchHistory,
+                            onRemoveItem = viewModel::removeFromHistory
                         )
                     }
 
-                    productsState is com.example.bunnix.backend.NetworkResult.Loading -> {
-                        LoadingState() //LoadingState() is red
+                    productsState is NetworkResult.Loading -> {
+                        LoadingState()
                     }
 
                     searchResults.isEmpty() -> {
-                        NoResultsState(searchQuery = searchQuery)
+                        NoResultsState(searchQuery)
                     }
 
                     else -> {
@@ -157,9 +123,8 @@ fun SearchScreen(
     }
 }
 
-/**
- * Top app bar containing the search text field.
- */
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchTopBar(
@@ -174,17 +139,13 @@ fun SearchTopBar(
         title = {
             TextField(
                 value = searchQuery,
-                // Every character typed updates the ViewModel
                 onValueChange = onSearchQueryChange,
                 placeholder = { Text("Search products...") },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null)
-                },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
                 trailingIcon = {
-                    // Clear button only appears when text is not empty
-                    AnimatedVisibility(visible = searchQuery.isNotEmpty()) {
+                    if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = onClearClick) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                            Icon(Icons.Default.Clear, null)
                         }
                     }
                 },
@@ -198,15 +159,14 @@ fun SearchTopBar(
         },
         navigationIcon = {
             IconButton(onClick = onBackClick) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Icon(Icons.Default.ArrowBack, null)
             }
         }
     )
 }
 
-/**
- * Displays search results in a scrollable list.
- */
+
+
 @Composable
 fun SearchResultsContent(
     results: List<Product>,
@@ -225,11 +185,15 @@ fun SearchResultsContent(
             )
         }
     }
+    LazyColumn {
+        items(results) { product ->
+            Text(product.name)
+        }
+    }
+
 }
 
-/**
- * Shown when no products match the search query.
- */
+
 @Composable
 fun NoResultsState(searchQuery: String) {
     Box(
