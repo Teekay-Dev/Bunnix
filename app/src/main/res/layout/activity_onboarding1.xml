@@ -12,14 +12,14 @@
         android:gravity="center"
         android:padding="30dp">
 
-        <!-- App Icon -->
+
         <ImageView
             android:layout_width="300dp"
             android:layout_height="200dp"
             android:src="@drawable/bunnix_icon"
             android:layout_marginBottom="20dp"/>
 
-        <!-- App Name -->
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -33,7 +33,7 @@
             android:shadowRadius="4"
             android:layout_marginBottom="10dp"/>
 
-        <!-- Get Help Fast -->
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -44,7 +44,7 @@
             android:gravity="center"
             android:layout_marginBottom="20dp"/>
 
-        <!-- Description Text (3 lines) -->
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -55,7 +55,7 @@
             android:gravity="center"
             android:layout_marginBottom="50dp"/>
 
-        <!-- Get Started Button -->
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnNext"
             android:layout_width="match_parent"

@@ -26,7 +26,7 @@
         <activity android:name=".frontend.Onboarding1Activity" />
         <activity android:name=".frontend.Onboarding2Activity" />
         <activity android:name=".frontend.Onboarding3Activity" />
-        <activity android:name=".frontend.AuthActivity" />
+        <activity android:name=".frontend.loginScreen" />
 
     </application>
 

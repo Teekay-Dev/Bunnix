@@ -5,9 +5,9 @@
     android:gravity="center"
     android:background="@color/black">
 
-    <!-- Gold Money Icon -->
 
-    <!-- App Name -->
+
+
 
     <ImageView
         android:id="@+id/logo"
