@@ -1,8 +1,7 @@
-package com.example.bunnix.backend
+package com.example.bunnix.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-
 
 @Entity(tableName = "products")
 data class Product (

@@ -1,5 +1,6 @@
 package com.example.bunnix.backend
 
+import com.example.bunnix.model.Product
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
