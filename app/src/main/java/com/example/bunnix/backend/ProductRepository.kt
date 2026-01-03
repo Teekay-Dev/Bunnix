@@ -1,22 +1,43 @@
 package com.example.bunnix.backend
 
-
 import com.example.bunnix.model.Product
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import javax.inject.Inject
 
 class ProductRepository @Inject constructor(
     private val dao: ProductDao
 ) {
 
-    fun getProducts(): Flow<NetworkResult<List<Product>>> = flow {
-        emit(NetworkResult.Loading())
-        dao.getAllProducts().collect { products ->
-            emit(NetworkResult.Success(products))
-        }
+    // All products
+    fun getProducts(): Flow<NetworkResult<List<Product>>> {
+        return dao.getAllProducts()
+            .map<List<Product>, NetworkResult<List<Product>>> {
+                NetworkResult.Success(it)
+            }
+            .onStart {
+                emit(NetworkResult.Loading())
+            }
     }
 
+    // 🔍 Search products (name / category)
+    fun searchProducts(query: String): Flow<NetworkResult<List<Product>>> {
+        return dao.searchProducts(query)
+            .map<List<Product>, NetworkResult<List<Product>>> {
+                NetworkResult.Success(it)
+            }
+            .onStart {
+                emit(NetworkResult.Loading())
+            }
+    }
+
+    // Vendor products
+    fun getProductsByVendor(vendor_id: Int): Flow<List<Product>> {
+        return dao.getProductsByVendor(vendor_id)
+    }
+
+    // Vendor actions
     suspend fun addProduct(product: Product) {
         dao.insertProduct(product)
     }
@@ -27,9 +48,5 @@ class ProductRepository @Inject constructor(
 
     suspend fun delete(product: Product) {
         dao.deleteProduct(product)
-    }
-
-    fun getProductsByVendor(vendorId: Int): Flow<List<Product>> {
-        return dao.getProductsByVendor(vendorId)
     }
 }

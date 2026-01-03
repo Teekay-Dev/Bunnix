@@ -16,109 +16,97 @@ class SearchViewModel @Inject constructor(
     private val dataStoreManager: DataStoreManager
 ) : ViewModel() {
 
-    // Search query state
+    // Search input
     private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    val searchQuery = _searchQuery.asStateFlow()
 
-    // Products state
-    private val _productsState = MutableStateFlow<NetworkResult<List<Product>>>(NetworkResult.Loading())
-    val productsState: StateFlow<NetworkResult<List<Product>>> = _productsState.asStateFlow()
-
-
-    // Search results with debounce
-    val searchResults: StateFlow<List<Product>> = searchQuery
-        .debounce(300)
-        .combine(productsState) { query, state ->
-            when (state) {
-                is NetworkResult.Success -> {
-                    if (query.isBlank()) {
-                        emptyList()
-                    } else {
-                        state.data?.filter { product ->
-                            product.name.contains(query, ignoreCase = true) ||
-                                    product.category.contains(query, ignoreCase = true) ||
-                                    product.description.contains(query, ignoreCase = true)
-                        } ?: emptyList()
-                    }
-                }
-                else -> emptyList()
-            }
-        }
-
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-    // Search history - now from DataStore
-    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
-    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
-
-    // Selected category filter
+    // Selected category
     private val _selectedCategory = MutableStateFlow<String?>(null)
-    val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
+    val selectedCategory = _selectedCategory.asStateFlow()
 
-    // Available categories
-    val availableCategories: StateFlow<List<String>> = productsState
-        .map { state ->
-            when (state) {
-                is NetworkResult.Success -> {
-                    state.data?.map { it.category }?.distinct() ?: emptyList()
+    // 🔥 MAIN SEARCH PIPELINE (DB-backed)
+    val productsState: StateFlow<NetworkResult<List<Product>>> =
+        searchQuery
+            .debounce(300)
+            .flatMapLatest { query ->
+                if (query.isBlank()) {
+                    flowOf(NetworkResult.Success(emptyList()))
+                } else {
+                    repository.searchProducts(query)
                 }
-                else -> emptyList()
             }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = NetworkResult.Loading()
+            )
+
+    // Category list
+    val availableCategories: StateFlow<List<String>> =
+        productsState
+            .map { state ->
+                (state as? NetworkResult.Success)
+                    ?.data
+                    ?.map { it.category }
+                    ?.distinct()
+                    ?: emptyList()
+            }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                emptyList()
+            )
+
+    // Category-filtered results
+    val filteredResults: StateFlow<List<Product>> =
+        combine(productsState, selectedCategory) { state, category ->
+            val data = (state as? NetworkResult.Success)?.data ?: emptyList()
+            if (category == null) data
+            else data.filter { it.category.equals(category, true) }
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            emptyList()
         )
 
-    // Filtered results (by category)
-    val filteredResults: StateFlow<List<Product>> = combine(
-        searchResults,
-        selectedCategory
-    ) { results, category ->
-        if (category == null) {
-            results
-        } else {
-            results.filter { it.category.equals(category, ignoreCase = true) }
-        }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+    // Search history
+    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    val searchHistory = _searchHistory.asStateFlow()
 
     init {
-        loadProducts()
         loadSearchHistory()
     }
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+        if (query.isNotBlank()) addToSearchHistory(query)
     }
 
-    fun addToSearchHistory(query: String) {
-        if (query.isBlank()) return
+    fun selectCategory(category: String?) {
+        _selectedCategory.value = category
+    }
 
+    fun clearSearch() {
+        _searchQuery.value = ""
+        _selectedCategory.value = null
+    }
+
+    private fun loadSearchHistory() {
         viewModelScope.launch {
-            val currentHistory = _searchHistory.value.toMutableList()
-
-            // Remove if already exists (to move it to top)
-            currentHistory.remove(query)
-
-            // Add to beginning
-            currentHistory.add(0, query)
-
-            // Keep only last 10 searches
-            if (currentHistory.size > 10) {
-                currentHistory.removeAt(currentHistory.size - 1)
+            dataStoreManager.getSearchHistory().collect {
+                _searchHistory.value = it
             }
+        }
+    }
 
-            _searchHistory.value = currentHistory
-            dataStoreManager.saveSearchHistory(currentHistory)
+    private fun addToSearchHistory(query: String) {
+        viewModelScope.launch {
+            val updated = _searchHistory.value.toMutableList()
+            updated.remove(query)
+            updated.add(0, query)
+            if (updated.size > 10) updated.removeLast()
+            _searchHistory.value = updated
+            dataStoreManager.saveSearchHistory(updated)
         }
     }
 
@@ -131,35 +119,10 @@ class SearchViewModel @Inject constructor(
 
     fun removeFromHistory(query: String) {
         viewModelScope.launch {
-            val currentHistory = _searchHistory.value.toMutableList()
-            currentHistory.remove(query)
-            _searchHistory.value = currentHistory
-            dataStoreManager.saveSearchHistory(currentHistory)
-        }
-    }
-
-    fun selectCategory(category: String?) {
-        _selectedCategory.value = category
-    }
-
-    fun clearSearch() {
-        _searchQuery.value = ""
-        _selectedCategory.value = null
-    }
-
-    private fun loadProducts() {
-        viewModelScope.launch {
-            repository.getProducts().collect { result ->
-                _productsState.value = result
-            }
-        }
-    }
-
-    private fun loadSearchHistory() {
-        viewModelScope.launch {
-            dataStoreManager.getSearchHistory().collect { history ->
-                _searchHistory.value = history
-            }
+            val updated = _searchHistory.value.toMutableList()
+            updated.remove(query)
+            _searchHistory.value = updated
+            dataStoreManager.saveSearchHistory(updated)
         }
     }
 }

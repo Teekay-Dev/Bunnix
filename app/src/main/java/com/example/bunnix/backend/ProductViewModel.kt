@@ -1,34 +1,40 @@
 package com.example.bunnix.backend
 
-
-import androidx.compose.ui.unit.IntRect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bunnix.model.Product
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlin.Int
-import kotlin.String
+import javax.inject.Inject
 
-class ProductViewModel(private val repository: ProductRepository) : ViewModel() {
-    val products = repository.allProducts.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        emptyList()
-    )
+@HiltViewModel
+class ProductViewModel @Inject constructor(
+    private val repository: ProductRepository
+) : ViewModel() {
 
-    fun addProduct(imageUri: String, name: String, description: String, price: String, quantity: String) {
-        viewModelScope.launch {
-            repository.addProduct(
-                Product(
-                    image_url = imageUri,
-                    name = name,
-                    description = description,
-                    price = price,
-                    quantity = quantity
-                )
+    private val _vendorId = MutableStateFlow<Int?>(null)
+
+    // Vendor products (auto-updates when DB changes)
+    val vendorProducts: StateFlow<List<Product>> =
+        _vendorId
+            .filterNotNull()
+            .flatMapLatest { vendorId ->
+                repository.getProductsByVendor(vendorId)
+            }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                emptyList()
             )
+
+    fun setVendor(vendorId: Int) {
+        _vendorId.value = vendorId
+    }
+
+    fun addProduct(product: Product) {
+        viewModelScope.launch {
+            repository.addProduct(product)
         }
     }
 
@@ -38,12 +44,9 @@ class ProductViewModel(private val repository: ProductRepository) : ViewModel() 
         }
     }
 
-
-    fun delete(product: Product) {
-        viewModelScope.launch { repository.delete(product) }
-    }
-
-    fun clearAll() {
-        viewModelScope.launch { repository.clearAll() }
+    fun deleteProduct(product: Product) {
+        viewModelScope.launch {
+            repository.delete(product)
+        }
     }
 }
