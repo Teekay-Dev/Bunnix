@@ -13,12 +13,12 @@ class Onboarding3Activity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_onboarding3) // Make sure this layout exists
 
-        // Find the button by its ID
+
         val nextButton: Button = findViewById(R.id.btnNext)
 
         // Set click listener
         nextButton.setOnClickListener {
-            val intent = Intent(this@Onboarding3Activity, AuthActivity::class.java)
+            val intent = Intent(this@Onboarding3Activity, LoginActivity::class.java)
             startActivity(intent)
             finish() // Optional: closes the current activity
         }
