@@ -2,6 +2,7 @@ package com.example.bunnix.model
 
 data class Vendor (
     val id: Int = 0,
+    val role: String,
     val firstName: String,
     val surName: String,
     val businessName: String,
