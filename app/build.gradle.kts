@@ -147,6 +147,16 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
 
+    // ============= AUTH BACKEND (Added by [Your Name] - Jan 7, 2026) =============
+   // These dependencies are ONLY for auth backend API calls
+  // If you're not working on auth, these won't affect you
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")                      // Makes API calls
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")                // Converts JSON
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")            // Logs network requests
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")    // Async operations
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")       // Coroutines core
+// ============= END AUTH BACKEND =============
+
 }
 
 
