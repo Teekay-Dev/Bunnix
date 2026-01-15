@@ -1,13 +1,13 @@
 import java.util.Properties
 import kotlin.apply
 
-plugins {
+ plugins {
 //    alias(libs.plugins.android.application)
-//    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.android)
 //    alias(libs.plugins.kotlin.compose)
 //    id("com.google.dagger.hilt.android")
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    //id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
 //    id("kotlin-kapt")
@@ -20,12 +20,12 @@ plugins {
 
 android {
     namespace = "com.example.bunnix"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.bunnix"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
