@@ -1,7 +1,7 @@
 package com.example.bunnix.frontend
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.background
+import com.example.bunnix.backend.SearchViewModel
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,103 +27,89 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bunnix.backend.NetworkResult
 import com.example.bunnix.model.Product
-import com.example.bunnix.backend.SearchViewModel
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
-    onNavigateBack: () -> Unit,
-    onNavigateToDetail: (Product) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val searchResults by viewModel.filteredResults.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
-    val availableCategories by viewModel.availableCategories.collectAsState()
+    val filteredResults by viewModel.filteredResults.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
-    val productsState by viewModel.productsState.collectAsState()
+    val categories by viewModel.availableCategories.collectAsState()
 
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val coroutineScope = rememberCoroutineScope()
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
+        // Search input
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { viewModel.updateSearchQuery(it) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Search Products") },
+            singleLine = true
+        )
 
-    Scaffold(
-        topBar = {
-            SearchTopBar(
-                searchQuery = searchQuery,
-                onSearchQueryChange = viewModel::updateSearchQuery,
-                onClearClick = viewModel::clearSearch,
-                onBackClick = onNavigateBack,
-                onSearch = {
-                    if (searchQuery.isNotBlank()) {
-                        viewModel.addToSearchHistory(searchQuery)
-                        keyboardController?.hide()
-                    }
-                },
-                focusRequester = focusRequester
-            )
+        Spacer(modifier = Modifier.height(8.dp))
+        // Categories
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("All", modifier = Modifier.clickable { viewModel.selectCategory(null) })
+            categories.forEach { category ->
+                Text(
+                    category,
+                    modifier = Modifier.clickable { viewModel.selectCategory(category) }
+                )
+            }
         }
-    ) { padding ->
 
-        SwipeRefresh(
-            state = rememberSwipeRefreshState(
-                isRefreshing = productsState is NetworkResult.Loading
-            ),
-            onRefresh = { coroutineScope.launch { viewModel.clearSearch() } },
-            modifier = Modifier.padding(padding)
-        ) {
-            Column(Modifier.fillMaxSize()) {
+        Spacer(modifier = Modifier.height(8.dp))
 
-                AnimatedVisibility(
-                    visible = searchQuery.isNotBlank() && availableCategories.isNotEmpty()
-                ) {
-                    CategoryFilterChips(
-                        categories = availableCategories,
-                        selectedCategory = selectedCategory,
-                        onCategorySelected = viewModel::selectCategory
+        // Search history
+        if (searchHistory.isNotEmpty()) {
+            Text("Recent Searches:", style = MaterialTheme.typography.titleMedium)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 150.dp)
+            ) {
+                items(searchHistory) { item ->
+                    Text(
+                        text = item,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.updateSearchQuery(item) }
+                            .padding(8.dp)
                     )
                 }
+            }
+        }
 
-                when {
-                    searchQuery.isBlank() -> {
-                        SearchHistoryContent(
-                            history = searchHistory,
-                            onHistoryItemClick = {
-                                viewModel.updateSearchQuery(it)
-                                viewModel.addToSearchHistory(it)
-                            },
-                            onClearHistory = viewModel::clearSearchHistory,
-                            onRemoveItem = viewModel::removeFromHistory
-                        )
-                    }
+        Spacer(modifier = Modifier.height(8.dp))
 
-                    productsState is NetworkResult.Loading -> {
-                        LoadingState()
-                    }
-
-                    searchResults.isEmpty() -> {
-                        NoResultsState(searchQuery)
-                    }
-
-                    else -> {
-                        SearchResultsContent(
-                            results = searchResults,
-                            searchQuery = searchQuery,
-                            onProductClick = onNavigateToDetail
-                        )
+        // Filtered results
+        if (filteredResults.isNotEmpty()) {
+            Text("Results:", style = MaterialTheme.typography.titleMedium)
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(filteredResults) { product: Product ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(text = product.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(text = "Category: ${product.category}", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
         }
     }
 }
-
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
