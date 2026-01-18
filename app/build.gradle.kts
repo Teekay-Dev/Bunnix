@@ -74,89 +74,80 @@ android {
 }
 
 
+
 dependencies {
-//    implementation("com.google.android.material:material:1.11.0")
-    implementation("com.google.android.material:material:1.9.0")
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.room.ktx)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    implementation("io.coil-kt:coil-compose:2.7.0")
+    // ===== COMPOSE =====
+    implementation(platform("androidx.compose:compose-bom:2024.04.01"))
 
-    // NEW: Lifecycle & ViewModel for Compose
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
 
-    // NEW: Hilt for Dependency Injection
-    implementation("com.google.dagger:hilt-android:2.48")
-    kapt("com.google.dagger:hilt-compiler:2.48")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    // ===== CORE =====
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.activity:activity-compose:1.9.3")
 
-    // NEW: Retrofit for API calls
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    // ===== LIFECYCLE =====
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
-    // NEW: OkHttp for logging
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-    // NEW: Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-
-//    // NEW: Coil for image loading
-//    implementation("io.coil-kt:coil-compose:2.5.0")
-
-
-    // Material Icons Extended (for more icons)
-    implementation("androidx.compose.material:material-icons-extended:1.5.4")
-
-
-    // Navigation Compose (add this with other dependencies)
+    // ===== NAVIGATION =====
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
+    // ===== HILT =====
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 
-    //Pull to refresh material 3
-    implementation("androidx.compose.material3:material3:1.3.0")
-
-//    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
-
-    implementation("com.google.accompanist:accompanist-swiperefresh:0.34.0")
-
-    // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
-
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-
-    // Splash Screen API
-    implementation("androidx.core:core-splashscreen:1.0.1")
-
+    // ===== ROOM =====
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
 
-    // ============= AUTH BACKEND (Added by [Your Name] - Jan 7, 2026) =============
-   // These dependencies are ONLY for auth backend API calls
-  // If you're not working on auth, these won't affect you
+    // ===== NETWORK =====
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // ===== COROUTINES =====
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+    // ===== IMAGE LOADING =====
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // ===== DATASTORE =====
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // ===== SPLASH SCREEN =====
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // ===== TESTING =====
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+
+    // Accompanist SwipeRefresh
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.34.0")
+
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.core:core-ktx:1.12.0")
+
+//    ============= AUTH BACKEND (Added by [Your Name] - Jan 7, 2026) =============
+//    These dependencies are ONLY for auth backend API calls
+//            If you're not working on auth, these won't affect you
     implementation("com.squareup.retrofit2:retrofit:2.9.0")                      // Makes API calls
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")                // Converts JSON
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")            // Logs network requests
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")    // Async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")       // Coroutines core
-// ============= END AUTH BACKEND =============
-
+//    ============= END AUTH BACKEND =============
 }
 
 

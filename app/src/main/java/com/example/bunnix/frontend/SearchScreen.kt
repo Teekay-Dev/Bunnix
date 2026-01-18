@@ -28,8 +28,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bunnix.backend.NetworkResult
 import com.example.bunnix.model.Product
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
@@ -40,6 +38,9 @@ fun SearchScreen(
     val filteredResults by viewModel.filteredResults.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val categories by viewModel.availableCategories.collectAsState()
+
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
 
@@ -53,9 +54,14 @@ fun SearchScreen(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
+
         // Categories
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text("All", modifier = Modifier.clickable { viewModel.selectCategory(null) })
+
             categories.forEach { category ->
                 Text(
                     category,
@@ -69,6 +75,7 @@ fun SearchScreen(
         // Search history
         if (searchHistory.isNotEmpty()) {
             Text("Recent Searches:", style = MaterialTheme.typography.titleMedium)
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -91,6 +98,7 @@ fun SearchScreen(
         // Filtered results
         if (filteredResults.isNotEmpty()) {
             Text("Results:", style = MaterialTheme.typography.titleMedium)
+
             LazyColumn(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -151,8 +159,6 @@ fun SearchTopBar(
     )
 }
 
-
-
 @Composable
 fun SearchResultsContent(
     results: List<Product>,
@@ -164,21 +170,13 @@ fun SearchResultsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(results, key = { it.id }) { product ->
-            // Clicking a product navigates to the detail screen
             BestValueDealCard(
                 product = product,
                 onClick = { onProductClick(product) }
             )
         }
     }
-    LazyColumn {
-        items(results) { product ->
-            Text(product.name)
-        }
-    }
-
 }
-
 
 @Composable
 fun NoResultsState(searchQuery: String) {
@@ -243,6 +241,3 @@ fun SearchHistoryContent(
         }
     }
 }
-
-
-

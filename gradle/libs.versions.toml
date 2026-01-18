@@ -12,7 +12,6 @@ composeBom = "2023.02.01"
 activityCompose = "1.8.2"
 lifecycleRuntimeKtx = "2.6.2"
 
-
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

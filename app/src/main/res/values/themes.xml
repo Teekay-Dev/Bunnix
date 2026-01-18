@@ -1,5 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Bunnix" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Bunnix.Splash" parent="Theme.SplashScreen">
+
+        <!-- Black background -->
+        <item name="windowSplashScreenBackground">@android:color/black</item>
+
+        <!-- 🚫 REMOVE system icon -->
+        <item name="windowSplashScreenAnimatedIcon">@null</item>
+
+        <!-- No system animation -->
+        <item name="windowSplashScreenAnimationDuration">0</item>
+
+        <!-- Go straight to app theme -->
+<!--        <item name="postSplashScreenTheme">@style/Theme.Bunnix</item>-->
+
+        <!-- No title / no action bar -->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+
+    </style>
+
+
+
+
+
+
 </resources>
