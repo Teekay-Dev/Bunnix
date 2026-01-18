@@ -30,6 +30,7 @@ import com.example.bunnix.model.Product
 import com.example.bunnix.backend.SearchViewModel
 
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
@@ -61,7 +62,7 @@ fun SearchScreen(
                 onBackClick = onNavigateBack,
                 onSearch = {
                     if (searchQuery.isNotBlank()) {
-                        viewModel.addToSearchHistory(searchQuery)
+                        viewModel.updateSearchQuery(searchQuery)
                         keyboardController?.hide()
                     }
                 },
@@ -95,7 +96,7 @@ fun SearchScreen(
                             history = searchHistory,
                             onHistoryItemClick = {
                                 viewModel.updateSearchQuery(it)
-                                viewModel.addToSearchHistory(it)
+                                viewModel.updateSearchQuery(it)
                             },
                             onClearHistory = viewModel::clearSearchHistory,
                             onRemoveItem = viewModel::removeFromHistory
