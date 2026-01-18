@@ -1,6 +1,5 @@
 package com.example.bunnix.frontend
 
-
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
