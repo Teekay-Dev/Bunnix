@@ -69,7 +69,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.13"
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
 }
 
@@ -149,113 +149,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")       // Coroutines core
 //    ============= END AUTH BACKEND =============
 }
-
-
-
-
-
-
-
-
-//dependencies {
-//    implementation("com.google.android.material:material:1.11.0")
-//    implementation("com.google.android.material:material:1.9.0")
-//    implementation(platform("androidx.compose:compose-bom:2024.04.01"))
-
-    // Compose BOM (controls Compose versions safely)
-//    implementation(platform("androidx.compose:compose-bom:2024.04.01"))
-
-//    implementation("androidx.compose.ui:ui")
-//    implementation("androidx.compose.ui:ui-graphics")
-//    implementation("androidx.compose.ui:ui-tooling-preview")
-//    implementation("androidx.compose.material3:material3")
-//    debugImplementation("androidx.compose.ui:ui-tooling")
-//    debugImplementation("androidx.compose.ui:ui-test-manifest")
-
-//    implementation(libs.androidx.room.ktx)
-//    testImplementation(libs.junit)
-//    androidTestImplementation(libs.androidx.junit)
-//    androidTestImplementation(libs.androidx.espresso.core)
-//    androidTestImplementation(platform(libs.androidx.compose.bom))
-//    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-//    debugImplementation(libs.androidx.compose.ui.test.manifest)
-
-//    implementation("io.coil-kt:coil-compose:2.7.0")
-
-    // NEW: Lifecycle & ViewModel for Compose
-//    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-//    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
-
-
-    // Core + Activity (SDK 34 compatible)
-//    implementation("androidx.core:core-ktx:1.13.1")
-//    implementation("androidx.activity:activity-compose:1.9.3")
-
-// Lifecycle (Compose-safe)
-//    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-//    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-
-    // NEW: Hilt for Dependency Injection
-//    implementation("com.google.dagger:hilt-android:2.48")
-//    kapt("com.google.dagger:hilt-compiler:2.48")
-
-//    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
-
-    // NEW: Retrofit for API calls
-//    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-//    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-
-    // NEW: OkHttp for logging
-//    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-    // NEW: Coroutines
-//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-
-//    // NEW: Coil for image loading
-//    implementation("io.coil-kt:coil-compose:2.5.0")
-
-
-    // Material Icons Extended (for more icons)
-//    implementation("androidx.compose.material:material-icons-extended:1.5.4")
-//    implementation("androidx.compose.material:material-icons-extended")
-
-
-
-    // Navigation Compose (add this with other dependencies)
-//    implementation("androidx.navigation:navigation-compose:2.7.6")
-
-
-    //Pull to refresh material 3
-//    implementation("androidx.compose.material3:material3:1.3.0")
-
-//    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
-
-//    implementation("com.google.accompanist:accompanist-swiperefresh:0.34.0")
-
-    // DataStore
-//    implementation("androidx.datastore:datastore-preferences:1.0.0")
-
-//    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-
-    // Splash Screen API
-//    implementation("androidx.core:core-splashscreen:1.0.1")
-//
-//    implementation("androidx.room:room-runtime:2.6.1")
-//    implementation("androidx.room:room-ktx:2.6.1")
-//    kapt("androidx.room:room-compiler:2.6.1")
-
-    // ============= AUTH BACKEND (Added by [Your Name] - Jan 7, 2026) =============
-   // These dependencies are ONLY for auth backend API calls
-  // If you're not working on auth, these won't affect you
-//    implementation("com.squareup.retrofit2:retrofit:2.9.0")                      // Makes API calls
-//    implementation("com.squareup.retrofit2:converter-gson:2.9.0")                // Converts JSON
-//    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")            // Logs network requests
-//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")    // Async operations
-//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")       // Coroutines core
-// ============= END AUTH BACKEND =============
-
-//}
 
 
 
