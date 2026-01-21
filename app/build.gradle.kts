@@ -2,18 +2,10 @@ import java.util.Properties
 import kotlin.apply
 
  plugins {
-//    alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-//    alias(libs.plugins.kotlin.compose)
-//    id("com.google.dagger.hilt.android")
     id("com.android.application")
-    //id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
-//    id("kotlin-kapt")
-//    kotlin("kapt")
-//    kotlin("plugin.serialization")
-//    id("de.mannodermaus.android-junit5")
 }
 
 
