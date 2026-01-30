@@ -3,6 +3,7 @@ package com.example.bunnix.utils
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.example.bunnix.model.Vendor
 
 @Suppress("unused")
 class PrefsManager(context: Context) {
@@ -13,16 +14,22 @@ class PrefsManager(context: Context) {
     companion object {
         private const val PREFS_NAME = "bunnix_prefs"
         private const val KEY_TOKEN = "auth_token"
-        private const val KEY_USER_ID = "user_id"
-        private const val KEY_USER_NAME = "user_name"
-        private const val KEY_USER_EMAIL = "user_email"
-        private const val KEY_USER_PHONE = "user_phone"
-        private const val KEY_USER_IMAGE = "user_image"
+
+        // Vendor Specific Keys
+
+        private const val KEY_VENDOR_ID = "vendor_id"
+        private const val KEY_VENDOR_NAME = "vendor_name"
+        private const val KEY_VENDOR_EMAIL = "vendor_email"
+        private const val KEY_VENDOR_PHONE = "vendor_phone"
+        private const val KEY_VENDOR_IMAGE = "vendor_image"
+
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
-        private const val KEY_IS_VENDOR = "is_vendor"
+        private const val KEY_IS_VENDOR_MODE = "is_vendor_mode"
         private const val KEY_IS_FIRST_TIME = "is_first_time"
     }
 
+
+    // --- Auth Token Logic ---
     fun saveAuthToken(token: String) {
         prefs.edit { putString(KEY_TOKEN, token) }
     }
@@ -34,47 +41,56 @@ class PrefsManager(context: Context) {
         return if (token != null) "Bearer $token" else null
     }
 
-    fun saveUser(user: com.example.bunnix.data.model.User) {
-        prefs.edit().apply {
-            putString(KEY_USER_ID, user.id)
-            putString(KEY_USER_NAME, user.name)
-            putString(KEY_USER_EMAIL, user.email)
-            putString(KEY_USER_PHONE, user.phone)
-            putString(KEY_USER_IMAGE, user.profileImage)
-            putBoolean(KEY_IS_VENDOR, user.isVendor)
+    // --- Vendor Profile Logic --
+    fun saveVendor(vendor: Vendor) {
+        prefs.edit {
+            putInt(KEY_VENDOR_ID, vendor.id) // Using putInt for the Int ID
+            putString(KEY_VENDOR_NAME, vendor.businessName)
+            putString("vendor_firstname", vendor.firstName)
+            putString("vendor_surname", vendor.surName)
+            putString(KEY_VENDOR_EMAIL, vendor.email)
+            putString(KEY_VENDOR_PHONE, vendor.phone)
+            putString(KEY_VENDOR_IMAGE, vendor.profileImage)
+            putString("vendor_role", vendor.role)
+            putString("vendor_created_at", vendor.createdAt)
             putBoolean(KEY_IS_LOGGED_IN, true)
-            apply()
+            putBoolean(KEY_IS_VENDOR_MODE, true)
         }
     }
 
-    fun getUser(): com.example.bunnix.data.model.User? {
-        val userId = getUserId() ?: return null
-        return com.example.bunnix.data.model.User(
-            id = userId,
-            name = getUserName() ?: "",
-            email = getUserEmail() ?: "",
-            phone = getUserPhone() ?: "",
-            profileImage = getUserImage(),
-            isVendor = isVendor()
+    fun getVendor(): Vendor? {
+        // Check if a valid ID exists (defaulting to -1 if not found)
+        val vendorId = prefs.getInt(KEY_VENDOR_ID, -1)
+        if (vendorId == -1) return null
+
+        return Vendor(
+            id = vendorId, // Now correctly passed as an Int
+            firstName = prefs.getString("vendor_firstname", "") ?: "",
+            surName = prefs.getString("vendor_surname", "") ?: "",
+            businessName = prefs.getString(KEY_VENDOR_NAME, "") ?: "",
+            email = prefs.getString(KEY_VENDOR_EMAIL, "") ?: "",
+            phone = prefs.getString(KEY_VENDOR_PHONE, "") ?: "",
+            profileImage = prefs.getString(KEY_VENDOR_IMAGE, null) ?: "",
+            role = prefs.getString("vendor_role", "vendor") ?: "vendor",
+            createdAt = prefs.getString("vendor_created_at", "") ?: ""
         )
     }
 
-    fun getUserId(): String? = prefs.getString(KEY_USER_ID, null)
-    fun getUserName(): String? = prefs.getString(KEY_USER_NAME, null)
-    fun getUserEmail(): String? = prefs.getString(KEY_USER_EMAIL, null)
-    fun getUserPhone(): String? = prefs.getString(KEY_USER_PHONE, null)
-    fun getUserImage(): String? = prefs.getString(KEY_USER_IMAGE, null)
+    // --- Helper Getters ---
+    fun getVendorId(): String? = prefs.getString(KEY_VENDOR_ID, null)
+    fun getVendorName(): String? = prefs.getString(KEY_VENDOR_NAME, null)
 
+    // --- Session & State Management ---
     fun isLoggedIn(): Boolean = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
 
     fun setLoggedIn(isLoggedIn: Boolean) {
         prefs.edit { putBoolean(KEY_IS_LOGGED_IN, isLoggedIn) }
     }
 
-    fun isVendor(): Boolean = prefs.getBoolean(KEY_IS_VENDOR, false)
+    fun isVendorMode(): Boolean = prefs.getBoolean(KEY_IS_VENDOR_MODE, true) //
 
     fun setVendorMode(isVendor: Boolean) {
-        prefs.edit { putBoolean(KEY_IS_VENDOR, isVendor) }
+        prefs.edit { putBoolean(KEY_IS_VENDOR_MODE, isVendor) } //
     }
 
     fun isFirstTime(): Boolean = prefs.getBoolean(KEY_IS_FIRST_TIME, true)
@@ -83,21 +99,21 @@ class PrefsManager(context: Context) {
         prefs.edit { putBoolean(KEY_IS_FIRST_TIME, isFirstTime) }
     }
 
+    // --- Cleanup ---
     fun clearSession() {
         prefs.edit { clear() }
     }
 
     fun clearAuthData() {
-        prefs.edit().apply {
+        prefs.edit {
             remove(KEY_TOKEN)
-            remove(KEY_USER_ID)
-            remove(KEY_USER_NAME)
-            remove(KEY_USER_EMAIL)
-            remove(KEY_USER_PHONE)
-            remove(KEY_USER_IMAGE)
+            remove(KEY_VENDOR_ID)
+            remove(KEY_VENDOR_NAME)
+            remove(KEY_VENDOR_EMAIL)
+            remove(KEY_VENDOR_PHONE)
+            remove(KEY_VENDOR_IMAGE)
             remove(KEY_IS_LOGGED_IN)
-            remove(KEY_IS_VENDOR)
-            apply()
+            remove(KEY_IS_VENDOR_MODE)
         }
     }
 }

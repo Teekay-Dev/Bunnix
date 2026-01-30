@@ -78,7 +78,7 @@ fun AddProductScreen(navController: NavController, viewModel: VendorViewModel = 
 
     LaunchedEffect(productId) {
         if (productId != null) {
-            val product = viewModel.allProducts.value.find { it.id.toString() == productId }
+            val product = viewModel.vendorProducts.value.find { it.id.toString() == productId }
             product?.let {
                 productName = it.name
                 productPrice = it.price.toString() // Or clean digits for your formatter
@@ -177,8 +177,9 @@ fun AddProductScreen(navController: NavController, viewModel: VendorViewModel = 
                                 description = productDescription,
                                 category = productCategory,
                                 location = "Vendor Shop",
-                                quantity = "1"
-                            )
+                                quantity = "1",
+                                vendor_id = ""
+                            )//red here
 
                             // 4. Decide whether to Update or Save
                             if (productId == null) {

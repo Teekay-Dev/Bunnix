@@ -28,15 +28,6 @@ fun OrderConfirmedScreen(
     onContinueShopping: () -> Unit
 ) {
 
-//    onViewReceipt = {
-//        // Logic to open receipt PDF or Screen
-//        println("User clicked View Receipt")
-//    },
-//    onContinueShopping = {
-//        // Logic to navigate back to the home/store screen
-//        println("User going back to shop")
-//    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()

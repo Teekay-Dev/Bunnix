@@ -1,4 +1,6 @@
-package com.example.bunnix.data.model
+package com.example.bunnix.model
+
+import com.example.bunnix.model.Vendor
 
 data class AuthResponse(
     val success: Boolean = false,
@@ -8,7 +10,7 @@ data class AuthResponse(
 
 data class AuthData(
     val token: String = "",
-    val user: User = User()
+    val vendor: Vendor = Vendor(0, "", "", "", "", "", "", "vendor", "")
 )
 
 data class MessageResponse(
@@ -16,8 +18,8 @@ data class MessageResponse(
     val message: String = ""
 )
 
-data class UserResponse(
+data class VendorResponse(
     val success: Boolean = false,
     val message: String = "",
-    val user: User? = null
+    val vendor: Vendor? = null
 )

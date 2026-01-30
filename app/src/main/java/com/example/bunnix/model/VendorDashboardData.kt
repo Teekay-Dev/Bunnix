@@ -1,149 +1,276 @@
 package com.example.bunnix.model
 
-import android.content.Context
 import android.net.Uri
+import io.github.jan.supabase.postgrest.from
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.bunnix.data.remote.SupabaseClient
-import com.example.bunnix.database.BunnixDatabase
-import io.github.jan.supabase.postgrest.from
+import com.example.bunnix.model.data.remote.SupabaseClient
+import com.example.bunnix.model.data.repository.AuthRepository
+import com.example.bunnix.utils.NetworkResult
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.realtime.PostgresAction
-import io.github.jan.supabase.storage.storage
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.storage.storage
+import io.github.jan.supabase.postgrest.query.Order as SupabaseOrder
 
 
-// Data model for the top stats
-data class VendorDashboardData(
-    val availableBalance: Double,
-    val totalSales: Double,
-    val totalOrders: Int,
-    val totalBookings: Int,
-    val totalCustomers: Int,
-    val unreadMessages: Int
-)
 
-// Data model for the recent orders list
-data class VendorOrder(
-    val id: String,
-    val customerName: String,
-    val status: String, // e.g., "pending", "processing", "completed"
-    val price: Double,
-    val itemCount: Int
-)
+class VendorViewModel : ViewModel() {
 
-class VendorViewModel (application: android.app.Application) : AndroidViewModel(application) {
-    private val productDao = BunnixDatabase.getDatabase(application).productDao()
-    private val currentUserId: String?
-        get() = SupabaseClient.client.auth.currentUserOrNull()?.id
+  private val authRepository = AuthRepository()
+    private val _conversations = mutableStateOf<List<ChatSummary>>(emptyList())
+    val conversations: State<List<ChatSummary>> = _conversations
+    private val _bookings = mutableStateOf<List<Booking>>(emptyList())
+    val bookings: State<List<Booking>> = _bookings
 
-    var isLoading by mutableStateOf(false)
-        private set // This allows UI to read it, but only ViewModel to change it
+    val totalBookingsCount by derivedStateOf { bookings.value.size }
 
-    val allProducts: StateFlow<List<Product>> = productDao.getAllProducts()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    private val _dashboardStats = mutableStateOf(
-        VendorDashboardData(2450.00, 12450.0, 156, 24, 89,unreadMessages = 1)
-    )
-    val dashboardStats: State<VendorDashboardData> = _dashboardStats
+    private val _vendorProducts = mutableStateOf<List<Product>>(emptyList())
+    val vendorProducts: State<List<Product>> = _vendorProducts
+    var selectedImageUri by mutableStateOf<Uri?>(null)
+    fun onImageSelected(uri: Uri?) {
+        selectedImageUri = uri
+    }
+    val unreadNotificationCount by derivedStateOf {
+        notifications.value.count { !it.is_read }
+    }
+    private val _orders = mutableStateOf<List<Order>>(emptyList())
+    val orders: State<List<Order>> = _orders
 
-    private val _recentOrders = mutableStateListOf(
-        VendorOrder("#AB12C", "John Doe", "pending", 45.99, 2),
-        VendorOrder("#AB12D", "Jane Smith", "processing", 129.99, 1),
-        VendorOrder("#AB12E", "Mike Chen", "completed", 78.50, 3)
-    )
-    val recentOrders: List<VendorOrder> = _recentOrders
-
-
-    fun saveProduct(product: Product) {
-        val userId = currentUserId ?: return
-        viewModelScope.launch {
-            // Create a copy of the product with the current user's ID tagged on it
-            val productWithVendor = product.copy(vendor_id = userId)
-
-            // Now save this tagged product to Supabase
-            SupabaseClient.client.from("products").insert(productWithVendor)
-        }
+    var selectedProductForEdit by mutableStateOf<Product?>(null)
+        private set
+    fun onEditProductSelected(product: Product) {
+        selectedProductForEdit = product
+    }
+    fun clearEditSelection() {
+        selectedProductForEdit = null
+    }
+    init {
+        setupRealtimeHooks()
+        fetchInitialData()
     }
 
-    // 2. UPDATE SAVE: Tag the product with MY ID
-    fun updateProduct(productId: String, product: Product) {
-        val userId = currentUserId ?: return
-
-        viewModelScope.launch {
-            try {
-                // Ensure the product being saved carries the vendor_id
-                val productWithId = product.copy(vendor_id = userId)
-
-                SupabaseClient.client.from("products").update(productWithId) {
-                    filter { eq("id", productId) }
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-        }
+    private val _recentOrders = mutableStateOf<List<Order>>(emptyList())
+    val recentOrders = derivedStateOf {
+        orders.value.take(10)
     }
 
 
-    fun deleteProduct(product: Product) {
+
+
+    suspend fun registerUser(
+        name: String,
+        email: String,
+        phone: String,
+        password: String,
+        confirmPassword: String,
+        businessName: String?,
+        businessAddress: String?,
+        isVendor: Boolean
+    ): NetworkResult<AuthData> {
+        val result = authRepository.register(
+            name, email, phone, password, confirmPassword,
+            businessName, businessAddress, isVendor
+        )
+
+        if (result is NetworkResult.Success) {
+            _vendorProfile.value = result.data?.vendor
+        }
+        return result
+    }
+
+
+    val totalSales by derivedStateOf {
+        val productIncome = orders.value
+            .filter { it.status == "delivered" }
+            .sumOf { it.total_price }
+
+        val serviceIncome = bookings.value
+            .filter { it.status == "completed" }
+            .sumOf { it.price }
+
+        productIncome + serviceIncome
+    }
+    val totalOrdersCount by derivedStateOf {
+        orders.value.size + bookings.value.size
+    }
+    val availableBalance by derivedStateOf {
+        totalSales
+    }
+    val uniqueCustomersCount by derivedStateOf {
+        val orderCustomers = orders.value.map { it.customer_id }.toSet()
+        val bookingCustomers = bookings.value.map { it.customer_id }.toSet()
+        (orderCustomers + bookingCustomers).size
+    }
+
+
+    private val _chatMessages = mutableStateOf<List<Message>>(emptyList())
+    val chatMessages: State<List<Message>> = _chatMessages
+
+    fun sendMessage(receiverId: String, content: String) {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
         viewModelScope.launch {
             try {
-                SupabaseClient.client.from("products").delete {
-                    filter {
-                        eq("id", product.id)
-                    }
-                }
+                val message = Message(
+                    sender_id = userId,
+                    receiver_id = receiverId,
+                    content = content
+                )
+                SupabaseClient.client.from("messages").insert(message)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
-    suspend fun uploadImage(uri: Uri, context: Context): String? {
-        return try {
-            val bucket = SupabaseClient.client.storage.from("product_images")
-            val fileName = "${System.currentTimeMillis()}.jpg"
-            val bytes = context.contentResolver.openInputStream(uri)?.readBytes()
+    // Track the toggle state for the UI
+    var isVendorModeEnabled by mutableStateOf(false)
 
-            if (bytes != null) {
-                bucket.upload(fileName, bytes)
-                bucket.publicUrl(fileName) // This returns the https:// link
-            } else null
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+    fun toggleVendorMode(enabled: Boolean) {
+        isVendorModeEnabled = enabled
+        if (enabled) {
+            // When they switch to Business Mode, fetch their business data
+            fetchVendorProfile()
+            fetchDashboardData()
         }
     }
 
-    fun updateVendorProfile(userId: String, businessName: String, address: String, phone: String) {
+    // Logic for the "Edit Profile" button in your screenshot
+    fun updateVendorProfile(businessName: String, phone: String) {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
         viewModelScope.launch {
             try {
-                isLoading = true // Assuming you add a val isLoading = mutableStateOf(false)
+                val updates = mapOf(
+                    "businessName" to businessName,
+                    "phone" to phone
+                )
+                SupabaseClient.client.from("vendors").update(updates) {
+                    filter { eq("id", userId) }
+                }
+                fetchVendorProfile()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun listenForMessages(receiverId: String) {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            val channel = SupabaseClient.client.realtime.channel("chat-channel")
+            channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                table = "messages"
+            }.onEach {
+                fetchMessages(receiverId)
+            }.launchIn(viewModelScope)
+            channel.subscribe()
+        }
+    }
+
+    fun fetchMessages(contactId: String) {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                // This fetches the conversation between the vendor and a specific customer
+                _chatMessages.value = SupabaseClient.client.from("messages")
+                    .select {
+                        filter {
+                            and {
+                                or {
+                                    eq("sender_id", userId)
+                                    eq("sender_id", contactId)
+                                }
+                                or {
+                                    eq("receiver_id", userId)
+                                    eq("receiver_id", contactId)
+                                }
+                            }
+                        }
+                        order("created_at", order = io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+                    }.decodeList<Message>()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+
+    fun updateVendorProfile(vendorId: Int, name: String, address: String, phone: String) {
+        viewModelScope.launch {
+            try {
+
                 SupabaseClient.client.from("users").update(
                     mapOf(
-                        "business_name" to businessName,
-                        "business_address" to address,
+                        "full_name" to name,
+                        "business_address" to address, // Ensure this column exists in DB
                         "phone" to phone
                     )
                 ) {
-                    filter { eq("id", userId) }
+                    filter { eq("id", vendorId) }
                 }
-                // Optional: Toast "Profile Updated Successfully"
+                // Optionally refresh local state
             } catch (e: Exception) {
                 e.printStackTrace()
-            } finally {
-                isLoading = false
+            }
+        }
+    }
+
+    private val _notifications = mutableStateOf<List<Notification>>(emptyList())
+    val notifications: State<List<Notification>> = _notifications
+
+    fun fetchNotifications() {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                _notifications.value = SupabaseClient.client.from("notifications")
+                    .select {
+                        filter { eq("user_id", userId) }
+                        order("created_at", order = io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                    }.decodeList<Notification>()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun markNotificationAsRead(notificationId: String) {
+        viewModelScope.launch {
+            try {
+                SupabaseClient.client.from("notifications").update(
+                    { set("is_read", true) }
+                ) {
+                    filter { eq("id", notificationId) }
+                }
+                fetchNotifications()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private val _vendorProfile = mutableStateOf<Vendor?>(null)
+    val vendorProfile: State<Vendor?> = _vendorProfile
+
+    fun fetchVendorProfile() {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                _vendorProfile.value = SupabaseClient.client.from("vendors")
+                    .select {
+                        filter { eq("id", userId) }
+                    }.decodeSingle<Vendor>()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -152,90 +279,184 @@ class VendorViewModel (application: android.app.Application) : AndroidViewModel(
         viewModelScope.launch {
             try {
                 SupabaseClient.client.from("orders").update(
-                    mapOf("status" to newStatus)
+                    { set("status", newStatus) }
                 ) {
                     filter { eq("id", orderId) }
                 }
-                fetchOrdersAndBookings() // Refresh the list
+                fetchInitialData()
+                fetchDashboardData()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
-
-    fun fetchDashboardStats() {
+    fun updateBookingStatus(bookingId: String, newStatus: String) {
         viewModelScope.launch {
             try {
-                // Use the current state value instead of the undefined 'stats' variable
-                _dashboardStats.value = _dashboardStats.value.copy(
-                    totalOrders = 0,
-                    totalSales = 0.0 // Changed from "0.00" string to Double
-                )
+                SupabaseClient.client.from("bookings").update(
+                    { set("status", newStatus) }
+                ) {
+                    filter { eq("id", bookingId) }
+                }
+
+                fetchInitialData()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
+    fun onAddServiceClicked(name: String, price: Double, duration: String, description: String) {
+        val service = Service(
+            id = null,
+            vendor_id = "",
+            name = name,
+            price = price,
+            duration = duration,
+            description = description
+        )
+        saveService(service)
+    }
 
-    private val _allOrders = mutableStateOf<List<Order>>(emptyList())
-    val allOrders: State<List<Order>> = _allOrders
 
-    private val _allBookings = mutableStateOf<List<Booking>>(emptyList())
-    val allBookings: State<List<Booking>> = _allBookings
+    fun onAddProductClicked(context: android.content.Context, name: String, price: Double, desc: String, category: String) {
+        viewModelScope.launch {
+            val imageUrl = selectedImageUri?.let { uri ->
+                uploadImage(uri, context)
+            } ?: ""
 
-    init {
-        fetchOrdersAndBookings()
-        // 1. Start listening to database changes
-        setupRealtimeHooks()
+            val product = Product(
+                id = null,
+                name = name,
+                price = price,
+                description = desc,
+                category = category,
+                image_url = imageUrl,
+                location = "Store Location",
+                quantity = "1",
+                vendor_id = "",
+                created_at = System.currentTimeMillis()
+            )
+
+            saveProduct(product)
+        }
+    }
+
+    private val _vendorServices = mutableStateOf<List<Service>>(emptyList())
+    val vendorServices: State<List<Service>> = _vendorServices
+
+    fun fetchVendorServices() {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                _vendorServices.value = SupabaseClient.client.from("services")
+                    .select {
+                        filter { eq("vendor_id", userId) }
+                    }.decodeList<Service>()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun saveService(service: Service) {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                val finalService = service.copy(vendor_id = userId)
+                SupabaseClient.client.from("services").insert(finalService)
+                fetchVendorServices()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    suspend fun loginUser(email: String, password: String): NetworkResult<AuthData> {
+        val result = authRepository.login(email, password) // authRepository should be initialized in VM
+        if (result is NetworkResult.Success) {
+            _vendorProfile.value = result.data?.vendor
+        }
+        return result
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    fun fetchDashboardData() {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                _recentOrders.value = SupabaseClient.client.from("orders")
+                    .select {
+                        filter { eq("vendor_id", userId) }
+                        // Fix: Explicitly use Order.DESCENDING
+                        order("created_at", order = SupabaseOrder.DESCENDING)
+                        limit(10)
+                    }.decodeList<Order>()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun setupRealtimeHooks() {
-        val userId = currentUserId ?: return
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
 
         viewModelScope.launch {
+            val myChannel = SupabaseClient.client.realtime.channel("vendor-updates")
+
+            myChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                this.table = "orders"
+            }.onEach {
+                fetchInitialData()
+            }.launchIn(viewModelScope)
+
+            myChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
+                this.table = "bookings"
+            }.onEach {
+                fetchInitialData()
+            }.launchIn(viewModelScope)
+
+            myChannel.subscribe()
+        }
+    }
+    fun fetchInitialData() {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            _orders.value = SupabaseClient.client.from("orders")
+                .select {
+                    filter {
+                        eq("vendor_id", userId)
+                    }
+                }.decodeList<Order>()
+        }
+    }
+
+
+    fun deleteProduct(productId: Int) {
+        viewModelScope.launch {
             try {
-                val realtime = SupabaseClient.client.realtime
-                realtime.connect()
-
-                val myChannel = realtime.channel("vendor-changes")
-
-                myChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                    table = "orders"
-                }.onEach { action ->
-                    // Handle the action based on its type (Insert or Update)
-                    val data = when (action) {
-                        is PostgresAction.Insert -> action.record
-                        is PostgresAction.Update -> action.record
-                        else -> null // Ignore Deletes or others for now
+                SupabaseClient.client.from("products").delete {
+                    filter {
+                        eq("id", productId)
                     }
-
-                    // Check if the vendor_id in the record matches the current user
-                    val orderVendorId = data?.get("vendor_id")?.toString()?.replace("\"", "")
-
-                    if (orderVendorId == userId) {
-                        fetchOrdersAndBookings()
-                        fetchDashboardStats()
-                    }
-                }.launchIn(this)
-
-                myChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
-                    table = "bookings"
-                }.onEach { action ->
-                    val data = when (action) {
-                        is PostgresAction.Insert -> action.record
-                        is PostgresAction.Update -> action.record
-                        else -> null
-                    }
-
-                    val bookingVendorId = data?.get("vendor_id")?.toString()?.replace("\"", "")
-
-                    if (bookingVendorId == userId) {
-                        fetchOrdersAndBookings()
-                    }
-                }.launchIn(this)
-
-                myChannel.subscribe()
+                }
+                fetchInitialData()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -243,30 +464,76 @@ class VendorViewModel (application: android.app.Application) : AndroidViewModel(
     }
 
 
+    suspend fun uploadImage(uri: Uri, context: android.content.Context): String? {
+        return try {
+            val bytes = context.contentResolver.openInputStream(uri)?.readBytes() ?: return null
+            val fileName = "${System.currentTimeMillis()}.jpg"
 
+            val bucket = SupabaseClient.client.storage.from("product-images")
 
+            // Fix: Use the correct parameter names for the 3.0.2 SDK
+            bucket.upload(path = fileName, data = bytes) {
+                upsert = true
+            }
 
-    // 1. UPDATE FETCH: Only get MY products/orders
-    fun fetchOrdersAndBookings() {
-        val userId = currentUserId ?: return // Guard clause
+            bucket.publicUrl(fileName)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 
+    fun saveProduct(product: Product) {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
         viewModelScope.launch {
             try {
-                // Fetch only Orders belonging to THIS vendor
-                val ordersData = SupabaseClient.client.from("orders")
-                    .select {
-                        filter { eq("vendor_id", userId) }
-                    }.decodeList<Order>()
-                _allOrders.value = ordersData
+                val finalProduct = product.copy(vendor_id = userId)
+                SupabaseClient.client.from("products").insert(finalProduct)
 
-                // Fetch only Bookings belonging to THIS vendor
-                val bookingsData = SupabaseClient.client.from("bookings")
-                    .select {
-                        filter { eq("vendor_id", userId) }
-                    }.decodeList<Booking>()
-                _allBookings.value = bookingsData
+                fetchVendorProducts()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun updateProduct(productId: String, product: Product) {
+        viewModelScope.launch {
+            try {
+                SupabaseClient.client.from("products").update(product) {
+                    filter {
+                        eq("id", product.id ?: 0)
+                    }
+                }
+                fetchVendorProducts()
+                fetchInitialData()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun saveBooking(booking: Booking) {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                val finalBooking = booking.copy(vendor_id = userId)
+                SupabaseClient.client.from("bookings").insert(finalBooking)
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
+    fun fetchVendorProducts() {
+        val userId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                _vendorProducts.value = SupabaseClient.client.from("products")
+                    .select {
+                        filter { eq("vendor_id", userId) }
+                    }.decodeList<Product>()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }

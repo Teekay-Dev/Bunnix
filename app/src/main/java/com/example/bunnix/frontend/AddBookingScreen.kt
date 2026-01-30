@@ -14,19 +14,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.bunnix.model.Booking
+import com.example.bunnix.model.VendorViewModel
+import kotlinx.coroutines.launch
 
 @Composable
-fun AddBookingScreen(navController: NavController) {
+fun AddBookingScreen(navController: NavController, viewModel: VendorViewModel = viewModel()
+) {
     var customerName by remember { mutableStateOf("") }
     var serviceName by remember { mutableStateOf("") }
     var dateTime by remember { mutableStateOf("") }
+
+    val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Schedule New Service", fontSize = 22.sp, fontWeight = FontWeight.Bold)
@@ -40,7 +48,20 @@ fun AddBookingScreen(navController: NavController) {
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = { navController.popBackStack() },
+                onClick = {
+                    scope.launch {
+                        // FIX 2: Create the booking using the correct model fields
+                        val newBooking = Booking(
+                            vendor_id = "", // We will handle this in the ViewModel save logic
+                            customer_id = "Walk-in: $customerName",
+                            service_name = serviceName,
+                            booking_date = dateTime,
+                            status = "confirmed"
+                        )
+                        viewModel.saveBooking(newBooking)
+                        navController.popBackStack()
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF2711C)),
                 shape = RoundedCornerShape(12.dp)

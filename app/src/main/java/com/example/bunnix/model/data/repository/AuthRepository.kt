@@ -1,7 +1,17 @@
-package com.example.bunnix.data.repository
+package com.example.bunnix.model.data.repository
 
-import com.example.bunnix.data.model.*
-import com.example.bunnix.data.remote.RetrofitClient
+import com.example.bunnix.model.AuthData
+import com.example.bunnix.model.AuthResponse
+import com.example.bunnix.model.ChangePasswordRequest
+import com.example.bunnix.model.ForgotPasswordRequest
+import com.example.bunnix.model.LoginRequest
+import com.example.bunnix.model.MessageResponse
+import com.example.bunnix.model.RegisterRequest
+import com.example.bunnix.model.ResetPasswordRequest
+import com.example.bunnix.model.UpdateProfileRequest
+import com.example.bunnix.model.Vendor
+import com.example.bunnix.model.VerifyOtpRequest
+import com.example.bunnix.model.data.remote.RetrofitClient
 import com.example.bunnix.utils.NetworkResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,18 +22,33 @@ class AuthRepository {
 
     private val api = RetrofitClient.authApi
 
+    // In com.example.bunnix.model.data.repository.AuthRepository.kt
     suspend fun register(
         name: String,
         email: String,
         phone: String,
         password: String,
-        confirmPassword: String
+        confirmPassword: String,
+        businessName: String? = null,
+        businessAddress: String? = null,
+        isVendor: Boolean = false
     ): NetworkResult<AuthData> {
         return withContext(Dispatchers.IO) {
             try {
-                val response = api.register(
-                    RegisterRequest(name, email, phone, password, confirmPassword)
+                // Assign role based on UI selection
+                val accountRole = if (isVendor) "vendor" else "customer"
+
+                val request = RegisterRequest(
+                    name = name,
+                    email = email,
+                    phone = phone,
+                    password = password,
+                    confirmPassword = confirmPassword,
+                    businessName = businessName,
+                    businessAddress = businessAddress,
+                    role = accountRole
                 )
+                val response = api.register(request)
                 handleAuthResponse(response)
             } catch (e: Exception) {
                 NetworkResult.Error(e.message ?: "Network error occurred")
@@ -111,19 +136,20 @@ class AuthRepository {
         }
     }
 
-    suspend fun getProfile(token: String): NetworkResult<User> {
+    suspend fun getProfile(token: String): NetworkResult<Vendor> {
         return withContext(Dispatchers.IO) {
             try {
                 val response = api.getProfile("Bearer $token")
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
+                    // Updated to use .vendor reference
                     if (body.success && body.data != null) {
-                        NetworkResult.Success(body.data.user)
+                        NetworkResult.Success(body.data.vendor)
                     } else {
                         NetworkResult.Error(body.message)
                     }
                 } else {
-                    NetworkResult.Error("Failed to fetch profile")
+                    NetworkResult.Error("Failed to fetch vendor profile")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.message ?: "Network error occurred")
@@ -136,7 +162,7 @@ class AuthRepository {
         name: String? = null,
         phone: String? = null,
         profileImage: String? = null
-    ): NetworkResult<User> {
+    ): NetworkResult<Vendor> {
         return withContext(Dispatchers.IO) {
             try {
                 val response = api.updateProfile(
@@ -144,14 +170,18 @@ class AuthRepository {
                     UpdateProfileRequest(name, phone, profileImage)
                 )
                 if (response.isSuccessful && response.body() != null) {
-                    val body = response.body()!!
-                    if (body.success && body.user != null) {
-                        NetworkResult.Success(body.user)
+                    val body = response.body()
+                    if (body != null) {
+                        if (body.success && body.vendor != null) {
+                            NetworkResult.Success(body.vendor)
+                        } else {
+                            NetworkResult.Error(body.message)
+                        }
                     } else {
-                        NetworkResult.Error(body.message)
+                        NetworkResult.Error("Empty response from server")
                     }
                 } else {
-                    NetworkResult.Error("Failed to update profile")
+                    NetworkResult.Error("Failed to update vendor settings")
                 }
             } catch (e: Exception) {
                 NetworkResult.Error(e.message ?: "Network error occurred")

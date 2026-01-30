@@ -6,6 +6,7 @@ import kotlin.apply
     id("com.android.application")
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
+     kotlin("plugin.serialization") version "2.0.21"
 }
 
 
@@ -77,6 +78,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+//    implementation(libs.play.services.maps)
+//    implementation(libs.maps)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -139,6 +142,21 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")            // Logs network requests
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")    // Async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")       // Coroutines core
+
+    val supabaseVersion = "3.0.2"
+
+    // Supabase
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:realtime-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:storage-kt:${supabaseVersion}")
+
+    // Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+    // Coroutines Flow
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 //    ============= END AUTH BACKEND =============
 }
 

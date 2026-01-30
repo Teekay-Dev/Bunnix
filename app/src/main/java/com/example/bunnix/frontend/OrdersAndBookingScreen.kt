@@ -46,32 +46,21 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.bunnix.model.Booking
 import androidx.compose.foundation.lazy.items // Essential
+import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.HorizontalDivider // In M3, 'Divider' is now 'HorizontalDivider'
+import androidx.compose.material3.OutlinedButton
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bunnix.model.Order // Import your existing models
 import com.example.bunnix.model.VendorViewModel
-
-
-val productOrders = listOf(
-    Order("#AB12C", "John Doe", listOf("Gourmet Burger", "Caesar Salad"), "45.99", "pending"),
-    Order("#AB12D", "Jane Smith", listOf("Summer Dress"), "129.99", "processing"),
-    Order("#AB12E", "Mike Chen", listOf("Table Lamp", "Wall Art"), "78.50", "shipped")
-)
-
-val serviceBookings = listOf(
-    Booking("#SV001", "Emily Davis", "Hair Styling", "Today, 3:00 PM", "45", "confirmed"),
-    Booking("#SV002", "Tom Wilson", "Computer Repair", "Tomorrow, 10:00 AM", "80", "confirmed"),
-    Booking("#SV003", "Lisa Brown", "Spa Treatment", "Dec 7, 2:00 PM", "120", "pending")
-)
-
 
 @Composable
 fun OrdersAndBookingsScreen(
     navController: NavController,
     viewModel: VendorViewModel = viewModel()) {
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Product, 1 = Service
-    val orders by viewModel.allOrders
-    val bookings by viewModel.allBookings
+    var selectedTab by remember { mutableStateOf(0) }
+    val orders by viewModel.orders
+    val bookings by viewModel.bookings
 
     Scaffold(
         topBar = {
@@ -126,72 +115,32 @@ fun OrdersAndBookingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (selectedTab == 0) {
-                // Use the real 'orders' list from ViewModel
-                items(orders) { order -> ProductOrderCard(order) }
+                items(orders) { order -> ProductOrderCard(order, viewModel = viewModel) }
             } else {
-                // Use the real 'bookings' list from ViewModel
-                items(bookings) { booking -> ServiceBookingCard(booking) }
+                items(bookings) { booking -> ServiceBookingCard(booking, viewModel = viewModel) }
             }
         }
     }
 }
 
 @Composable
-fun ProductOrderCard(order: Order) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
+fun ProductOrderCard(order: Order, viewModel: VendorViewModel) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // ... Header and Items section ...
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // User Avatar
-                Surface(shape = CircleShape, modifier = Modifier.size(40.dp), color = Color.LightGray) {
-                    // AsyncImage here for real user photo
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(order.id, fontWeight = FontWeight.Bold)
-                    Text(order.customerName, color = Color.Gray, fontSize = 12.sp)
-                }
-                // Status Badge
-                StatusBadge(order.status)
-            }
-
-            Text("Items:", modifier = Modifier.padding(top = 12.dp), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-            order.items.forEach { item ->
-                Text("• $item", color = Color.Gray, fontSize = 12.sp)
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 12.dp),
-                thickness = 0.5.dp,
-                color = Color.LightGray
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(formatNaira(order.price), color = Color(0xFFF2711C), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("₦${order.total_price}", color = Color(0xFFF2711C), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(Modifier.weight(1f))
 
-                // Chat Icon
-                IconButton(onClick = {}) { Icon(Icons.Default.Chat, contentDescription = null, tint = Color.Gray) }
-
-                if (order.status == "pending") {
-                    Button(
-                        onClick = {},
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEBEE)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Decline", color = Color.Red, fontSize = 12.sp)
+                // Physical Payment Flow Buttons
+                when (order.status) {
+                    "pending" -> {
+                        Button(onClick = { viewModel.updateOrderStatus(order.id!!, "processing") }) { Text("Accept") }
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = {},
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF2711C)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Accept", color = Color.White, fontSize = 12.sp)
+                    "shipped" -> {
+                        Button(onClick = { viewModel.updateOrderStatus(order.id!!, "delivered") }) {
+                            Text("Confirm Cash Received")
+                        }
                     }
                 }
             }
@@ -226,58 +175,138 @@ fun StatusBadge(status: String) {
 }
 
 @Composable
-fun ServiceBookingCard(booking: Booking) {
+fun ServiceBookingCard(booking: Booking, viewModel: VendorViewModel) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Customer Avatar
-                Surface(shape = CircleShape, modifier = Modifier.size(44.dp), color = Color.LightGray) {
-                    // AsyncImage(model = booking.userImage...)
+                Surface(shape = CircleShape, modifier = Modifier.size(44.dp), color = Color(0xFFF5F5F5)) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = Color.Gray)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(booking.id, fontWeight = FontWeight.Bold)
-                    Text(booking.customerName, color = Color.Gray, fontSize = 14.sp)
+                    // Fix: id is Int?, so we use toString() or take a slice
+                    Text("Booking #${booking.id.toString().takeLast(5)}", fontWeight = FontWeight.Bold)
+                    // Note: You might need to fetch the customer name via their ID later
+                    Text("Customer ID: ${booking.customer_id.take(8)}", color = Color.Gray, fontSize = 14.sp)
                 }
                 StatusBadge(booking.status)
             }
 
             Spacer(Modifier.height(16.dp))
-            Text(booking.serviceType, fontWeight = FontWeight.Medium)
+            // Fix: Your model uses 'name' for the service name
+            Text(
+                booking.service_name ?: "Service Appointment", //red on name
+                fontWeight = FontWeight.Medium
+            )
 
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                Icon(
-                    Icons.Default.CalendarToday,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = Color.Gray
-                )
+                Icon(Icons.Default.CalendarToday, null, Modifier.size(16.dp), tint = Color.Gray)
                 Spacer(Modifier.width(8.dp))
-                Text(booking.dateTime, color = Color.Gray, fontSize = 12.sp)
+                // Note: If you don't have a dateTime string yet, we can use a placeholder
+                Text("Scheduled Service", color = Color.Gray, fontSize = 12.sp)
             }
 
             Spacer(Modifier.height(16.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("₦${booking.price}", color = Color(0xFFEA4335), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("₦${booking.price}", color = Color(0xFFF2711C), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(Modifier.weight(1f))
 
-                IconButton(onClick = {}) { Icon(Icons.Default.Chat, contentDescription = null, tint = Color.Gray) }
+                // Action Button logic for Physical Payment
+                BookingActionButtons(booking = booking, viewModel = viewModel)
+            }
+        }
+    }
+}
 
-                // Red Action Button as seen in image
-                Button(
-                    onClick = { /* Action */ },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEA4335)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (booking.status == "pending") "Accept" else "Start Service", color = Color.White)
+@Composable
+fun BookingList(bookings: List<Booking>, viewModel: VendorViewModel) {
+    if (bookings.isEmpty()) {
+        EmptyStateView("No service bookings yet") //red on EmptyStateView
+    } else {
+        LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
+            items(bookings) { booking ->
+                ServiceBookingCard(booking = booking, viewModel = viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun OrderActionButtons(order: Order, viewModel: VendorViewModel) {
+    Row {
+        if (order.status == "pending") {
+            Button(onClick = { viewModel.updateOrderStatus(order.id!!, "processing") }) {
+                Text("Accept")
+            }
+            OutlinedButton(onClick = { viewModel.updateOrderStatus(order.id!!, "declined") }) {
+                Text("Decline")
+            }
+        }
+
+        if (order.status == "processing") {
+            Button(onClick = { viewModel.updateOrderStatus(order.id!!, "shipped") }) {
+                Text("Mark as Shipped")
+            }
+        }
+
+        if (order.status == "shipped") {
+            Button(onClick = { viewModel.updateOrderStatus(order.id!!, "delivered") }) {
+                Text("Confirm Delivery & Payment")
+            }
+        }
+    }
+}
+
+@Composable
+fun BookingActionButtons(booking: Booking, viewModel: VendorViewModel) {
+    Row {
+        when (booking.status) {
+            "pending" -> {
+                Button(onClick = { viewModel.updateBookingStatus(booking.id!!, "confirmed") }) {
+                    Text("Accept Booking")
+                }
+            }
+            "confirmed" -> {
+                Button(onClick = { viewModel.updateBookingStatus(booking.id!!, "started") }) {
+                    Text("Start Service")
+                }
+            }
+            "started" -> {
+                Button(onClick = { viewModel.updateBookingStatus(booking.id!!, "completed") }) {
+                    Text("Mark as Paid & Finished")
                 }
             }
         }
+    }
+}
+
+@Composable
+fun EmptyStateView(message: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.EventBusy, // Or Icons.Default.ShoppingBag
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = Color.LightGray
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = message,
+            color = Color.Gray,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

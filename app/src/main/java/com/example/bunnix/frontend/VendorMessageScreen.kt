@@ -1,10 +1,11 @@
 package com.example.bunnix.frontend
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,20 +15,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,129 +35,145 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.bunnix.model.ChatSummary
+import com.example.bunnix.model.Message
+import com.example.bunnix.model.VendorViewModel
 
 @Composable
-fun MessagesScreen(navController: NavController) {
-    var searchQuery by remember { mutableStateOf("") }
+fun VendorMessageScreen(
+    navController: NavController,
+    viewModel: VendorViewModel = viewModel()
+) {
+    val conversations by viewModel.conversations
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.background(Color.White).padding(16.dp)) {
+            Column(Modifier.background(Color.White).padding(16.dp)) {
                 Text("Messages", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(16.dp))
-                // Search Bar
+                Spacer(Modifier.height(8.dp))
+                // Search bar to find specific customers
                 OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search conversations...") },
+                    value = "",
+                    onValueChange = {},
+                    placeholder = { Text("Search customers...") },
                     modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
                     shape = RoundedCornerShape(12.dp),
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = Color(0xFFF3F3F3),
-                        focusedContainerColor = Color(0xFFF3F3F3),
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = Color.Transparent
-                    )
+                    colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Color(0xFFF3F3F3))
                 )
             }
         },
-        bottomBar = { VendorBottomNav(navController) }
+        bottomBar = { BunnixBottomNavigation(navController) }
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding)) {
-            item { ChatListItem("Gourmet Bites", "Hello! How can I help you today?", "1h ago", true) }
-            item { ChatListItem("Style Hub", "Yes! We have it in stock.", "2h ago", false) }
+        if (conversations.isEmpty()) {
+            EmptyStateView("No messages yet")
+        } else {
+            LazyColumn(modifier = Modifier.padding(padding)) {
+                items(conversations) { chat ->
+                    ConversationItem(chat = chat) {
+                        navController.navigate("chat_detail/${chat.customerId}")
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-fun ChatListItem(name: String, message: String, time: String, hasUnread: Boolean) {
+fun ConversationItem(
+    chat: ChatSummary,
+    onClick: () -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box {
-            Surface(Modifier.size(50.dp), shape = CircleShape, color = Color.LightGray) {}
-            if (hasUnread) {
-                Surface(
-                    color = Color.Red,
-                    shape = CircleShape,
-                    modifier = Modifier.size(16.dp).align(Alignment.TopEnd)
-                ) {
-                    Text("1", color = Color.White, fontSize = 10.sp, textAlign = TextAlign.Center)
-                }
-            }
+        Surface(Modifier.size(50.dp), shape = CircleShape, color = Color.LightGray) {
+            Icon(Icons.Default.Person, null, Modifier.padding(10.dp), tint = Color.White)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text(message, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                chat.customerName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp)
+            Text(
+                chat.lastMessage,
+                color = Color.Gray,
+                maxLines = 1,
+                fontSize = 14.sp)
         }
-        Text(time, color = Color.Gray, fontSize = 12.sp)
+        Text(
+            chat.timestamp,
+            color = Color.Gray,
+            fontSize = 12.sp)
     }
 }
 
 @Composable
-fun ProductOrderCardDetailed(order: Order) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(16.dp)
+fun ChatBubble(message: Message, isMe: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row {
-                Surface(Modifier.size(40.dp), shape = CircleShape, color = Color.LightGray) {}
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(order.id, fontWeight = FontWeight.Bold)
-                    Text(order.customerName, color = Color.Gray, fontSize = 12.sp)
-                    Text("2 hours ago", color = Color.LightGray, fontSize = 10.sp)
-                }
-                StatusBadge(order.status)
+        Surface(
+            color = if (isMe) Color(0xFFF2711C) else Color(0xFFE9E9E9),
+            shape = RoundedCornerShape(
+                topStart = 16.dp, topEnd = 16.dp,
+                bottomStart = if (isMe) 16.dp else 0.dp,
+                bottomEnd = if (isMe) 0.dp else 16.dp
+            )
+        ) {
+            Text(
+                text = message.content,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = if (isMe) Color.White else Color.Black
+            )
+        }
+    }
+}
+
+@Composable
+fun ChatDetailScreen(customerId: String, viewModel: VendorViewModel) {
+    var messageText by remember { mutableStateOf("") }
+    val messages by viewModel.chatMessages
+
+    LaunchedEffect(customerId) {
+        viewModel.listenForMessages(customerId)
+        viewModel.fetchMessages(customerId)
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        // 1. Messages Area
+        LazyColumn(Modifier.weight(1f).padding(16.dp), reverseLayout = true) {
+            items(messages) { msg ->
+                ChatBubble(msg, isMe = msg.sender_id != customerId)
             }
+        }
 
-            // Items Box
-            Surface(
-                Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                color = Color(0xFFF9F9F9),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    Text("Items:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                    order.items.forEach { item ->
-                        Text("• $item", color = Color.Gray, fontSize = 12.sp)
-                    }
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("₦${order.price}", color = Color(0xFFF2711C), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-
-                // Gray Chat Bubble
-                Surface(Modifier.size(36.dp), shape = CircleShape, color = Color(0xFFF3F3F3)) {
-                    Icon(Icons.Default.ChatBubbleOutline, null, Modifier.padding(8.dp), tint = Color.Gray)
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                if (order.status == "processing") {
-                    Button(
-                        onClick = {},
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF2711C)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.LocalShipping, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Ship")
-                    }
-                }
+        // 2. Input Area
+        Row(Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = messageText,
+                onValueChange = { messageText = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Message") },
+                shape = RoundedCornerShape(24.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            IconButton(onClick = {
+                viewModel.sendMessage(customerId, messageText)
+                messageText = ""
+            }) {
+                Icon(Icons.Default.Send, null, tint = Color(0xFFF2711C))
             }
         }
     }

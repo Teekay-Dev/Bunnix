@@ -1,4 +1,4 @@
-package com.example.bunnix.data.model
+package com.example.bunnix.model
 
 data class LoginRequest(
     val email: String,
@@ -10,7 +10,10 @@ data class RegisterRequest(
     val email: String,
     val phone: String,
     val password: String,
-    val confirmPassword: String
+    val confirmPassword: String,
+    val businessName: String? = null,
+    val businessAddress: String? = null,
+    val role: String = "customer" // default role
 )
 
 data class ForgotPasswordRequest(

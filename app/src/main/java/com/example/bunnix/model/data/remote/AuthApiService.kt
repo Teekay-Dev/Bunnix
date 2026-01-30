@@ -1,6 +1,15 @@
-package com.example.bunnix.data.remote
+package com.example.bunnix.model.data.remote
 
-import com.example.bunnix.data.model.*
+import com.example.bunnix.model.AuthResponse
+import com.example.bunnix.model.ChangePasswordRequest
+import com.example.bunnix.model.ForgotPasswordRequest
+import com.example.bunnix.model.LoginRequest
+import com.example.bunnix.model.MessageResponse
+import com.example.bunnix.model.RegisterRequest
+import com.example.bunnix.model.ResetPasswordRequest
+import com.example.bunnix.model.UpdateProfileRequest
+import com.example.bunnix.model.VendorResponse
+import com.example.bunnix.model.VerifyOtpRequest
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -37,7 +46,8 @@ interface AuthApiService {
     suspend fun updateProfile(
         @Header("Authorization") token: String,
         @Body request: UpdateProfileRequest
-    ): Response<UserResponse>
+    ): Response<VendorResponse>
+
 
     @DELETE("auth/account")
     suspend fun deleteAccount(@Header("Authorization") token: String): Response<MessageResponse>

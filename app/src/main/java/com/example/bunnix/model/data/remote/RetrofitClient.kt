@@ -1,4 +1,4 @@
-package com.example.bunnix.data.remote
+package com.example.bunnix.model.data.remote
 
 import com.example.bunnix.utils.Constants
 import okhttp3.OkHttpClient
