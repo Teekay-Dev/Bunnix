@@ -8,7 +8,6 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +21,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bunnix.utils.NetworkResult
+import kotlinx.coroutines.launch
+import com.example.bunnix.model.AuthData
+import com.example.bunnix.model.Vendor
+import com.example.bunnix.model.VendorViewModel
 import kotlinx.coroutines.runBlocking
 
 class SignupActivity : ComponentActivity() {
@@ -42,7 +47,9 @@ class SignupActivity : ComponentActivity() {
 
 
 @Composable
-fun SignupScreen(userPrefs: UserPreferences,onLogin: () -> Unit) {
+fun SignupScreen(userPrefs: UserPreferences,
+                 viewModel: VendorViewModel = viewModel(),
+                 onLogin: () -> Unit) {
 
     // 🔹 Common fields
     var email by remember { mutableStateOf("") }
@@ -59,6 +66,10 @@ fun SignupScreen(userPrefs: UserPreferences,onLogin: () -> Unit) {
 
     // 🔹 Account type
     var isCustomer by remember { mutableStateOf(true) }
+
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var isLoading by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -196,20 +207,45 @@ fun SignupScreen(userPrefs: UserPreferences,onLogin: () -> Unit) {
 
         Button(
             onClick = {
+                scope.launch {
+                    val result = viewModel.registerUser( //viewModel.registerUser is still red
+                        name = fullName,
+                        email = email,
+                        phone = phone,
+                        password = password,
+                        confirmPassword = confirm,
+                        businessName = if (!isCustomer) businessName else null,
+                        businessAddress = if (!isCustomer) businessAddress else null,
+                        isVendor = !isCustomer
+                    )
 
-                val accountType = if (isCustomer) "CUSTOMER" else "BUSINESS"
-                // save or send accountType later
-                runBlocking {
-                    userPrefs.setLoggedIn(false, accountType) // not logged in yet
+                    when (result) {
+                        is NetworkResult.Success -> {
+                            // Determine the account type for the local session
+                            val accountType = if (isCustomer) "CUSTOMER" else "BUSINESS"
+
+                            // Save to PrefsManager
+                            userPrefs.setLoggedIn(true, if (isCustomer) "CUSTOMER" else "BUSINESS")
+                            userPrefs.setVendorMode(!isCustomer) // Vendor if NOT customer
+
+                            android.widget.Toast.makeText(context, "Welcome to Bunnix!", android.widget.Toast.LENGTH_SHORT).show()
+                            onLogin() // Redirect to Login or Dashboard
+                        }
+                        is NetworkResult.Error -> {
+                            android.widget.Toast.makeText(context, result.message ?: "Registration Failed", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                        else -> {}
+                    }
                 }
             },
+            enabled = !isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7900)),
             shape = RoundedCornerShape(50.dp)
         ) {
-            Text("Create Account", color = Color.White)
+            if (isLoading) CircularProgressIndicator(color = Color.White) else Text("Create Account")
         }
 
         Spacer(Modifier.height(24.dp))

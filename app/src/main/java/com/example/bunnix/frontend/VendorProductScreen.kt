@@ -13,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.bunnix.backend.VendorProductViewModel
 import com.example.bunnix.model.Product
 
 @OptIn(ExperimentalMaterial3Api::class)

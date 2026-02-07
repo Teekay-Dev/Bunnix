@@ -37,5 +37,4 @@ object Routes {
     const val Tracking = "tracking/{orderId}"
 
     const val Search = "search/{query}"
-
 }

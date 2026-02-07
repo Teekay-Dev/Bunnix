@@ -1,25 +1,15 @@
 package com.example.bunnix.model
 
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Order(
-    val id: String,
-    val customerName: String,
-    val items: List<String>,
-    val price: String,
-    val vendor_id: String,
-    val status: String // "pending", "processing", "shipped", "delivered"
+    val id: String? = null,
+    val vendor_id: String,    // Who is selling
+    val customer_id: String,  // Who is buying
+    val product_id: Int,      // Link to your Product ID
+    val quantity: Int,
+    val total_price: Double,
+    val status: String = "pending",
+    val created_at: String? = null
 )
-
-data class Booking(
-    val id: String,
-    val customerName: String,
-    val serviceType: String,
-    val dateTime: String,
-    val price: String,
-    val vendor_id: String,
-    val status: String // "confirmed", "pending"
-)
-
-enum class OrderStatus {
-    ORDERED, PACKED, SHIPPED, DELIVERED
-}

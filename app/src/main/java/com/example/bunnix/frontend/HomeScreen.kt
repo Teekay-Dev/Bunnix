@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 package com.example.bunnix.frontend
 
 import androidx.compose.foundation.*
@@ -22,33 +23,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bunnix.R
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.navigation.NavController
-import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.bunnix.BunnixNavigation
-import com.example.bunnix.backend.Routes
 import com.example.bunnix.model.Vendor
 import com.example.bunnix.model.vendorList
+=======
 
-
-//class HomeActivity : ComponentActivity() {
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//        setContent {
-//            MaterialTheme {
-//
-//                BunnixNavigation()
-//            }
-//        }
-//    }
-//}
+<<<<<<< HEAD
 private val OrangeStart = Color(0xFFFF8A00)
 private val OrangeEnd = Color(0xFFFF5A00)
 
@@ -414,86 +398,7 @@ private fun TopVendorsSection(
 
 }
 
-
-
-
-
-
-
-//@Composable
-//fun BottomNavBar(navController: NavController) {
-//
-//    val navBackStackEntry =
-//        navController.currentBackStackEntryAsState()
-//
-//    val currentRoute =
-//        navBackStackEntry.value?.destination?.route
-//
-//    NavigationBar {
-//
-//        // ✅ HOME
-//        NavigationBarItem(
-//            selected = currentRoute == Routes.Home,
-//            onClick = {
-//                navController.navigate(Routes.Home) {
-//                    popUpTo(Routes.Home) { inclusive = true }
-//                }
-//            },
-//            icon = {
-//                Icon(Icons.Default.Home, contentDescription = "Home")
-//            },
-//            label = { Text("Home") }
-//        )
-//
-//        // ✅ CART
-//        NavigationBarItem(
-//            selected = currentRoute == Routes.Cart,
-//            onClick = {
-//                navController.navigate(Routes.Cart)
-//            },
-//            icon = {
-//                Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
-//            },
-//            label = { Text("Cart") }
-//        )
-//
-//        // ✅ CHAT
-//        NavigationBarItem(
-//            selected = currentRoute == Routes.Chat,
-//            onClick = {
-//                navController.navigate(Routes.Chat)
-//            },
-//            icon = {
-//                Icon(Icons.Default.Chat, contentDescription = "Chats")
-//            },
-//            label = { Text("Chats") }
-//        )
-//
-//        // ✅ ALERTS
-//        NavigationBarItem(
-//            selected = currentRoute == Routes.Notifications,
-//            onClick = {
-//                navController.navigate(Routes.Notifications)
-//            },
-//            icon = {
-//                Icon(Icons.Default.Notifications, contentDescription = "Alerts")
-//            },
-//            label = { Text("Alerts") }
-//        )
-//
-//        // ✅ PROFILE
-//        NavigationBarItem(
-//            selected = currentRoute == Routes.Profile,
-//            onClick = {
-//                navController.navigate(Routes.Profile)
-//            },
-//            icon = {
-//                Icon(Icons.Default.Person, contentDescription = "Profile")
-//            },
-//            label = { Text("Profile") }
-//        )
-//    }
-//}
+<<<<<<< HEAD
 
 @Composable
 fun VendorCard(
@@ -618,4 +523,4 @@ fun HomePreview() {
         )
     }
 }
-
+=======

@@ -2,6 +2,7 @@ package com.example.bunnix.frontend
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
@@ -9,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.runBlocking
@@ -27,14 +27,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+<<<<<<< HEAD
 import com.example.bunnix.MainActivity
+=======
+import androidx.lifecycle.viewmodel.compose.viewModel
+>>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a
 import com.example.bunnix.R
+import com.example.bunnix.model.VendorViewModel
+import com.example.bunnix.utils.NetworkResult
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlin.jvm.java
 
 class LoginActivity : ComponentActivity() {
-
     private lateinit var userPrefs: UserPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,11 +50,12 @@ class LoginActivity : ComponentActivity() {
 
         setContent {
             LoginScreen(
+                userPrefs = userPrefs, // Pass the preferences
                 onSignupClick = {
-                    // User chooses to sign up
                     startActivity(Intent(this, SignupActivity::class.java))
                     finish()
                 },
+<<<<<<< HEAD
                 onLoginSuccess = {
                     // User logged in successfully
                     runBlocking {
@@ -60,6 +68,12 @@ class LoginActivity : ComponentActivity() {
                     } else {
                         startActivity(Intent(this, MainActivity::class.java))
                     }
+=======
+                onNavigateToHome = { role ->
+                    // Decide where to go based on role
+                    val intent = Intent(this, HomeActivity::class.java)
+                    startActivity(intent)
+>>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a
                     finish()
                 }
             )
@@ -69,12 +83,19 @@ class LoginActivity : ComponentActivity() {
 
 
 @Composable
-fun LoginScreen(onSignupClick: () -> Unit, onLoginSuccess: () -> Unit) {
-
+fun LoginScreen(
+    userPrefs: UserPreferences,
+    onSignupClick: () -> Unit,
+    onNavigateToDashboard: (Boolean) -> Unit,
+    viewModel: VendorViewModel = viewModel()
+) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    val scrollState = rememberScrollState()
+    var isLoading by remember { mutableStateOf(false) }
 
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -107,7 +128,8 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginSuccess: () -> Unit) {
             value = email,
             onValueChange = { email = it },
             placeholder = { Text("Email", color = Color.Gray) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
         )
 
         Spacer(Modifier.height(12.dp))
@@ -116,20 +138,48 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginSuccess: () -> Unit) {
             value = password,
             onValueChange = { password = it },
             placeholder = { Text("Password", color = Color.Gray) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
         )
 
         Spacer(Modifier.height(20.dp))
 
         Button(
-            onClick = { onLoginSuccess() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+            onClick = {
+                scope.launch {
+                    val result = viewModel.loginUser(email, password)
+
+                    when (result) {
+                        is NetworkResult.Success -> {
+                            val role = result.data?.vendor?.role ?: "customer"
+                            val accountType = if (role == "vendor") "BUSINESS" else "CUSTOMER"
+
+                            // 1. Save preferences WITHOUT runBlocking
+                            userPrefs.setLoggedIn(true, accountType)
+                            userPrefs.setVendorMode(role == "vendor")
+                            userPrefs.setFirstLaunch(false)
+
+                            // 2. Sync Supabase
+                            viewModel.fetchInitialData()
+
+                            Toast.makeText(context, "Login Successful", Toast.LENGTH_SHORT).show()
+
+                            // 3. Navigate
+                            onNavigateToHome(accountType)
+                        }
+                        is NetworkResult.Error -> {
+                            Toast.makeText(context, result.message ?: "Error", Toast.LENGTH_SHORT).show()
+                        }
+                        else -> {}
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7900)),
-            shape = RoundedCornerShape(50.dp)
+            shape = RoundedCornerShape(50.dp),
+            enabled = !isLoading
         ) {
-            Text("Login", color = Color.White)
+            if (isLoading) CircularProgressIndicator(color = Color.White) else Text("Login", color = Color.White)
         }
 
         Spacer(Modifier.height(24.dp))
@@ -207,12 +257,13 @@ fun LoginScreen(onSignupClick: () -> Unit, onLoginSuccess: () -> Unit) {
         }
     }
 }
-
-@Preview(showBackground = true)
-@Composable
-fun LoginPreview() {
-    LoginScreen(onSignupClick = {}, onLoginSuccess = {})
 }
+
+//@Preview(showBackground = true)
+//@Composable
+//fun LoginPreview() {
+//    LoginScreen(onSignupClick = {}, onLoginSuccess = {})
+//}
 
 
 

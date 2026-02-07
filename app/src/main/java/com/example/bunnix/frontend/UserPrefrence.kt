@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.map
 val Context.dataStore by preferencesDataStore(name = "user_prefs")
 
 class UserPreferences(private val context: Context) {
+    private val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
 
     private val FIRST_LAUNCH = booleanPreferencesKey("isFirstLaunch")
     private val IS_LOGGED_IN = booleanPreferencesKey("isLoggedIn")
@@ -27,14 +28,19 @@ class UserPreferences(private val context: Context) {
     val userRole: Flow<String> = context.dataStore.data
         .map { it[USER_ROLE] ?: "customer" }
 
-    suspend fun setFirstLaunch(value: Boolean) {
-        context.dataStore.edit { it[FIRST_LAUNCH] = value }
+    fun setFirstLaunch(isFirst: Boolean) {
+        sharedPreferences.edit().putBoolean("is_first_launch", isFirst).apply()
     }
 
-    suspend fun setLoggedIn(value: Boolean, role: String = "customer") {
-        context.dataStore.edit {
-            it[IS_LOGGED_IN] = value
-            it[USER_ROLE] = role
+    fun setLoggedIn(loggedIn: Boolean, role: String) {
+        sharedPreferences.edit().apply {
+            putBoolean("is_logged_in", loggedIn)
+            putString("user_role", role)
+            apply()
         }
+    }
+
+    fun setVendorMode(isVendor: Boolean) {
+        sharedPreferences.edit().putBoolean("is_vendor_mode", isVendor).apply()
     }
 }
