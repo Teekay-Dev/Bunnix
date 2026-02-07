@@ -1,69 +1,81 @@
-package com.example.bunnix.backend
-
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.navigation.NavHostController
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
-import com.example.bunnix.data.model.User
-import com.example.bunnix.frontend.AddBookingScreen
-import com.example.bunnix.frontend.AddProductScreen
-import com.example.bunnix.frontend.ManageInventoryScreen
-import com.example.bunnix.frontend.OrdersAndBookingsScreen
-import com.example.bunnix.frontend.Screen
-import com.example.bunnix.frontend.VendorDashboardScreen
-import com.example.bunnix.frontend.VendorProfileScreen
-
-@Composable
-fun VendorNavGraph(navController: NavHostController) {
-    NavHost(
-        navController = navController,
-        startDestination = Screen.VendorDashboard.route
-    ) {
-        composable(Screen.VendorDashboard.route) {
-            // Pass the navController so the dashboard can trigger sub-navigation
-            VendorDashboardScreen(navController = navController)
-        }
-        composable(Screen.VendorOrders.route) {
-            OrdersAndBookingsScreen(navController = navController)
-        }
-        composable(Screen.AddBooking.route) {
-            AddBookingScreen(navController = navController)
-        }
-        composable(Screen.VendorMessages.route) {
-            Text("Messages Screen")
-        }
-        // In VendorNavGraph.kt
-        val currentUser = User(
-            id = "000", // Required
-            full_name = "John Doe", // Your model uses full_name, not name
-            email = "john@example.com", // Required
-            is_vendor = true, // Matches your model's requirement
-            role = "Vendor"
-        )
-        composable(Screen.VendorProfile.route) {
-            VendorProfileScreen(navController = navController, user = currentUser)
-        }
-        composable(Screen.AddProduct.route) {
-            // This now calls the actual UI instead of just showing text
-            AddProductScreen(navController = navController)
-        }
-        composable(Screen.Bookings.route) {
-            Text("Bookings Screen")
-        }
-        composable(Screen.ManageInventory.route) {
-            ManageInventoryScreen(navController = navController)
-        }
-        // Add this inside your NavHost block
-        composable(
-            route = Screen.EditProduct.route,
-            arguments = listOf(navArgument("productId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val productId = backStackEntry.arguments?.getString("productId")
-            // Pass the productId to the AddProductScreen
-            AddProductScreen(navController = navController, productId = productId)
-        }
-    }
-}
+//package com.example.bunnix.backend
+//
+//import androidx.compose.material3.Text
+//import androidx.compose.runtime.Composable
+//import androidx.navigation.NavHostController
+//import androidx.navigation.NavType
+//import androidx.navigation.compose.NavHost
+//import androidx.navigation.compose.composable
+//import androidx.navigation.navArgument
+//import com.example.bunnix.data.model.User
+//import androidx.lifecycle.viewmodel.compose.viewModel
+//import com.example.bunnix.frontend.* // This ensures all screens in frontend are imported
+//
+//@Composable
+//fun VendorNavGraph(navController: NavHostController) {
+//    // 1. Move the user data outside the NavHost but inside the function
+//    val currentUser = User(
+//        id = "000",
+//        name = "John Doe",
+//        email = "john@example.com"
+//    )
+//
+//    NavHost(
+//        navController = navController,
+//        startDestination = Screen.VendorDashboard.route
+//    ) {
+//        // --- Dashboard ---
+//        composable(Screen.VendorDashboard.route) {
+//            VendorDashboardScreen(navController = navController)
+//        }
+//
+//        // --- Orders ---
+//        composable(Screen.VendorOrders.route) {
+//            OrdersAndBookingsScreen(navController = navController)
+//        }
+//
+//        // --- Booking Actions ---
+//        composable(Screen.AddBooking.route) {
+//            AddBookingScreen(navController = navController)
+//        }
+//
+//        composable(Screen.Bookings.route) {
+//            Text("Bookings Screen")
+//        }
+//
+//        // --- Messages ---
+//        composable(Screen.VendorMessages.route) {
+//            Text("Messages Screen")
+//        }
+//
+//        // --- Profile ---
+//        composable(Screen.VendorProfile.route) {
+//            // 1. Initialize the ViewModel here
+//            val profileViewModel: VendorProfileViewModel = viewModel()
+//
+//            // 2. Pass ONLY the navController and the viewModel
+//            // Remove "user = currentUser" because the screen doesn't ask for it anymore
+//            VendorProfileScreen(
+//                navController = navController,
+//                viewModel = profileViewModel
+//            )
+//        }
+//
+//        // --- Inventory & Products ---
+//        composable(Screen.ManageInventory.route) {
+//            ManageInventoryScreen(navController = navController)
+//        }
+//
+//        composable(Screen.AddProduct.route) {
+//            AddProductScreen(navController = navController)
+//        }
+//
+//        composable(
+//            route = Screen.EditProduct.route,
+//            arguments = listOf(navArgument("productId") { type = NavType.StringType })
+//        ) { backStackEntry ->
+//            val productId = backStackEntry.arguments?.getString("productId")
+//            AddProductScreen(navController = navController, productId = productId)
+//        }
+//    }
+//}

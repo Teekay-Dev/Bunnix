@@ -30,21 +30,39 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-//import com.example.bunnix.model.Vendor
+import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.bunnix.BunnixNavigation
+import com.example.bunnix.backend.Routes
+import com.example.bunnix.model.Vendor
+import com.example.bunnix.model.vendorList
 
-class HomeActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            HomeScreen()
-        }
-    }
-}
+
+//class HomeActivity : ComponentActivity() {
+//    override fun onCreate(savedInstanceState: Bundle?) {
+//        super.onCreate(savedInstanceState)
+//        setContent {
+//            MaterialTheme {
+//
+//                BunnixNavigation()
+//            }
+//        }
+//    }
+//}
 private val OrangeStart = Color(0xFFFF8A00)
 private val OrangeEnd = Color(0xFFFF5A00)
 
+
+
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onVendorClick: (Int) -> Unit,
+    onBookServiceClick: () -> Unit,
+    onShopProductClick: () -> Unit,
+    onSearchClick: (String) -> Unit
+)
+ {
 
     val scrollState = rememberScrollState()
 
@@ -66,12 +84,16 @@ fun HomeScreen() {
                 ) {
                     SearchBar(
                         query = searchQuery,
-                        onQueryChange = { searchQuery = it }
+                        onQueryChange = { searchQuery = it },
+                        onSearchClick = { text ->
+                            onSearchClick(text)
+                        }
                     )
+
                 }
             }
         },
-        bottomBar = { BottomNavBar() },
+
         containerColor = Color(0xFFF8F8F8)
     ) { padding ->
 
@@ -84,7 +106,11 @@ fun HomeScreen() {
             // ---- HEADER (with search inside)
             HeaderSection(searchQuery, onQueryChange = { searchQuery = it })
 
-            ActionButtons()
+            ActionButtons(
+                onBookClick = onBookServiceClick,
+                onShopClick = onShopProductClick
+            )
+
 
             CategoriesSection(
                 selectedCategory = selectedCategory,
@@ -98,8 +124,10 @@ fun HomeScreen() {
             SpecialOffer()
 
             TopVendorsSection(
-                selectedCategory = selectedCategory
+                selectedCategory = selectedCategory,
+                onVendorClick = onVendorClick
             )
+
 
             Spacer(Modifier.height(100.dp))
         }
@@ -157,10 +185,9 @@ private fun HeaderSection(
         SearchBar(
             query = query,
             onQueryChange = onQueryChange,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .offset(y = 0.dp)
+            onSearchClick = { } // leave empty here
         )
+
     }
 }
 
@@ -170,48 +197,85 @@ private fun HeaderSection(
 private fun SearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
+    onSearchClick: (String) -> Unit,
     modifier: Modifier = Modifier
-
 ) {
-    TextField(
-        value = query,
-        onValueChange = onQueryChange,
-        placeholder = { Text("Search services & products...") },
-        leadingIcon = { Icon(Icons.Default.Search, null) },
-        shape = RoundedCornerShape(30),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent
+    Column(modifier = modifier) {
+
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = { Text("Search products or services...") },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            singleLine = true
         )
-    )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                if (query.isNotBlank()) {
+                    onSearchClick(query)
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = OrangeEnd)
+        ) {
+            Text("Search", color = Color.White)
+        }
+    }
 }
 
 
 
+
 @Composable
-private fun ActionButtons() {
+private fun ActionButtons(
+    onBookClick: () -> Unit,
+    onShopClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .padding(horizontal = 10.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ActionCard("Book a Service", Icons.Default.Event)
-        ActionCard("Shop Products", Icons.Default.ShoppingBag)
+
+        ActionCard(
+            title = "Book a Service",
+            icon = Icons.Default.Event,
+            onClick = onBookClick
+        )
+
+        ActionCard(
+            title = "Shop Products",
+            icon = Icons.Default.ShoppingBag,
+            onClick = onShopClick
+        )
     }
 }
 
+
 @Composable
-private fun ActionCard(title: String, icon: ImageVector) {
+private fun ActionCard(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .width(170.dp)
             .height(100.dp)
             .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() } // ✅ CLICKABLE
             .background(
                 Brush.linearGradient(
                     listOf(OrangeStart, OrangeEnd)
@@ -226,6 +290,7 @@ private fun ActionCard(title: String, icon: ImageVector) {
         }
     }
 }
+
 
 
 @Composable
@@ -323,9 +388,9 @@ fun ClearCategoryButton(onClear: () -> Unit) {
 
 @Composable
 private fun TopVendorsSection(
-    selectedCategory: String?
+    selectedCategory: String?,
+    onVendorClick: (Int) -> Unit
 ) {
-
     val vendors = vendorList.filter {
         selectedCategory == null || it.category == selectedCategory
     }
@@ -338,620 +403,103 @@ private fun TopVendorsSection(
     )
 
     vendors.forEach { vendor ->
-        VendorCard(vendor)
+        VendorCard(
+            vendor = vendor,
+            onViewClick = {
+                onVendorClick(vendor.id)
+            }
+        )
         Spacer(Modifier.height(30.dp))
     }
 
-
-
-//    Box(
-//        modifier = Modifier
-//            .padding(horizontal = 20.dp)
-//            .clip(RoundedCornerShape(24.dp))
-//            .background(Color.White)
-//    ) {
-//        Column {
-//            Image(
-//                painter = painterResource(R.drawable.bites),
-//                contentDescription = null,
-//                modifier = Modifier
-//                    .height(200.dp)
-//                    .fillMaxWidth(),
-//                contentScale = ContentScale.Crop
-//            )
-//
-//            Column(modifier = Modifier.padding(16.dp)) {
-//
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//
-//                    /* LEFT SIDE — your original content + From $15 */
-//                    Column {
-//                        Text(
-//                            "Gourmet Bites",
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 18.sp
-//                        )
-//
-//                        Text("Food", color = Color.Gray, fontSize = 14.sp)
-//
-//                        Text("354 reviews", color = Color.Gray, fontSize = 13.sp)
-//
-//                        Spacer(modifier = Modifier.height(6.dp))
-//
-//                        Text(
-//                            "From $15",
-//                            color = Color(0xFFFF6A00),
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 15.sp
-//                        )
-//                    }
-//
-//                    /* RIGHT SIDE — location + view button */
-//                    Column(
-//                        horizontalAlignment = Alignment.End
-//                    ) {
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Icon(
-//                                imageVector = Icons.Default.LocationOn,
-//                                contentDescription = null,
-//                                tint = Color.Gray,
-//                                modifier = Modifier.size(16.dp)
-//                            )
-//                            Spacer(Modifier.width(4.dp))
-//                            Text("1.2 km", color = Color.Gray, fontSize = 13.sp)
-//                        }
-//
-//                        Spacer(modifier = Modifier.height(10.dp))
-//
-//                        Button(
-//                            onClick = {},
-//                            shape = RoundedCornerShape(20.dp),
-//                            colors = ButtonDefaults.buttonColors(
-//                                containerColor = Color(0xFFFF6A00)
-//                            ),
-//                            contentPadding = PaddingValues(
-//                                horizontal = 20.dp,
-//                                vertical = 6.dp
-//                            )
-//                        ) {
-//                            Text("View", color = Color.White, fontSize = 13.sp)
-//                        }
-//                    }
-//                }
-//            }
-//
-//        }
-//
-//        Box(
-//            modifier = Modifier
-//                .align(Alignment.TopEnd)
-//                .padding(12.dp)
-//                .clip(RoundedCornerShape(20.dp))
-//                .background(Color.White)
-//                .padding(horizontal = 10.dp, vertical = 4.dp)
-//        ) {
-//            Text("⭐ 4.8")
-//        }
-//    }
-//
-//
-//
-//
-//
-//    Spacer(Modifier.height(100.dp))
-//
-//    Box(
-//        modifier = Modifier
-//            .padding(horizontal = 20.dp)
-//            .clip(RoundedCornerShape(24.dp))
-//            .background(Color.White)
-//    ) {
-//        Column {
-//            Image(
-//                painter = painterResource(R.drawable.style),
-//                contentDescription = null,
-//                modifier = Modifier
-//                    .height(200.dp)
-//                    .fillMaxWidth(),
-//                contentScale = ContentScale.Crop
-//            )
-//
-//            Column(Modifier.padding(16.dp)) {
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//
-//                    /* LEFT SIDE — your original content + From $15 */
-//                    Column {
-//                        Text(
-//                            "Style Hub",
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 18.sp
-//                        )
-//
-//                        Text("Fashion", color = Color.Gray, fontSize = 14.sp)
-//
-//                        Text("189 reviews", color = Color.Gray, fontSize = 13.sp)
-//
-//                        Spacer(modifier = Modifier.height(6.dp))
-//
-//                        Text(
-//                            "From $25",
-//                            color = Color(0xFFFF6A00),
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 15.sp
-//                        )
-//                    }
-//
-//                    /* RIGHT SIDE — location + view button */
-//                    Column(
-//                        horizontalAlignment = Alignment.End
-//                    ) {
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Icon(
-//                                imageVector = Icons.Default.LocationOn,
-//                                contentDescription = null,
-//                                tint = Color.Gray,
-//                                modifier = Modifier.size(16.dp)
-//                            )
-//                            Spacer(Modifier.width(4.dp))
-//                            Text("2.5 km", color = Color.Gray, fontSize = 13.sp)
-//                        }
-//
-//                        Spacer(modifier = Modifier.height(10.dp))
-//
-//                        Button(
-//                            onClick = {},
-//                            shape = RoundedCornerShape(20.dp),
-//                            colors = ButtonDefaults.buttonColors(
-//                                containerColor = Color(0xFFFF6A00)
-//                            ),
-//                            contentPadding = PaddingValues(
-//                                horizontal = 20.dp,
-//                                vertical = 6.dp
-//                            )
-//                        ) {
-//                            Text("View", color = Color.White, fontSize = 13.sp)
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        Box(
-//            modifier = Modifier
-//                .align(Alignment.TopEnd)
-//                .padding(12.dp)
-//                .clip(RoundedCornerShape(20.dp))
-//                .background(Color.White)
-//                .padding(horizontal = 10.dp, vertical = 4.dp)
-//        ) {
-//            Text("⭐ 4.0")
-//        }
-//    }
-//
-//    Spacer(Modifier.height(100.dp))
-//
-//    Box(
-//        modifier = Modifier
-//            .padding(horizontal = 20.dp)
-//            .clip(RoundedCornerShape(24.dp))
-//            .background(Color.White)
-//    ) {
-//        Column {
-//            Image(
-//                painter = painterResource(R.drawable.beauty),
-//                contentDescription = null,
-//                modifier = Modifier
-//                    .height(200.dp)
-//                    .fillMaxWidth(),
-//                contentScale = ContentScale.Crop
-//            )
-//
-//            Column(Modifier.padding(16.dp)) {
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//
-//                    /* LEFT SIDE — your original content + From $15 */
-//                    Column {
-//                        Text(
-//                            "Beauty Bliss",
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 18.sp
-//                        )
-//
-//                        Text("Beauty", color = Color.Gray, fontSize = 14.sp)
-//
-//                        Text("412 reviews", color = Color.Gray, fontSize = 13.sp)
-//
-//                        Spacer(modifier = Modifier.height(6.dp))
-//
-//                        Text(
-//                            "From $30",
-//                            color = Color(0xFFFF6A00),
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 15.sp
-//                        )
-//                    }
-//
-//                    /* RIGHT SIDE — location + view button */
-//                    Column(
-//                        horizontalAlignment = Alignment.End
-//                    ) {
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Icon(
-//                                imageVector = Icons.Default.LocationOn,
-//                                contentDescription = null,
-//                                tint = Color.Gray,
-//                                modifier = Modifier.size(16.dp)
-//                            )
-//                            Spacer(Modifier.width(4.dp))
-//                            Text("0.8 km", color = Color.Gray, fontSize = 13.sp)
-//                        }
-//
-//                        Spacer(modifier = Modifier.height(10.dp))
-//
-//                        Button(
-//                            onClick = {},
-//                            shape = RoundedCornerShape(20.dp),
-//                            colors = ButtonDefaults.buttonColors(
-//                                containerColor = Color(0xFFFF6A00)
-//                            ),
-//                            contentPadding = PaddingValues(
-//                                horizontal = 20.dp,
-//                                vertical = 6.dp
-//                            )
-//                        ) {
-//                            Text("View", color = Color.White, fontSize = 13.sp)
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        Box(
-//            modifier = Modifier
-//                .align(Alignment.TopEnd)
-//                .padding(12.dp)
-//                .clip(RoundedCornerShape(20.dp))
-//                .background(Color.White)
-//                .padding(horizontal = 10.dp, vertical = 4.dp)
-//        ) {
-//            Text("⭐ 5.0")
-//        }
-//    }
-//
-//    Spacer(Modifier.height(100.dp))
-//
-//    Box(
-//        modifier = Modifier
-//            .padding(horizontal = 20.dp)
-//            .clip(RoundedCornerShape(24.dp))
-//            .background(Color.White)
-//    ) {
-//        Column {
-//            Image(
-//                painter = painterResource(R.drawable.event),
-//                contentDescription = null,
-//                modifier = Modifier
-//                    .height(200.dp)
-//                    .fillMaxWidth(),
-//                contentScale = ContentScale.Crop
-//            )
-//
-//            Column(Modifier.padding(16.dp)) {
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//
-//                    /* LEFT SIDE — your original content + From $15 */
-//                    Column {
-//                        Text(
-//                            "Event Masters",
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 18.sp
-//                        )
-//
-//                        Text("Event", color = Color.Gray, fontSize = 14.sp)
-//
-//                        Text("256 reviews", color = Color.Gray, fontSize = 13.sp)
-//
-//                        Spacer(modifier = Modifier.height(6.dp))
-//
-//                        Text(
-//                            "From $200",
-//                            color = Color(0xFFFF6A00),
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 15.sp
-//                        )
-//                    }
-//
-//                    /* RIGHT SIDE — location + view button */
-//                    Column(
-//                        horizontalAlignment = Alignment.End
-//                    ) {
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Icon(
-//                                imageVector = Icons.Default.LocationOn,
-//                                contentDescription = null,
-//                                tint = Color.Gray,
-//                                modifier = Modifier.size(16.dp)
-//                            )
-//                            Spacer(Modifier.width(4.dp))
-//                            Text("3.0 km", color = Color.Gray, fontSize = 13.sp)
-//                        }
-//
-//                        Spacer(modifier = Modifier.height(10.dp))
-//
-//                        Button(
-//                            onClick = {},
-//                            shape = RoundedCornerShape(20.dp),
-//                            colors = ButtonDefaults.buttonColors(
-//                                containerColor = Color(0xFFFF6A00)
-//                            ),
-//                            contentPadding = PaddingValues(
-//                                horizontal = 20.dp,
-//                                vertical = 6.dp
-//                            )
-//                        ) {
-//                            Text("View", color = Color.White, fontSize = 13.sp)
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        Box(
-//            modifier = Modifier
-//                .align(Alignment.TopEnd)
-//                .padding(12.dp)
-//                .clip(RoundedCornerShape(20.dp))
-//                .background(Color.White)
-//                .padding(horizontal = 10.dp, vertical = 4.dp)
-//        ) {
-//            Text("⭐ 4.5")
-//        }
-//    }
-//
-//    Spacer(Modifier.height(100.dp))
-//
-//    Box(
-//        modifier = Modifier
-//            .padding(horizontal = 20.dp)
-//            .clip(RoundedCornerShape(24.dp))
-//            .background(Color.White)
-//    ) {
-//        Column {
-//            Image(
-//                painter = painterResource(R.drawable.home),
-//                contentDescription = null,
-//                modifier = Modifier
-//                    .height(200.dp)
-//                    .fillMaxWidth(),
-//                contentScale = ContentScale.Crop
-//            )
-//
-//            Column(Modifier.padding(16.dp)) {
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//
-//                    /* LEFT SIDE — your original content + From $15 */
-//                    Column {
-//                        Text(
-//                            "Home Essentials",
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 18.sp
-//                        )
-//
-//                        Text("Home", color = Color.Gray, fontSize = 14.sp)
-//
-//                        Text("178 reviews", color = Color.Gray, fontSize = 13.sp)
-//
-//                        Spacer(modifier = Modifier.height(6.dp))
-//
-//                        Text(
-//                            "From $20",
-//                            color = Color(0xFFFF6A00),
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 15.sp
-//                        )
-//                    }
-//
-//                    /* RIGHT SIDE — location + view button */
-//                    Column(
-//                        horizontalAlignment = Alignment.End
-//                    ) {
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Icon(
-//                                imageVector = Icons.Default.LocationOn,
-//                                contentDescription = null,
-//                                tint = Color.Gray,
-//                                modifier = Modifier.size(16.dp)
-//                            )
-//                            Spacer(Modifier.width(4.dp))
-//                            Text("1.8 km", color = Color.Gray, fontSize = 13.sp)
-//                        }
-//
-//                        Spacer(modifier = Modifier.height(10.dp))
-//
-//                        Button(
-//                            onClick = {},
-//                            shape = RoundedCornerShape(20.dp),
-//                            colors = ButtonDefaults.buttonColors(
-//                                containerColor = Color(0xFFFF6A00)
-//                            ),
-//                            contentPadding = PaddingValues(
-//                                horizontal = 20.dp,
-//                                vertical = 6.dp
-//                            )
-//                        ) {
-//                            Text("View", color = Color.White, fontSize = 13.sp)
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        Box(
-//            modifier = Modifier
-//                .align(Alignment.TopEnd)
-//                .padding(12.dp)
-//                .clip(RoundedCornerShape(20.dp))
-//                .background(Color.White)
-//                .padding(horizontal = 10.dp, vertical = 4.dp)
-//        ) {
-//            Text("⭐ 4.8")
-//        }
-//    }
-//
-//    Spacer(Modifier.height(100.dp))
-//
-//    Box(
-//        modifier = Modifier
-//            .padding(horizontal = 20.dp)
-//            .clip(RoundedCornerShape(24.dp))
-//            .background(Color.White)
-//    ) {
-//        Column {
-//            Image(
-//                painter = painterResource(R.drawable.tech),
-//                contentDescription = null,
-//                modifier = Modifier
-//                    .height(200.dp)
-//                    .fillMaxWidth(),
-//                contentScale = ContentScale.Crop
-//            )
-//
-//            Column(Modifier.padding(16.dp)) {
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//
-//                    /* LEFT SIDE — your original content + From $15 */
-//                    Column {
-//                        Text(
-//                            "Tech Solutions",
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 18.sp
-//                        )
-//
-//                        Text("Tech", color = Color.Gray, fontSize = 14.sp)
-//
-//                        Text("298 reviews", color = Color.Gray, fontSize = 13.sp)
-//
-//                        Spacer(modifier = Modifier.height(6.dp))
-//
-//                        Text(
-//                            "From $50",
-//                            color = Color(0xFFFF6A00),
-//                            fontWeight = FontWeight.Bold,
-//                            fontSize = 15.sp
-//                        )
-//                    }
-//
-//                    /* RIGHT SIDE — location + view button */
-//                    Column(
-//                        horizontalAlignment = Alignment.End
-//                    ) {
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Icon(
-//                                imageVector = Icons.Default.LocationOn,
-//                                contentDescription = null,
-//                                tint = Color.Gray,
-//                                modifier = Modifier.size(16.dp)
-//                            )
-//                            Spacer(Modifier.width(4.dp))
-//                            Text("2.2 km", color = Color.Gray, fontSize = 13.sp)
-//                        }
-//
-//                        Spacer(modifier = Modifier.height(10.dp))
-//
-//                        Button(
-//                            onClick = {},
-//                            shape = RoundedCornerShape(20.dp),
-//                            colors = ButtonDefaults.buttonColors(
-//                                containerColor = Color(0xFFFF6A00)
-//                            ),
-//                            contentPadding = PaddingValues(
-//                                horizontal = 20.dp,
-//                                vertical = 6.dp
-//                            )
-//                        ) {
-//                            Text("View", color = Color.White, fontSize = 13.sp)
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        Box(
-//            modifier = Modifier
-//                .align(Alignment.TopEnd)
-//                .padding(12.dp)
-//                .clip(RoundedCornerShape(20.dp))
-//                .background(Color.White)
-//                .padding(horizontal = 10.dp, vertical = 4.dp)
-//        ) {
-//            Text("⭐ 4.8")
-//        }
-//    }
-
-//    Spacer(Modifier.height(100.dp))
-
 }
 
+
+
+
+
+
+
+//@Composable
+//fun BottomNavBar(navController: NavController) {
+//
+//    val navBackStackEntry =
+//        navController.currentBackStackEntryAsState()
+//
+//    val currentRoute =
+//        navBackStackEntry.value?.destination?.route
+//
+//    NavigationBar {
+//
+//        // ✅ HOME
+//        NavigationBarItem(
+//            selected = currentRoute == Routes.Home,
+//            onClick = {
+//                navController.navigate(Routes.Home) {
+//                    popUpTo(Routes.Home) { inclusive = true }
+//                }
+//            },
+//            icon = {
+//                Icon(Icons.Default.Home, contentDescription = "Home")
+//            },
+//            label = { Text("Home") }
+//        )
+//
+//        // ✅ CART
+//        NavigationBarItem(
+//            selected = currentRoute == Routes.Cart,
+//            onClick = {
+//                navController.navigate(Routes.Cart)
+//            },
+//            icon = {
+//                Icon(Icons.Default.ShoppingCart, contentDescription = "Cart")
+//            },
+//            label = { Text("Cart") }
+//        )
+//
+//        // ✅ CHAT
+//        NavigationBarItem(
+//            selected = currentRoute == Routes.Chat,
+//            onClick = {
+//                navController.navigate(Routes.Chat)
+//            },
+//            icon = {
+//                Icon(Icons.Default.Chat, contentDescription = "Chats")
+//            },
+//            label = { Text("Chats") }
+//        )
+//
+//        // ✅ ALERTS
+//        NavigationBarItem(
+//            selected = currentRoute == Routes.Notifications,
+//            onClick = {
+//                navController.navigate(Routes.Notifications)
+//            },
+//            icon = {
+//                Icon(Icons.Default.Notifications, contentDescription = "Alerts")
+//            },
+//            label = { Text("Alerts") }
+//        )
+//
+//        // ✅ PROFILE
+//        NavigationBarItem(
+//            selected = currentRoute == Routes.Profile,
+//            onClick = {
+//                navController.navigate(Routes.Profile)
+//            },
+//            icon = {
+//                Icon(Icons.Default.Person, contentDescription = "Profile")
+//            },
+//            label = { Text("Profile") }
+//        )
+//    }
+//}
+
 @Composable
-fun BottomNavBar() {
-    NavigationBar {
-        NavigationBarItem(
-            selected = true,
-            onClick = { },
-            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-            label = { Text("Home") }
-        )
-
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Cart") },
-            label = { Text("Cart") }
-        )
-
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Chat, contentDescription = "Chats") },
-            label = { Text("Chats") }
-        )
-
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Notifications, contentDescription = "Alerts") },
-            label = { Text("Alerts") }
-        )
-
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-            label = { Text("Profile") }
-        )
-    }
-}
-
-@Composable
-fun VendorCard(vendor: Vendor) {
+fun VendorCard(
+    vendor: Vendor,
+    onViewClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .padding(horizontal = 20.dp)
@@ -959,43 +507,82 @@ fun VendorCard(vendor: Vendor) {
             .background(Color.White)
     ) {
         Column {
+
             Image(
-                painter = painterResource(vendor.image),
+                painter = painterResource(vendor.coverImage),
                 contentDescription = null,
                 modifier = Modifier
-                    .height(180.dp)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .height(180.dp),
                 contentScale = ContentScale.Crop
             )
 
-            Column(Modifier.padding(16.dp)) {
-                Text(vendor.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text(vendor.category, color = Color.Gray, fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(vendor.price, color = Color(0xFFFF6A00), fontWeight = FontWeight.Bold)
+            Column(modifier = Modifier.padding(16.dp)) {
+
+                Text(
+                    text = vendor.businessName,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+
+                Text(
+                    text = vendor.category,
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
 
                 Spacer(Modifier.height(8.dp))
 
-                Row(
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = Color(0xFFFFC107),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+
+                    Text(
+                        "${vendor.rating} (${vendor.reviewCount})",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+
+                    Text(
+                        vendor.distance,
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = onViewClick,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangeEnd),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text(vendor.rating)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(vendor.distance, color = Color.Gray)
-                    }
+                    Text("View", color = Color.White)
                 }
             }
         }
     }
 }
+
+
 
 
 
@@ -1013,21 +600,7 @@ val categoryList = listOf(
     Category("Health", "🏥")
 )
 
-data class Vendor(
-    val name: String,
-    val category: String,
-    val image: Int,
-    val price: String,
-    val rating: String,
-    val distance: String
-)
 
-val vendorList = listOf(
-    Vendor("Gourmet Bites", "Food", R.drawable.bites, "From $15", "⭐ 4.8", "1.2 km"),
-    Vendor("Style Hub", "Fashion", R.drawable.style, "From $25", "⭐ 4.0", "2.5 km"),
-    Vendor("Beauty Bliss", "Beauty", R.drawable.beauty, "From $30", "⭐ 5.0", "0.8 km"),
-    Vendor("Tech Solutions", "Tech", R.drawable.tech, "From $50", "⭐ 4.8", "2.2 km")
-)
 
 
 
@@ -1036,5 +609,13 @@ val vendorList = listOf(
 @Preview(showBackground = true)
 @Composable
 fun HomePreview() {
-    HomeScreen()
+    MaterialTheme {
+        HomeScreen(
+            onVendorClick = { },
+            onBookServiceClick = { },
+            onShopProductClick = { },
+            onSearchClick = { }
+        )
+    }
 }
+

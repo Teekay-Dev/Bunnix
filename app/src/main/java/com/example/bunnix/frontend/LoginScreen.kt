@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import com.example.bunnix.MainActivity
 import com.example.bunnix.R
 import kotlinx.coroutines.flow.first
 import kotlin.jvm.java
@@ -55,9 +56,9 @@ class LoginActivity : ComponentActivity() {
                     }
                     val role = runBlocking { userPrefs.userRole.first() }
                     if (role == "BUSINESS") {
-                        startActivity(Intent(this, HomeActivity::class.java))
+                        startActivity(Intent(this, MainActivity::class.java))
                     } else {
-                        startActivity(Intent(this, HomeActivity::class.java))
+                        startActivity(Intent(this, MainActivity::class.java))
                     }
                     finish()
                 }
