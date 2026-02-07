@@ -78,8 +78,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-//    implementation(libs.play.services.maps)
-//    implementation(libs.maps)
+<<<<<<< HEAD
+>>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -87,6 +87,9 @@ dependencies {
     // ===== CORE =====
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.3")
+
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+//    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
 
     // ===== LIFECYCLE =====
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
@@ -158,6 +161,18 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 //    ============= END AUTH BACKEND =============
+
+    // Supabase Core and Modules
+    val supabase_version = "2.1.0" // Use the latest stable version
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabase_version")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabase_version")
+    implementation("io.github.jan-tennert.supabase:storage-kt:$supabase_version")
+    implementation("io.github.jan-tennert.supabase:realtime-kt:$supabase_version")
+
+    // Ktor Client (Required by Supabase)
+    implementation("io.ktor:ktor-client-android:2.3.7")
+
+    implementation("com.google.maps.android:maps-compose:6.1.0")
 }
 
 
