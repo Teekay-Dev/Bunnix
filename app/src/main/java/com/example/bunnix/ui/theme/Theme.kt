@@ -10,7 +10,12 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
+val OrangeStart = Color(0xFFFF8C00)
+val OrangeEnd = Color(0xFFFF4500)
+
+val LightGrayBg = Color(0xFFF8F9FE)
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
     secondary = PurpleGrey80,

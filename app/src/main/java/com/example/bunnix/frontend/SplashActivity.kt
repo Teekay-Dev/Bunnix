@@ -1,5 +1,6 @@
 package com.example.bunnix.frontend
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.bunnix.MainActivity
 import com.example.bunnix.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -49,7 +51,7 @@ fun SplashScreen(onFinish: (Class<*>) -> Unit) {
 
         val destination = when {
             firstLaunch -> OnboardingActivity::class.java
-            loggedIn -> HomeActivity::class.java
+            loggedIn -> MainActivity::class.java
             else -> LoginActivity::class.java
         }
 

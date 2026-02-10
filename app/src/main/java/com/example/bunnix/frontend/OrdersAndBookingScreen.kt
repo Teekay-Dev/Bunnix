@@ -1,3 +1,5 @@
+<<<<<<< HEAD
+=======
 package com.example.bunnix.frontend
 
 import androidx.compose.foundation.background
@@ -310,3 +312,4 @@ fun EmptyStateView(message: String) {
         )
     }
 }
+>>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a
