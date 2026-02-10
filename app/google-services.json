@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "310257768573",
+    "project_id": "bunnix-919d5",
+    "storage_bucket": "bunnix-919d5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:310257768573:android:727587823e0d552cfeb914",
+        "android_client_info": {
+          "package_name": "com.example.bunnix"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCi7C2J0eeJ-wLNTyc8hd9dQi_kx4S3kWI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
