@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+
+=======
 package com.example.bunnix.frontend
 
 
@@ -245,3 +248,4 @@ fun formatNaira(input: String): String {
 
     return "₦$formatted"
 }
+>>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a

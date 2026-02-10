@@ -10,7 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.runBlocking
@@ -30,7 +29,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+<<<<<<< HEAD
+import com.example.bunnix.MainActivity
+=======
 import androidx.lifecycle.viewmodel.compose.viewModel
+>>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a
 import com.example.bunnix.R
 import com.example.bunnix.model.VendorViewModel
 import com.example.bunnix.utils.NetworkResult
@@ -52,10 +55,25 @@ class LoginActivity : ComponentActivity() {
                     startActivity(Intent(this, SignupActivity::class.java))
                     finish()
                 },
+<<<<<<< HEAD
+                onLoginSuccess = {
+                    // User logged in successfully
+                    runBlocking {
+                        userPrefs.setLoggedIn(true)
+                        userPrefs.setFirstLaunch(false)
+                    }
+                    val role = runBlocking { userPrefs.userRole.first() }
+                    if (role == "BUSINESS") {
+                        startActivity(Intent(this, MainActivity::class.java))
+                    } else {
+                        startActivity(Intent(this, MainActivity::class.java))
+                    }
+=======
                 onNavigateToHome = { role ->
                     // Decide where to go based on role
                     val intent = Intent(this, HomeActivity::class.java)
                     startActivity(intent)
+>>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a
                     finish()
                 }
             )
@@ -238,6 +256,7 @@ fun LoginScreen(
             )
         }
     }
+}
 }
 
 //@Preview(showBackground = true)
