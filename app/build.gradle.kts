@@ -7,7 +7,11 @@ import kotlin.apply
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
      kotlin("plugin.serialization") version "2.0.21"
-}
+
+     // Add the Google services Gradle plugin
+     id("com.google.gms.google-services")
+
+ }
 
 
 
@@ -80,6 +84,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
+    implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.firestore.ktx)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -162,6 +168,24 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 //    ============= END AUTH BACKEND =============
 
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+
+
+    // TODO: Add the dependencies for Firebase products you want to use
+    // When using the BoM, don't specify versions in Firebase dependencies
+    // https://firebase.google.com/docs/android/setup#available-libraries
+    implementation("com.google.firebase:firebase-auth")
+
+    // Firebase Services
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // Coroutines for Firebase
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
     // Supabase Core and Modules
     val supabase_version = "2.1.0" // Use the latest stable version
     implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabase_version")
@@ -174,6 +198,8 @@ dependencies {
 
     implementation("com.google.maps.android:maps-compose:6.1.0")
 }
+
+
 
 
 
