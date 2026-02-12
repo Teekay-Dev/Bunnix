@@ -20,7 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bunnix.ui.theme.OrangeEnd
 import com.example.bunnix.ui.theme.OrangeStart
+import dagger.hilt.android.AndroidEntryPoint
 
+
+@AndroidEntryPoint
 class CartActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -22,11 +22,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bunnix.R
+import dagger.hilt.android.AndroidEntryPoint
 //import com.example.bunnix.model.VendorViewModel
 //import com.example.bunnix.utils.NetworkResult
 import kotlinx.coroutines.launch
 
 // ✅ SIGNUP ACTIVITY
+@AndroidEntryPoint
 class SignupActivity : ComponentActivity() {
 
     private lateinit var userPrefs: UserPreferences
