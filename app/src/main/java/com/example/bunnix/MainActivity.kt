@@ -7,7 +7,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -28,6 +36,10 @@ import com.example.bunnix.frontend.VendorDetailScreen
 import com.example.bunnix.frontend.*
 import com.example.bunnix.model.vendorList
 import com.example.bunnix.ui.theme.BunnixTheme
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,18 +75,61 @@ fun BunnixNavigation() {
 
     Scaffold(
 
-        // ✅ Bottom Navigation Added Here
         bottomBar = {
-            BottomNavBar(navController)
+            if (currentRoute in bottomBarScreens) {
+                BottomNavBar(navController)
+            }
         }
 
     ) { padding ->
 
         NavHost(
             navController = navController,
-            startDestination = Routes.Home,
+            startDestination = Routes.Splash,
             modifier = Modifier.padding(padding)
         ) {
+
+            // ✅ Splash Screen
+            composable(Routes.Splash) {
+
+                val context = LocalContext.current
+                val prefs = UserPreferences(context)
+
+                SplashScreen(
+                    userPrefs = prefs,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Routes.Splash) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+// ✅ Signup Route
+            composable(Routes.Signup) {
+                SignupScreen(
+                    userPrefs = UserPreferences(LocalContext.current),
+                    onLogin = {
+                        navController.navigate(Routes.Login)
+                    }
+                )
+            }
+
+// ✅ Login Route
+            composable(Routes.Login) {
+                LoginScreen(
+                    onSignupClick = {
+                        navController.navigate(Routes.Signup)
+                    },
+                    onLoginSuccess = {
+                        navController.navigate(Routes.Home) {
+                            popUpTo(Routes.Login) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+
 
             // ✅ 1. HOME SCREEN
             composable(Routes.Home) {
@@ -282,8 +337,45 @@ fun BunnixNavigation() {
             }
 
             composable(Routes.Profile) {
-                ProfileScreen()
+
+                val context = LocalContext.current
+                val prefs = UserPreferences(context)
+
+                // ✅ Collect Flow properly
+                val currentMode by prefs.getMode()
+                    .collectAsState(initial = "CUSTOMER")
+
+                val hasVendor by prefs.hasVendorAccount()
+                    .collectAsState(initial = false)
+
+                val scope = rememberCoroutineScope()
+
+                ProfileScreen(
+                    currentMode = currentMode,
+                    vendorEnabled = hasVendor,
+
+                    // ✅ Switch Mode Button
+                    onSwitchMode = {
+                        scope.launch {
+                            prefs.switchMode()
+                        }
+                    },
+
+                    // ✅ Logout Button
+                    onLogout = {
+                        scope.launch {
+                            prefs.logout()
+                            navController.navigate("login") {
+                                popUpTo(0)
+                            }
+                        }
+                    }
+                )
             }
+
+
+
+
 
 
 // ✅ Cart Screen

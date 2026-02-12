@@ -82,6 +82,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
 
@@ -150,7 +152,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")    // Async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")       // Coroutines core
 
-    val supabaseVersion = "3.0.2"
+    val supabaseVersion = "2.5.4"
 
     // Supabase
     implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
@@ -159,7 +161,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt:${supabaseVersion}")
 
     // Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     // Coroutines Flow
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")

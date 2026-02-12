@@ -2,6 +2,10 @@ package com.example.bunnix.backend
 
 object Routes {
 
+    const val Splash = "splash"
+    const val Signup = "signup"
+    const val Login = "login"
+
     // ✅ Main Screens
     const val Home = "home"
 

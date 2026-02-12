@@ -1,6 +1,8 @@
-<<<<<<< HEAD
 package com.example.bunnix.frontend
 
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -30,9 +32,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.bunnix.model.Vendor
 import com.example.bunnix.model.vendorList
-=======
 
-<<<<<<< HEAD
+
+class HomeActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+
+        }
+    }
+}
 private val OrangeStart = Color(0xFFFF8A00)
 private val OrangeEnd = Color(0xFFFF5A00)
 
@@ -398,7 +407,6 @@ private fun TopVendorsSection(
 
 }
 
-<<<<<<< HEAD
 
 @Composable
 fun VendorCard(
@@ -523,4 +531,3 @@ fun HomePreview() {
         )
     }
 }
-=======

@@ -1,5 +1,8 @@
 package com.example.bunnix.frontend
 
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +20,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bunnix.ui.theme.OrangeEnd
 import com.example.bunnix.ui.theme.OrangeStart
+
+class CartActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
