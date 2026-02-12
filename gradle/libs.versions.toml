@@ -16,6 +16,7 @@ firebaseFirestoreKtx = "26.1.0"
 firebaseDatabase = "22.0.1"
 firebaseFirestore = "26.1.0"
 ui = "1.10.2"
+firebaseAuthKtx = "24.0.1"
 
 
 [libraries]
@@ -40,6 +41,7 @@ firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-fires
 firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebaseDatabase" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
