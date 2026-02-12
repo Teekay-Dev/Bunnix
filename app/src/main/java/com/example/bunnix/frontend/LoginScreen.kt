@@ -21,9 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bunnix.MainActivity
 import com.example.bunnix.R
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
+@AndroidEntryPoint
 class LoginActivity : ComponentActivity() {
 
     private lateinit var userPrefs: UserPreferences

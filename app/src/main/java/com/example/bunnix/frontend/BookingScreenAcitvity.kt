@@ -21,7 +21,10 @@ import com.example.bunnix.ui.theme.BunnixTheme
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import dagger.hilt.android.AndroidEntryPoint
 
+
+@AndroidEntryPoint
 class BookingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
