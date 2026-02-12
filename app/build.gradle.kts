@@ -78,8 +78,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-<<<<<<< HEAD
->>>>>>> 3e8a2de235349208f7d0ce387a237c0a485cf30a
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -146,7 +146,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")    // Async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")       // Coroutines core
 
-    val supabaseVersion = "3.0.2"
+    val supabaseVersion = "2.5.4"
 
     // Supabase
     implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
@@ -155,7 +155,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt:${supabaseVersion}")
 
     // Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     // Coroutines Flow
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")

@@ -6,16 +6,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.navigation.compose.currentBackStackEntryAsState
 
 import com.example.bunnix.backend.Routes
 
 @Composable
 fun BottomNavBar(navController: NavController) {
 
+    val currentRoute =
+        navController.currentBackStackEntryAsState().value?.destination?.route
+
     NavigationBar {
 
         NavigationBarItem(
-            selected = false,
+            selected = currentRoute == Routes.Home,
             onClick = {
                 navController.navigate(Routes.Home)
             },
@@ -24,7 +28,7 @@ fun BottomNavBar(navController: NavController) {
         )
 
         NavigationBarItem(
-            selected = false,
+            selected = currentRoute == Routes.Cart,
             onClick = {
                 navController.navigate(Routes.Cart)
             },
@@ -33,7 +37,7 @@ fun BottomNavBar(navController: NavController) {
         )
 
         NavigationBarItem(
-            selected = false,
+            selected = currentRoute == Routes.Chat,
             onClick = {
                 navController.navigate(Routes.Chat)
             },
@@ -42,7 +46,7 @@ fun BottomNavBar(navController: NavController) {
         )
 
         NavigationBarItem(
-            selected = false,
+            selected = currentRoute == Routes.Notifications,
             onClick = {
                 navController.navigate(Routes.Notifications)
             },
@@ -51,7 +55,7 @@ fun BottomNavBar(navController: NavController) {
         )
 
         NavigationBarItem(
-            selected = false,
+            selected = currentRoute == Routes.Profile,
             onClick = {
                 navController.navigate(Routes.Profile)
             },
