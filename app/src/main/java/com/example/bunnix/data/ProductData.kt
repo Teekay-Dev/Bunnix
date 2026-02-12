@@ -1,6 +1,7 @@
 package com.example.bunnix.data
 
 import com.example.bunnix.R
+import com.example.bunnix.database.models.Product
 import com.example.bunnix.model.Product
 
 object ProductData {
