@@ -1,11 +1,11 @@
 package com.example.bunnix.data.auth
 
-
 import android.app.Activity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
@@ -23,6 +23,8 @@ import javax.inject.Singleton
  * Wraps Firebase Auth SDK with suspend functions and proper error handling.
  *
  * This is injected as a singleton via Hilt.
+ *
+ * UPDATED: Now includes Apple Sign-In support
  */
 @Singleton
 class AuthManager @Inject constructor(
@@ -150,6 +152,88 @@ class AuthManager @Inject constructor(
             throw mapFirebaseAuthException(e)
         }
     }
+
+    // ==================== APPLE SIGN-IN (NEW) ====================
+
+    /**
+     * Sign in with Apple using ID token and nonce
+     *
+     * @param idToken Apple ID token from Apple Sign-In
+     * @param rawNonce Raw nonce used for verification
+     * @return Signed-in FirebaseUser
+     */
+    suspend fun signInWithApple(idToken: String, rawNonce: String): FirebaseUser {
+        return try {
+            // Create OAuth credential for Apple
+            val provider = OAuthProvider.newBuilder("apple.com")
+            val credential = provider.buildCredential(idToken, rawNonce)
+
+            // Sign in with Firebase
+            val result = firebaseAuth.signInWithCredential(credential).await()
+
+            result.user ?: throw Exception("Apple sign-in failed - no user returned")
+        } catch (e: FirebaseAuthException) {
+            throw mapFirebaseAuthException(e)
+        }
+    }
+
+    /**
+     * Start Apple Sign-In flow (Alternative method)
+     * This method handles the entire Apple sign-in process
+     *
+     * @param activity Current activity
+     * @return Signed-in FirebaseUser
+     */
+    suspend fun startAppleSignIn(activity: Activity): FirebaseUser {
+        return try {
+            val provider = OAuthProvider.newBuilder("apple.com").apply {
+                // Request user's full name and email
+                scopes = listOf("email", "name")
+            }.build()
+
+            val result = firebaseAuth.startActivityForSignInWithProvider(activity, provider).await()
+
+            result.user ?: throw Exception("Apple sign-in failed - no user returned")
+        } catch (e: FirebaseAuthException) {
+            throw mapFirebaseAuthException(e)
+        }
+    }
+
+    /**
+     * Check if user signed in with Apple
+     */
+    fun isSignedInWithApple(): Boolean {
+        return currentUser?.providerData?.any {
+            it.providerId == "apple.com"
+        } ?: false
+    }
+
+    /**
+     * Check if user signed in with Google
+     */
+    fun isSignedInWithGoogle(): Boolean {
+        return currentUser?.providerData?.any {
+            it.providerId == "google.com"
+        } ?: false
+    }
+
+    /**
+     * Check if user signed in with Phone
+     */
+    fun isSignedInWithPhone(): Boolean {
+        return currentUser?.providerData?.any {
+            it.providerId == "phone"
+        } ?: false
+    }
+
+    /**
+     * Get all sign-in providers for current user
+     */
+    fun getSignInProviders(): List<String> {
+        return currentUser?.providerData?.map { it.providerId } ?: emptyList()
+    }
+
+    // ==================== END APPLE SIGN-IN ====================
 
     /**
      * Update user's display name in Firebase Auth

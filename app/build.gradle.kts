@@ -75,27 +75,23 @@ android {
 dependencies {
 
     // ===== COMPOSE =====
+    // ===== COMPOSE =====
     implementation(platform("androidx.compose:compose-bom:2024.04.01"))
-
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
+
     // ===== CORE =====
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.3")
 
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
-//    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
 
     // ===== LIFECYCLE =====
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
@@ -114,14 +110,16 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
 
-    // ===== NETWORK =====
+
+        // ===== NETWORK =====
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // ===== COROUTINES =====
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // ===== IMAGE LOADING =====
     implementation("io.coil-kt:coil-compose:2.7.0")
@@ -137,10 +135,12 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
+
     // Accompanist SwipeRefresh
     implementation("com.google.accompanist:accompanist-swiperefresh:0.34.0")
 
     implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("androidx.core:core-ktx:1.12.0")
 
 //    ============= AUTH BACKEND (Added by [Your Name] - Jan 7, 2026) =============
@@ -168,8 +168,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 //    ============= END AUTH BACKEND =============
 
-    // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+
 
 
     // TODO: Add the dependencies for Firebase products you want to use
@@ -177,11 +176,16 @@ dependencies {
     // https://firebase.google.com/docs/android/setup#available-libraries
     implementation("com.google.firebase:firebase-auth")
 
-    // Firebase Services
-    implementation("com.google.firebase:firebase-firestore-ktx")
+    // ===== FIREBASE (BoM for version management) =====
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // Google Play Services (for Google Sign-In)
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+
 
     // Coroutines for Firebase
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
@@ -198,8 +202,3 @@ dependencies {
 
     implementation("com.google.maps.android:maps-compose:6.1.0")
 }
-
-
-
-
-
