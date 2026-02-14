@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.iml
+/local.properties
+/.idea/
+.gradle/
+build/
+
