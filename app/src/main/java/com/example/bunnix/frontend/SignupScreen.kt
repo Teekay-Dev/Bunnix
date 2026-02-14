@@ -9,6 +9,9 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -17,17 +20,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.bunnix.R
+import com.example.bunnix.data.auth.AuthResult
+import com.example.bunnix.presentation.viewmodel.AuthViewModel
 import dagger.hilt.android.AndroidEntryPoint
-//import com.example.bunnix.model.VendorViewModel
-//import com.example.bunnix.utils.NetworkResult
 import kotlinx.coroutines.launch
 
-// ✅ SIGNUP ACTIVITY
+// ✅ SIGNUP ACTIVITY - BACKEND CONNECTED
 @AndroidEntryPoint
 class SignupActivity : ComponentActivity() {
 
@@ -50,14 +54,15 @@ class SignupActivity : ComponentActivity() {
     }
 }
 
-// ✅ SIGNUP SCREEN
+// ✅ SIGNUP SCREEN - BACKEND INTEGRATED (UI UNCHANGED)
 @Composable
 fun SignupScreen(
     userPrefs: UserPreferences,
-    viewModel: VendorViewModel = viewModel(),
+    authViewModel: AuthViewModel = hiltViewModel(),
     onLogin: () -> Unit
 ) {
 
+    var passwordVisible by remember { mutableStateOf(false) }
     // 🔹 COMMON INPUTS
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -83,13 +88,13 @@ fun SignupScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White) // ✅ Changed to White
+            .background(Color.White) // ✅ WHITE BACKGROUND - UNCHANGED
             .verticalScroll(scrollState)
             .padding(30.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
-        // ✅ LOGO
+        // ✅ LOGO - UNCHANGED
         Image(
             painter = painterResource(R.drawable.bunnix_2),
             contentDescription = null,
@@ -117,7 +122,7 @@ fun SignupScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ✅ CUSTOMER / BUSINESS SELECTOR
+        // ✅ CUSTOMER / BUSINESS SELECTOR - UNCHANGED
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -139,7 +144,7 @@ fun SignupScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ✅ FULL NAME (Both)
+        // ✅ FULL NAME (Both) - UNCHANGED
         OutlinedTextField(
             value = fullName,
             onValueChange = { fullName = it },
@@ -149,7 +154,7 @@ fun SignupScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ✅ BUSINESS INPUTS ONLY
+        // ✅ BUSINESS INPUTS ONLY - UNCHANGED
         if (!isCustomer) {
 
             OutlinedTextField(
@@ -171,7 +176,7 @@ fun SignupScreen(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // ✅ COMMON INPUTS
+        // ✅ COMMON INPUTS - UNCHANGED
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -194,8 +199,20 @@ fun SignupScreen(
             value = password,
             onValueChange = { password = it },
             placeholder = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            trailingIcon = {
+                val image = if (passwordVisible)
+                    Icons.Filled.Visibility
+                else Icons.Filled.VisibilityOff
+
+                // Description for accessibility (screen readers)
+                val description = if (passwordVisible) "Hide password" else "Show password"
+
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = image, contentDescription = description)
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -204,34 +221,79 @@ fun SignupScreen(
             value = confirm,
             onValueChange = { confirm = it },
             placeholder = { Text("Confirm Password") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            trailingIcon = {
+                val image = if (passwordVisible)
+                    Icons.Filled.Visibility
+                else Icons.Filled.VisibilityOff
+
+                // Description for accessibility (screen readers)
+                val description = if (passwordVisible) "Hide password" else "Show password"
+
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = image, contentDescription = description)
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ✅ SIGNUP BUTTON
+        // ✅ SIGNUP BUTTON - BACKEND INTEGRATED (UI UNCHANGED)
         Button(
             onClick = {
                 scope.launch {
+                    // ✅ VALIDATION
+                    if (fullName.isBlank()) {
+                        Toast.makeText(context, "Please enter your full name", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    if (!isCustomer && businessName.isBlank()) {
+                        Toast.makeText(context, "Please enter your business name", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    if (!isCustomer && businessAddress.isBlank()) {
+                        Toast.makeText(context, "Please enter your business address", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    if (email.isBlank()) {
+                        Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    if (phone.isBlank()) {
+                        Toast.makeText(context, "Please enter your phone number", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    if (password.isBlank()) {
+                        Toast.makeText(context, "Please enter a password", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+
+                    if (password != confirm) {
+                        Toast.makeText(context, "Passwords don't match", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
 
                     isLoading = true
 
-                    val result = viewModel.registerUser(
-                        name = fullName,
+                    // ✅ BACKEND CALL - USING YOUR BACKEND USE CASE
+                    val result = authViewModel.signUpWithEmail(
                         email = email,
-                        phone = phone,
                         password = password,
-                        confirmPassword = confirm,
-                        businessName = if (!isCustomer) businessName else null,
-                        businessAddress = if (!isCustomer) businessAddress else null,
-                        isVendor = !isCustomer
+                        displayName = fullName,
+                        phone = phone,
+                        isBusinessAccount = !isCustomer,
+                        businessName = businessName,
+                        businessAddress = businessAddress
                     )
 
                     when (result) {
-
-                        is NetworkResult.Success -> {
-
+                        is AuthResult.Success -> {
                             // ✅ Save Login Session
                             userPrefs.setLoggedIn(true)
 
@@ -252,7 +314,7 @@ fun SignupScreen(
                             onLogin()
                         }
 
-                        is NetworkResult.Error -> {
+                        is AuthResult.Error -> {
                             Toast.makeText(
                                 context,
                                 result.message ?: "Registration Failed",
@@ -280,7 +342,7 @@ fun SignupScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ✅ LOGIN LINK
+        // ✅ LOGIN LINK - UNCHANGED
         Row {
             Text("Already have an account? ", color = Color.Black)
 
@@ -293,7 +355,7 @@ fun SignupScreen(
     }
 }
 
-// ✅ PREVIEW
+// ✅ PREVIEW - UNCHANGED
 @Preview(showBackground = true)
 @Composable
 fun SignupPreview() {
