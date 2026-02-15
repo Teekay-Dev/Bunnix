@@ -5,6 +5,8 @@ import com.example.bunnix.data.auth.AuthResult
 import com.example.bunnix.database.models.Product
 import com.example.bunnix.domain.repository.ProductRepository
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.channels.awaitClose

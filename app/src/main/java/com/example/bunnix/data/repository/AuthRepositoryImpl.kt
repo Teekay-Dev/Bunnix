@@ -249,97 +249,97 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    // ==================== APPLE SIGN-IN (NEW) ====================
-
-    override suspend fun signInWithApple(
-        idToken: String,
-        rawNonce: String
-    ): AuthResult<User> {
-        return try {
-            val firebaseUser = authManager.signInWithApple(idToken, rawNonce)
-            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
-
-            val user = if (existingUser != null) {
-                updateLastActive(firebaseUser.uid)
-                existingUser
-            } else {
-                // Create new user from Apple sign-in
-                val newUser = User(
-                    userId = firebaseUser.uid,
-                    name = firebaseUser.displayName ?: "",
-                    email = firebaseUser.email ?: "",
-                    phone = firebaseUser.phoneNumber ?: "",
-                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
-                    isVendor = false,
-                    address = "",
-                    city = "",
-                    state = "",
-                    country = "Nigeria",
-                    createdAt = Timestamp.now(),
-                    lastActive = Timestamp.now()
-                )
-
-                firestore.collection(USERS_COLLECTION)
-                    .document(firebaseUser.uid)
-                    .set(newUser)
-                    .await()
-
-                newUser
-            }
-
-            AuthResult.Success(user)
-
-        } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "Apple sign-in failed",
-                exception = e
-            )
-        }
-    }
-
-    override suspend fun startAppleSignIn(activity: Activity): AuthResult<User> {
-        return try {
-            val firebaseUser = authManager.startAppleSignIn(activity)
-            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
-
-            val user = if (existingUser != null) {
-                updateLastActive(firebaseUser.uid)
-                existingUser
-            } else {
-                val newUser = User(
-                    userId = firebaseUser.uid,
-                    name = firebaseUser.displayName ?: "",
-                    email = firebaseUser.email ?: "",
-                    phone = firebaseUser.phoneNumber ?: "",
-                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
-                    isVendor = false,
-                    address = "",
-                    city = "",
-                    state = "",
-                    country = "Nigeria",
-                    createdAt = Timestamp.now(),
-                    lastActive = Timestamp.now()
-                )
-
-                firestore.collection(USERS_COLLECTION)
-                    .document(firebaseUser.uid)
-                    .set(newUser)
-                    .await()
-
-                newUser
-            }
-
-            AuthResult.Success(user)
-
-        } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "Apple sign-in failed",
-                exception = e
-            )
-        }
-    }
-
-    // ==================== END APPLE SIGN-IN ====================
+//    // ==================== APPLE SIGN-IN (NEW) ====================
+//
+//    override suspend fun signInWithApple(
+//        idToken: String,
+//        rawNonce: String
+//    ): AuthResult<User> {
+//        return try {
+//            val firebaseUser = authManager.signInWithApple(idToken, rawNonce)
+//            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
+//
+//            val user = if (existingUser != null) {
+//                updateLastActive(firebaseUser.uid)
+//                existingUser
+//            } else {
+//                // Create new user from Apple sign-in
+//                val newUser = User(
+//                    userId = firebaseUser.uid,
+//                    name = firebaseUser.displayName ?: "",
+//                    email = firebaseUser.email ?: "",
+//                    phone = firebaseUser.phoneNumber ?: "",
+//                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
+//                    isVendor = false,
+//                    address = "",
+//                    city = "",
+//                    state = "",
+//                    country = "Nigeria",
+//                    createdAt = Timestamp.now(),
+//                    lastActive = Timestamp.now()
+//                )
+//
+//                firestore.collection(USERS_COLLECTION)
+//                    .document(firebaseUser.uid)
+//                    .set(newUser)
+//                    .await()
+//
+//                newUser
+//            }
+//
+//            AuthResult.Success(user)
+//
+//        } catch (e: Exception) {
+//            AuthResult.Error(
+//                message = e.message ?: "Apple sign-in failed",
+//                exception = e
+//            )
+//        }
+//    }
+//
+//    override suspend fun startAppleSignIn(activity: Activity): AuthResult<User> {
+//        return try {
+//            val firebaseUser = authManager.startAppleSignIn(activity)
+//            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
+//
+//            val user = if (existingUser != null) {
+//                updateLastActive(firebaseUser.uid)
+//                existingUser
+//            } else {
+//                val newUser = User(
+//                    userId = firebaseUser.uid,
+//                    name = firebaseUser.displayName ?: "",
+//                    email = firebaseUser.email ?: "",
+//                    phone = firebaseUser.phoneNumber ?: "",
+//                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
+//                    isVendor = false,
+//                    address = "",
+//                    city = "",
+//                    state = "",
+//                    country = "Nigeria",
+//                    createdAt = Timestamp.now(),
+//                    lastActive = Timestamp.now()
+//                )
+//
+//                firestore.collection(USERS_COLLECTION)
+//                    .document(firebaseUser.uid)
+//                    .set(newUser)
+//                    .await()
+//
+//                newUser
+//            }
+//
+//            AuthResult.Success(user)
+//
+//        } catch (e: Exception) {
+//            AuthResult.Error(
+//                message = e.message ?: "Apple sign-in failed",
+//                exception = e
+//            )
+//        }
+//    }
+//
+//    // ==================== END APPLE SIGN-IN ====================
 
     override suspend fun signOut(): AuthResult<Unit> {
         return try {

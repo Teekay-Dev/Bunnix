@@ -23,6 +23,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
         <activity android:name=".frontend.LoginActivity" />
         <activity android:name=".frontend.SignupActivity" />
         <activity android:name=".frontend.HomeActivity" />

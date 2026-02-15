@@ -29,9 +29,7 @@ object ProfileStorage {
             bucket.upload(
                 path = path,
                 data = fileBytes,
-                options = {
-                    upsert = true
-                }
+                upsert = true
             )
 
             val publicUrl = bucket.publicUrl(path)
@@ -60,9 +58,7 @@ object ProfileStorage {
             bucket.upload(
                 path = path,
                 data = fileBytes,
-                options = {
-                    upsert = true
-                }
+                upsert = true
             )
 
             val publicUrl = bucket.publicUrl(path)
