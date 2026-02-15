@@ -1,412 +1,409 @@
 package com.example.bunnix.data.repository
 
-import android.app.Activity
-import com.example.bunnix.data.auth.AuthManager
+import android.net.Uri
 import com.example.bunnix.data.auth.AuthResult
-import com.example.bunnix.database.models.User
-import com.example.bunnix.database.models.VendorProfile
-import com.example.bunnix.domain.repository.AuthRepository
+import com.example.bunnix.database.models.Chat
+import com.example.bunnix.database.models.Message
+import com.example.bunnix.database.models.ParticipantInfo
+import com.example.bunnix.domain.repository.ChatRepository
 import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.storage.storage
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * CORRECTED Implementation matching BUNNIX_COMPLETE_DATABASE_GUIDE.txt
- * Collection names and fields strictly adhere to the guide
- */
 @Singleton
-class AuthRepositoryImpl @Inject constructor(
-    private val authManager: AuthManager,
-    private val firestore: FirebaseFirestore
-) : AuthRepository {
+class ChatRepositoryImpl @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val supabase: SupabaseClient
+) : ChatRepository {
 
     companion object {
-        // EXACT collection names from BUNNIX_COMPLETE_DATABASE_GUIDE.txt
-        private const val USERS_COLLECTION = "users"
-        private const val VENDOR_PROFILES_COLLECTION = "vendorProfiles"  // CORRECTED from "vendors"
-        private const val MIN_PASSWORD_LENGTH = 6
-        private const val MIN_NAME_LENGTH = 2
+        private const val CHATS_COLLECTION = "chats"
+        private const val MESSAGES_SUBCOLLECTION = "messages"
+        private const val CHAT_IMAGES_BUCKET = "chat-images"
     }
 
-    override suspend fun signUpWithEmail(
-        email: String,
-        password: String,
-        displayName: String,
-        phone: String,
-        isBusinessAccount: Boolean,
-        businessName: String,
-        businessAddress: String
-    ): AuthResult<User> {
+    override suspend fun getOrCreateChat(
+        userId1: String,
+        userId2: String,
+        user1Name: String,
+        user2Name: String,
+        user1IsVendor: Boolean,
+        user2IsVendor: Boolean,
+        relatedOrderId: String,
+        relatedBookingId: String
+    ): AuthResult<Chat> {
         return try {
-            // 1. Validate inputs
-            validateEmail(email)
-            validatePassword(password)
-            validateDisplayName(displayName)
+            // Check if chat already exists
+            val participants = listOf(userId1, userId2).sorted()
 
-            // 2. Create Firebase Auth account
-            val firebaseUser = authManager.createUserWithEmail(email, password)
-
-            // 3. Update display name in Firebase Auth
-            authManager.updateDisplayName(displayName)
-
-            // 4. Create Firestore user document - EXACT fields from guide
-            val user = User(
-                userId = firebaseUser.uid,
-                name = displayName,
-                email = email,
-                phone = phone,
-                profilePicUrl = "",
-                isVendor = isBusinessAccount,
-                address = if (isBusinessAccount) businessAddress else "",
-                city = "",
-                state = "",
-                country = "Nigeria",  // Default from guide
-                createdAt = Timestamp.now(),
-                lastActive = Timestamp.now()
-            )
-
-            // 5. Save user to Firestore
-            firestore.collection(USERS_COLLECTION)
-                .document(firebaseUser.uid)
-                .set(user)
+            val existingChat = firestore.collection(CHATS_COLLECTION)
+                .whereArrayContains("participants", userId1)
+                .get()
                 .await()
+                .documents
+                .mapNotNull { it.toObject(Chat::class.java) }
+                .firstOrNull { it.participants.contains(userId2) }
 
-            // 6. If business account, create VendorProfile - EXACT fields from guide
-            if (isBusinessAccount) {
-                val vendorProfile = VendorProfile(
-                    vendorId = firebaseUser.uid,
-                    userId = firebaseUser.uid,
-                    businessName = businessName,
-                    description = "",
-                    coverPhotoUrl = "",
-                    category = "",
-                    subCategories = emptyList(),
-                    bankName = "",
-                    accountNumber = "",
-                    accountName = "",
-                    alternativePayment = "",
-                    rating = 0.0,
-                    totalReviews = 0,
-                    totalSales = 0,
-                    totalRevenue = 0.0,
-                    isAvailable = true,
-                    workingHours = emptyMap(),
-                    location = null,
-                    address = businessAddress,
-                    phone = phone,
-                    email = email,
-                    createdAt = Timestamp.now(),
-                    updatedAt = Timestamp.now()
+            if (existingChat != null) {
+                return AuthResult.Success(existingChat)
+            }
+
+            // Create new chat
+            val chatRef = firestore.collection(CHATS_COLLECTION).document()
+            val chatId = chatRef.id
+
+            val participantDetails = mapOf(
+                userId1 to ParticipantInfo(
+                    name = user1Name,
+                    profilePic = "",
+                    isVendor = user1IsVendor
+                ),
+                userId2 to ParticipantInfo(
+                    name = user2Name,
+                    profilePic = "",
+                    isVendor = user2IsVendor
                 )
+            )
 
-                // Save to vendorProfiles collection (NOT "vendors")
-                firestore.collection(VENDOR_PROFILES_COLLECTION)
-                    .document(firebaseUser.uid)
-                    .set(vendorProfile)
-                    .await()
-            }
+            val chat = Chat(
+                chatId = chatId,
+                participants = participants,
+                participantDetails = participantDetails,
+                lastMessage = "",
+                lastMessageTime = Timestamp.now(),
+                lastMessageSender = "",
+                unreadCount = mapOf(userId1 to 0, userId2 to 0),
+                relatedOrderId = relatedOrderId,
+                relatedBookingId = relatedBookingId,
+                createdAt = Timestamp.now()
+            )
 
-            AuthResult.Success(user)
+            chatRef.set(chat).await()
+
+            AuthResult.Success(chat)
 
         } catch (e: Exception) {
             AuthResult.Error(
-                message = e.message ?: "Sign up failed",
+                message = e.message ?: "Failed to get/create chat",
                 exception = e
             )
         }
     }
 
-    override suspend fun signInWithEmail(
-        email: String,
-        password: String
-    ): AuthResult<User> {
+    override suspend fun sendMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        text: String
+    ): AuthResult<Message> {
         return try {
-            validateEmail(email)
-            validatePassword(password)
+            val messageRef = firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .collection(MESSAGES_SUBCOLLECTION)
+                .document()
 
-            val firebaseUser = authManager.signInWithEmail(email, password)
-            val user = getUserFromFirestore(firebaseUser.uid)
+            val message = Message(
+                messageId = messageRef.id,
+                senderId = senderId,
+                senderName = senderName,
+                text = text,
+                imageUrl = "",
+                messageType = "text",
+                orderPreview = emptyMap(),
+                isRead = false,
+                timestamp = Timestamp.now()
+            )
 
-            updateLastActive(firebaseUser.uid)
+            messageRef.set(message).await()
 
-            AuthResult.Success(user)
+            // Update chat's last message
+            updateChatLastMessage(chatId, senderId, text)
+
+            AuthResult.Success(message)
 
         } catch (e: Exception) {
             AuthResult.Error(
-                message = e.message ?: "Sign in failed",
+                message = e.message ?: "Failed to send message",
                 exception = e
             )
         }
     }
 
-    override suspend fun signInWithPhone(
-        phoneNumber: String,
-        activity: Activity
-    ): AuthResult<String> {
+    override suspend fun sendImageMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        imageUri: String
+    ): AuthResult<Message> {
         return try {
-            validatePhoneNumber(phoneNumber)
-            val verificationId = authManager.sendPhoneVerificationCode(phoneNumber, activity)
-            AuthResult.Success(verificationId)
+            // Upload image first
+            val file = File(Uri.parse(imageUri).path ?: throw Exception("Invalid URI"))
+            val fileName = "${chatId}_${System.currentTimeMillis()}.jpg"
+
+            val bucket = supabase.storage.from(CHAT_IMAGES_BUCKET)
+            bucket.upload(fileName, file.readBytes())
+            val publicUrl = bucket.publicUrl(fileName)
+
+            // Create message
+            val messageRef = firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .collection(MESSAGES_SUBCOLLECTION)
+                .document()
+
+            val message = Message(
+                messageId = messageRef.id,
+                senderId = senderId,
+                senderName = senderName,
+                text = "",
+                imageUrl = publicUrl,
+                messageType = "image",
+                orderPreview = emptyMap(),
+                isRead = false,
+                timestamp = Timestamp.now()
+            )
+
+            messageRef.set(message).await()
+
+            // Update chat's last message
+            updateChatLastMessage(chatId, senderId, "📷 Image")
+
+            AuthResult.Success(message)
+
         } catch (e: Exception) {
             AuthResult.Error(
-                message = e.message ?: "Phone verification failed",
+                message = e.message ?: "Failed to send image",
                 exception = e
             )
         }
     }
 
-    override suspend fun verifyPhoneOtp(
-        verificationId: String,
-        code: String
-    ): AuthResult<User> {
+    override suspend fun sendOrderLinkMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        orderPreview: Map<String, Any>
+    ): AuthResult<Message> {
         return try {
-            validateOtpCode(code)
-            val firebaseUser = authManager.verifyPhoneCode(verificationId, code)
-            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
+            val messageRef = firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .collection(MESSAGES_SUBCOLLECTION)
+                .document()
 
-            val user = if (existingUser != null) {
-                updateLastActive(firebaseUser.uid)
-                existingUser
-            } else {
-                val newUser = User(
-                    userId = firebaseUser.uid,
-                    name = firebaseUser.displayName ?: "",
-                    email = firebaseUser.email ?: "",
-                    phone = firebaseUser.phoneNumber ?: "",
-                    profilePicUrl = "",
-                    isVendor = false,
-                    address = "",
-                    city = "",
-                    state = "",
-                    country = "Nigeria",
-                    createdAt = Timestamp.now(),
-                    lastActive = Timestamp.now()
-                )
+            val message = Message(
+                messageId = messageRef.id,
+                senderId = senderId,
+                senderName = senderName,
+                text = "",
+                imageUrl = "",
+                messageType = "order_link",
+                orderPreview = orderPreview,
+                isRead = false,
+                timestamp = Timestamp.now()
+            )
 
-                firestore.collection(USERS_COLLECTION)
-                    .document(firebaseUser.uid)
-                    .set(newUser)
-                    .await()
+            messageRef.set(message).await()
 
-                newUser
-            }
+            // Update chat's last message
+            updateChatLastMessage(chatId, senderId, "📦 Order Link")
 
-            AuthResult.Success(user)
+            AuthResult.Success(message)
 
         } catch (e: Exception) {
             AuthResult.Error(
-                message = e.message ?: "OTP verification failed",
+                message = e.message ?: "Failed to send order link",
                 exception = e
             )
         }
     }
 
-    override suspend fun signInWithGoogle(idToken: String): AuthResult<User> {
+    override suspend fun markMessagesAsRead(
+        chatId: String,
+        userId: String
+    ): AuthResult<Unit> {
         return try {
-            val firebaseUser = authManager.signInWithGoogle(idToken)
-            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
-
-            val user = if (existingUser != null) {
-                updateLastActive(firebaseUser.uid)
-                existingUser
-            } else {
-                val newUser = User(
-                    userId = firebaseUser.uid,
-                    name = firebaseUser.displayName ?: "",
-                    email = firebaseUser.email ?: "",
-                    phone = firebaseUser.phoneNumber ?: "",
-                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
-                    isVendor = false,
-                    address = "",
-                    city = "",
-                    state = "",
-                    country = "Nigeria",
-                    createdAt = Timestamp.now(),
-                    lastActive = Timestamp.now()
-                )
-
-                firestore.collection(USERS_COLLECTION)
-                    .document(firebaseUser.uid)
-                    .set(newUser)
-                    .await()
-
-                newUser
-            }
-
-            AuthResult.Success(user)
-
-        } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "Google sign-in failed",
-                exception = e
-            )
-        }
-    }
-
-    override suspend fun signOut(): AuthResult<Unit> {
-        return try {
-            authManager.signOut()
-            AuthResult.Success(Unit)
-        } catch (e: Exception) {
-            AuthResult.Error("Sign out failed", e)
-        }
-    }
-
-    override suspend fun getCurrentUser(): AuthResult<User?> {
-        return try {
-            val firebaseUser = authManager.currentUser
-            if (firebaseUser == null) {
-                AuthResult.Success(null)
-            } else {
-                val user = getUserFromFirestore(firebaseUser.uid)
-                AuthResult.Success(user)
-            }
-        } catch (e: Exception) {
-            AuthResult.Error("Failed to get current user", e)
-        }
-    }
-
-    override fun observeAuthState(): Flow<FirebaseUser?> {
-        return authManager.observeAuthState()
-    }
-
-    override suspend fun resetPassword(email: String): AuthResult<Unit> {
-        return try {
-            validateEmail(email)
-            authManager.sendPasswordResetEmail(email)
-            AuthResult.Success(Unit)
-        } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Password reset failed", e)
-        }
-    }
-
-    override suspend fun updateProfile(
-        displayName: String?,
-        phone: String?
-    ): AuthResult<User> {
-        return try {
-            val currentUid = authManager.currentUser?.uid
-                ?: throw Exception("No user signed in")
-
-            displayName?.let {
-                validateDisplayName(it)
-                authManager.updateDisplayName(it)
-            }
-
-            val updates = mutableMapOf<String, Any>()
-            displayName?.let { updates["name"] = it }
-            phone?.let {
-                validatePhoneNumber(it)
-                updates["phone"] = it
-            }
-
-            if (updates.isNotEmpty()) {
-                firestore.collection(USERS_COLLECTION)
-                    .document(currentUid)
-                    .update(updates)
-                    .await()
-            }
-
-            val user = getUserFromFirestore(currentUid)
-            AuthResult.Success(user)
-
-        } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Profile update failed", e)
-        }
-    }
-
-    override suspend fun deleteAccount(): AuthResult<Unit> {
-        return try {
-            val currentUid = authManager.currentUser?.uid
-                ?: throw Exception("No user signed in")
-
-            firestore.collection(USERS_COLLECTION)
-                .document(currentUid)
-                .delete()
-                .await()
-
-            authManager.deleteUser()
-
-            AuthResult.Success(Unit)
-
-        } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Account deletion failed", e)
-        }
-    }
-
-    // ==================== HELPER FUNCTIONS ====================
-
-    private suspend fun getUserFromFirestore(uid: String): User {
-        val snapshot = firestore.collection(USERS_COLLECTION)
-            .document(uid)
-            .get()
-            .await()
-
-        return snapshot.toObject(User::class.java)
-            ?: throw Exception("User document not found")
-    }
-
-    private suspend fun getUserFromFirestoreOrNull(uid: String): User? {
-        return try {
-            val snapshot = firestore.collection(USERS_COLLECTION)
-                .document(uid)
+            // Get unread messages
+            val unreadMessages = firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .collection(MESSAGES_SUBCOLLECTION)
+                .whereEqualTo("isRead", false)
+                .whereNotEqualTo("senderId", userId)
                 .get()
                 .await()
 
-            snapshot.toObject(User::class.java)
+            // Batch update
+            val batch = firestore.batch()
+            unreadMessages.documents.forEach { doc ->
+                batch.update(doc.reference, "isRead", true)
+            }
+            batch.commit().await()
+
+            // Reset unread count
+            firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .update("unreadCount.$userId", 0)
+                .await()
+
+            AuthResult.Success(Unit)
+
         } catch (e: Exception) {
-            null
+            AuthResult.Error(
+                message = e.message ?: "Failed to mark as read",
+                exception = e
+            )
         }
     }
 
-    private suspend fun updateLastActive(uid: String) {
+    override suspend fun getUserChats(userId: String): AuthResult<List<Chat>> {
+        return try {
+            val snapshot = firestore.collection(CHATS_COLLECTION)
+                .whereArrayContains("participants", userId)
+                .orderBy("lastMessageTime", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            val chats = snapshot.toObjects(Chat::class.java)
+            AuthResult.Success(chats)
+
+        } catch (e: Exception) {
+            AuthResult.Error(
+                message = e.message ?: "Failed to get chats",
+                exception = e
+            )
+        }
+    }
+
+    override suspend fun getChatMessages(
+        chatId: String,
+        limit: Int
+    ): AuthResult<List<Message>> {
+        return try {
+            val snapshot = firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .collection(MESSAGES_SUBCOLLECTION)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(limit.toLong())
+                .get()
+                .await()
+
+            val messages = snapshot.toObjects(Message::class.java).reversed()
+            AuthResult.Success(messages)
+
+        } catch (e: Exception) {
+            AuthResult.Error(
+                message = e.message ?: "Failed to get messages",
+                exception = e
+            )
+        }
+    }
+
+    override fun observeUserChats(userId: String): Flow<List<Chat>> = callbackFlow {
+        val listener = firestore.collection(CHATS_COLLECTION)
+            .whereArrayContains("participants", userId)
+            .orderBy("lastMessageTime", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val chats = snapshot?.toObjects(Chat::class.java) ?: emptyList()
+                trySend(chats)
+            }
+
+        awaitClose { listener.remove() }
+    }
+
+    override fun observeChatMessages(chatId: String): Flow<List<Message>> = callbackFlow {
+        val listener = firestore.collection(CHATS_COLLECTION)
+            .document(chatId)
+            .collection(MESSAGES_SUBCOLLECTION)
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val messages = snapshot?.toObjects(Message::class.java) ?: emptyList()
+                trySend(messages)
+            }
+
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun deleteMessage(
+        chatId: String,
+        messageId: String,
+        userId: String
+    ): AuthResult<Unit> {
+        return try {
+            val messageSnapshot = firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .collection(MESSAGES_SUBCOLLECTION)
+                .document(messageId)
+                .get()
+                .await()
+
+            val message = messageSnapshot.toObject(Message::class.java)
+                ?: throw Exception("Message not found")
+
+            if (message.senderId != userId) {
+                throw Exception("Unauthorized: Not your message")
+            }
+
+            messageSnapshot.reference.delete().await()
+
+            AuthResult.Success(Unit)
+
+        } catch (e: Exception) {
+            AuthResult.Error(
+                message = e.message ?: "Failed to delete message",
+                exception = e
+            )
+        }
+    }
+
+    // Helper function
+    private suspend fun updateChatLastMessage(
+        chatId: String,
+        senderId: String,
+        messageText: String
+    ) {
         try {
-            firestore.collection(USERS_COLLECTION)
-                .document(uid)
-                .update("lastActive", Timestamp.now())
+            val chatSnapshot = firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .get()
+                .await()
+
+            val chat = chatSnapshot.toObject(Chat::class.java) ?: return
+
+            val unreadCount = chat.unreadCount.toMutableMap()
+            chat.participants.forEach { participantId ->
+                if (participantId != senderId) {
+                    unreadCount[participantId] = (unreadCount[participantId] ?: 0) + 1
+                }
+            }
+
+            firestore.collection(CHATS_COLLECTION)
+                .document(chatId)
+                .update(
+                    mapOf(
+                        "lastMessage" to messageText,
+                        "lastMessageTime" to Timestamp.now(),
+                        "lastMessageSender" to senderId,
+                        "unreadCount" to unreadCount
+                    )
+                )
                 .await()
         } catch (e: Exception) {
-            // Non-critical
-        }
-    }
-
-    // ==================== VALIDATION FUNCTIONS ====================
-
-    private fun validateEmail(email: String) {
-        if (email.isBlank()) throw Exception("Email cannot be empty")
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            throw Exception("Invalid email format")
-        }
-    }
-
-    private fun validatePassword(password: String) {
-        if (password.length < MIN_PASSWORD_LENGTH) {
-            throw Exception("Password must be at least $MIN_PASSWORD_LENGTH characters")
-        }
-    }
-
-    private fun validateDisplayName(name: String) {
-        if (name.isBlank()) throw Exception("Name cannot be empty")
-        if (name.length < MIN_NAME_LENGTH) {
-            throw Exception("Name must be at least $MIN_NAME_LENGTH characters")
-        }
-    }
-
-    private fun validatePhoneNumber(phone: String) {
-        if (!phone.startsWith("+")) {
-            throw Exception("Phone number must start with country code (e.g., +234)")
-        }
-        if (phone.length < 10) throw Exception("Invalid phone number")
-    }
-
-    private fun validateOtpCode(code: String) {
-        if (code.length != 6) throw Exception("OTP code must be 6 digits")
-        if (!code.all { it.isDigit() }) {
-            throw Exception("OTP code must contain only digits")
+            // Non-critical, log but don't throw
         }
     }
 }

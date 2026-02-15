@@ -1,6 +1,5 @@
-
 [versions]
-agp = "8.2.2"
+agp = "8.13.2"
 kotlin = "1.9.24"
 coreKtx = "1.12.0"
 junit = "4.13.2"
@@ -12,13 +11,14 @@ composeBom = "2023.02.01"
 activityCompose = "1.8.2"
 lifecycleRuntimeKtx = "2.6.2"
 runtimeLivedata = "1.10.1"
-firebaseFirestoreKtx = "26.1.0"
 firebaseDatabase = "22.0.1"
-firebaseFirestore = "26.1.0"
 ui = "1.10.2"
 uiGraphics = "1.10.2"
-firebaseAuthKtx = "24.0.1"
 
+# ✅ FIXED - Remove these outdated versions, use BoM instead
+# firebaseFirestoreKtx = "26.1.0"  ❌ REMOVED
+# firebaseFirestore = "26.1.0"     ❌ REMOVED
+# firebaseAuthKtx = "24.0.1"       ❌ REMOVED
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -38,15 +38,16 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-room-common-jvm = { group = "androidx.room", name = "room-common-jvm", version.ref = "roomCommonJvm" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
 androidx-compose-runtime-livedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "runtimeLivedata" }
-firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx", version.ref = "firebaseFirestoreKtx" }
 firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebaseDatabase" }
-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "uiGraphics" }
-firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
+
+# ✅ FIXED - Remove these, Firebase BoM handles versions
+# firebase-firestore-ktx = { ... }  ❌ REMOVED
+# firebase-firestore = { ... }      ❌ REMOVED
+# firebase-auth-ktx = { ... }       ❌ REMOVED
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-

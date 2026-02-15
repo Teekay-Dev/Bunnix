@@ -30,9 +30,7 @@ object ProductStorage {
             bucket.upload(
                 path = path,
                 data = fileBytes,
-                options = {
-                    upsert = true
-                }
+                upsert = true
             )
 
             val publicUrl = bucket.publicUrl(path)

@@ -2,6 +2,7 @@ package com.example.bunnix.di
 
 import com.example.bunnix.data.repository.ProfileRepositoryImpl
 import com.example.bunnix.domain.repository.ProfileRepository
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

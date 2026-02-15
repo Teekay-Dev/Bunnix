@@ -6,17 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,44 +19,34 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.bunnix.backend.Routes
 import com.example.bunnix.data.CartData
-import com.example.bunnix.data.ProductData
-import com.example.bunnix.frontend.BookingScreen
-import com.example.bunnix.frontend.HomeScreen
-import com.example.bunnix.frontend.OnboardingActivity
-//import com.example.bunnix.frontend.OrderPlacedScreen
-import com.example.bunnix.frontend.PaymentMethodScreen
-import com.example.bunnix.frontend.ServiceListScreen
-import com.example.bunnix.frontend.VendorDetailScreen
 import com.example.bunnix.frontend.*
 import com.example.bunnix.model.vendorList
+import com.example.bunnix.presentation.viewmodel.ProductViewModel
 import com.example.bunnix.ui.theme.BunnixTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.rememberCoroutineScope
 
-
+// ✅ BACKEND INTEGRATED
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             BunnixTheme {
-//                OnboardingActivity()
                 BunnixNavigation()
             }
         }
     }
 }
 
-
-
 @Composable
 fun BunnixNavigation() {
 
     val navController = rememberNavController()
+
     // ✅ Get current route
-    val currentRoute =
-        navController.currentBackStackEntryAsState().value?.destination?.route
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
     // ✅ Screens where BottomBar should appear
     val bottomBarScreens = listOf(
@@ -74,13 +58,11 @@ fun BunnixNavigation() {
     )
 
     Scaffold(
-
         bottomBar = {
             if (currentRoute in bottomBarScreens) {
                 BottomNavBar(navController)
             }
         }
-
     ) { padding ->
 
         NavHost(
@@ -91,7 +73,6 @@ fun BunnixNavigation() {
 
             // ✅ Splash Screen
             composable(Routes.Splash) {
-
                 val context = LocalContext.current
                 val prefs = UserPreferences(context)
 
@@ -105,7 +86,7 @@ fun BunnixNavigation() {
                 )
             }
 
-// ✅ Signup Route
+            // ✅ Signup Route
             composable(Routes.Signup) {
                 SignupScreen(
                     userPrefs = UserPreferences(LocalContext.current),
@@ -115,7 +96,7 @@ fun BunnixNavigation() {
                 )
             }
 
-// ✅ Login Route
+            // ✅ Login Route
             composable(Routes.Login) {
                 LoginScreen(
                     onSignupClick = {
@@ -128,8 +109,6 @@ fun BunnixNavigation() {
                     }
                 )
             }
-
-
 
             // ✅ 1. HOME SCREEN
             composable(Routes.Home) {
@@ -149,8 +128,6 @@ fun BunnixNavigation() {
                 )
             }
 
-
-
             // ✅ 2. VENDOR DETAIL SCREEN
             composable(
                 route = "vendor_detail/{vendorId}",
@@ -158,26 +135,17 @@ fun BunnixNavigation() {
                     navArgument("vendorId") { type = NavType.IntType }
                 )
             ) { backStackEntry ->
-
-                val vendorId =
-                    backStackEntry.arguments?.getInt("vendorId") ?: 0
-
-                // Find vendor from list
-                val selectedVendor =
-                    vendorList.find { it.id == vendorId }
-                        ?: vendorList.first()
+                val vendorId = backStackEntry.arguments?.getInt("vendorId") ?: 0
+                val selectedVendor = vendorList.find { it.id == vendorId } ?: vendorList.first()
 
                 VendorDetailScreen(
                     vendor = selectedVendor,
-
                     onBack = {
                         navController.popBackStack()
                     },
-
                     onBookService = { service, price ->
                         navController.navigate("booking/$service/$price")
                     },
-
                     onViewProducts = {
                         navController.navigate(Routes.ProductList)
                     }
@@ -190,29 +158,23 @@ fun BunnixNavigation() {
                     navArgument("query") { type = NavType.StringType }
                 )
             ) { entry ->
-
                 val query = entry.arguments?.getString("query") ?: ""
 
                 SearchScreen(
                     query = query,
-
                     onProductClick = { productId ->
                         navController.navigate("product_detail/$productId")
                     },
-
                     onServiceClick = { serviceName, price ->
                         navController.navigate("booking/$serviceName/$price")
                     }
                 )
             }
 
-
-
             // ✅ 3. SERVICE LIST
             composable(Routes.ServiceList) {
                 ServiceListScreen(
                     onBack = { navController.popBackStack() },
-
                     onServiceClick = { service, price ->
                         navController.navigate("booking/$service/$price")
                     }
@@ -227,23 +189,17 @@ fun BunnixNavigation() {
                     navArgument("price") { type = NavType.StringType }
                 )
             ) { entry ->
-
-                val service =
-                    entry.arguments?.getString("serviceName") ?: ""
-
-                val price =
-                    entry.arguments?.getString("price") ?: ""
+                val service = entry.arguments?.getString("serviceName") ?: ""
+                val price = entry.arguments?.getString("price") ?: ""
 
                 BookingScreen(
                     serviceName = service,
                     price = price,
-
                     onContinue = {
                         navController.navigate("payment/$price")
                     }
                 )
             }
-
 
             // ✅ Checkout Screen
             composable(
@@ -254,7 +210,6 @@ fun BunnixNavigation() {
                     navArgument("isProduct") { type = NavType.BoolType }
                 )
             ) { entry ->
-
                 val title = entry.arguments?.getString("title") ?: ""
                 val price = entry.arguments?.getInt("price") ?: 0
                 val isProduct = entry.arguments?.getBoolean("isProduct") ?: false
@@ -264,14 +219,11 @@ fun BunnixNavigation() {
                     price = price,
                     isProduct = isProduct,
                     onBack = { navController.popBackStack() },
-
                     onContinueToPayment = { total ->
                         navController.navigate("payment/$total")
                     }
                 )
             }
-
-
 
             composable(
                 route = Routes.Payment,
@@ -279,54 +231,63 @@ fun BunnixNavigation() {
                     navArgument("total") { type = NavType.StringType }
                 )
             ) { entry ->
-
                 val total = entry.arguments?.getString("total") ?: ""
 
                 PaymentMethodScreen(
                     total = total,
                     onBack = { navController.popBackStack() },
-
                     onPaySuccess = {
                         navController.navigate(Routes.OrderSuccess)
                     }
                 )
             }
 
-
-// ✅ Product List
+            // ✅ Product List - BACKEND INTEGRATED
             composable(Routes.ProductList) {
+                val productViewModel: ProductViewModel = hiltViewModel()
+
+                // ✅ Observe products from Firestore
+                val products by productViewModel.products.collectAsState()
+
                 ProductListScreen(
+                    products = products,  // 'products' = is red
                     onBack = { navController.popBackStack() },
-
                     onProductClick = { product ->
-                        navController.navigate("product_detail/${product.id}")
+                        navController.navigate("product_detail/${product.productId}") //productId is red
                     }
                 )
             }
 
-// ✅ Product Detail
+            // ✅ Product Detail - BACKEND INTEGRATED (FIXED!)
             composable("product_detail/{productId}") { entry ->
+                val productId = entry.arguments?.getString("productId") ?: ""
+                val productViewModel: ProductViewModel = hiltViewModel()
 
-                val id = entry.arguments?.getString("productId")?.toInt() ?: 0
-                val product =
-                    ProductData.products.find { it.id == id }
-                        ?: ProductData.products.first()
+                // ✅ Observe all products
+                val allProducts by productViewModel.products.collectAsState()
 
-                ProductDetailsScreen(
-                    product = product,
-                    allProducts = ProductData.products,
+                // ✅ Find the specific product (FIXED - No more red error!)
+                val product = allProducts.find { it.productId == productId }
 
-                    onAddToCart = {
-                        CartData.addToCart(it)
-                        navController.navigate("cart")
-                    },
-
-                    onBuyNow = {
-                        navController.navigate("checkout/${it.name}/${it.price}/true")
+                if (product != null) {
+                    ProductDetailsScreen(
+                        product = product, // = 'product' is red
+                        allProducts = allProducts, //allProducts is red
+                        onAddToCart = {
+                            CartData.addToCart(it) //'it' is red
+                            navController.navigate("cart")
+                        },
+                        onBuyNow = {
+                            navController.navigate("checkout/${it.name}/${it.price.toInt()}/true")
+                        }
+                    )
+                } else {
+                    // ✅ Product not found - show error or navigate back
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
                     }
-                )
+                }
             }
-
 
             composable(Routes.Chat) {
                 ChatScreen()
@@ -337,31 +298,22 @@ fun BunnixNavigation() {
             }
 
             composable(Routes.Profile) {
-
                 val context = LocalContext.current
                 val prefs = UserPreferences(context)
 
                 // ✅ Collect Flow properly
-                val currentMode by prefs.getMode()
-                    .collectAsState(initial = "CUSTOMER")
-
-                val hasVendor by prefs.hasVendorAccount()
-                    .collectAsState(initial = false)
-
+                val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
+                val hasVendor by prefs.hasVendorAccount().collectAsState(initial = false)
                 val scope = rememberCoroutineScope()
 
                 ProfileScreen(
                     currentMode = currentMode,
                     vendorEnabled = hasVendor,
-
-                    // ✅ Switch Mode Button
                     onSwitchMode = {
                         scope.launch {
                             prefs.switchMode()
                         }
                     },
-
-                    // ✅ Logout Button
                     onLogout = {
                         scope.launch {
                             prefs.logout()
@@ -373,24 +325,17 @@ fun BunnixNavigation() {
                 )
             }
 
-
-
-
-
-
-// ✅ Cart Screen
+            // ✅ Cart Screen
             composable("cart") {
                 CartScreen(
                     onBack = { navController.popBackStack() },
-
                     onCheckout = {
                         navController.navigate("checkout/Cart Items/5000/true")
                     }
                 )
             }
 
-
-// ✅ Success Screen
+            // ✅ Success Screen
             composable(Routes.OrderSuccess) {
                 OrderPlacedScreen(
                     onTrackOrder = {},
@@ -399,19 +344,9 @@ fun BunnixNavigation() {
                     }
                 )
             }
-
-
         }
-
-
-
     }
 }
-
-
-
-
-
 
 @Preview(showBackground = true)
 @Composable

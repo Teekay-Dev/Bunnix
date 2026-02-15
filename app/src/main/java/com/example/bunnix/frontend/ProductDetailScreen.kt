@@ -15,28 +15,27 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bunnix.R
-import com.example.bunnix.model.Product
+import com.example.bunnix.database.models.Product  // ✅ BACKEND MODEL
 import com.example.bunnix.ui.theme.BunnixTheme
+import coil.compose.AsyncImage  // ✅ For backend images
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailsScreen(
-    product: Product,
-    allProducts: List<Product>,
-    onAddToCart: (Product) -> Unit,
-    onBuyNow: (Product) -> Unit
+    product: Product,  // ✅ BACKEND: Product type
+    allProducts: List<Product>,  // ✅ BACKEND: Product type
+    onAddToCart: (Product) -> Unit,  // ✅ BACKEND: Product type
+    onBuyNow: (Product) -> Unit  // ✅ BACKEND: Product type
 ) {
 
     var quantity by remember { mutableStateOf(1) }
 
-    // ✅ Related Products
+    // ✅ Related Products - BACKEND: Use productId
     val relatedProducts = allProducts.filter {
-        it.category == product.category && it.id != product.id
+        it.category == product.category && it.productId != product.productId
     }
 
     Scaffold(
@@ -49,7 +48,7 @@ fun ProductDetailsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
 
-            // ✅ PRODUCT IMAGE
+            // ✅ PRODUCT IMAGE - UI UNCHANGED
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -57,18 +56,30 @@ fun ProductDetailsScreen(
                 shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp),
                 colors = CardDefaults.cardColors(Color.LightGray)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        "Product Image",
-                        fontWeight = FontWeight.Bold,
-                        color = Color.DarkGray
+                // ✅ BACKEND: Show first image from imageUrls
+                if (product.imageUrls.isNotEmpty()) {
+                    AsyncImage(
+                        model = product.imageUrls.first(),
+                        contentDescription = product.name,
+                        modifier = Modifier.fillMaxSize()
                     )
+                } else {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Text(
+                            "Product Image",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.DarkGray
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(18.dp))
 
-            // ✅ MAIN DETAILS CARD
+            // ✅ MAIN DETAILS CARD - UI UNCHANGED
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -94,8 +105,9 @@ fun ProductDetailsScreen(
 
                     Spacer(Modifier.height(12.dp))
 
+                    // ✅ BACKEND: price is Double, format it
                     Text(
-                        "₦${product.price}",
+                        "₦${product.price.toInt()}",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFFF6A00)
@@ -103,7 +115,7 @@ fun ProductDetailsScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // ✅ Vendor + Contact
+                    // ✅ Vendor + Contact - UI UNCHANGED
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -111,12 +123,14 @@ fun ProductDetailsScreen(
                     ) {
 
                         Column {
+                            // ✅ BACKEND: Show vendorName
                             Text(
-                                "Vendor #${product.vendor_id}",
+                                product.vendorName,
                                 fontWeight = FontWeight.Bold
                             )
+                            // ✅ BACKEND: Show vendorId (first 8 chars)
                             Text(
-                                product.location,
+                                "ID: ${product.vendorId.take(8)}",
                                 fontSize = 12.sp,
                                 color = Color.Gray
                             )
@@ -146,7 +160,7 @@ fun ProductDetailsScreen(
 
                     Spacer(Modifier.height(20.dp))
 
-                    // ✅ Quantity Selector
+                    // ✅ Quantity Selector - UI UNCHANGED
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -198,7 +212,7 @@ fun ProductDetailsScreen(
 
                     Spacer(Modifier.height(22.dp))
 
-                    // ✅ ACTION BUTTONS
+                    // ✅ ACTION BUTTONS - UI UNCHANGED
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -241,7 +255,7 @@ fun ProductDetailsScreen(
 
             Spacer(Modifier.height(25.dp))
 
-            // ✅ RELATED PRODUCTS
+            // ✅ RELATED PRODUCTS - UI UNCHANGED
             Text(
                 "Related Products",
                 fontSize = 18.sp,
@@ -265,10 +279,10 @@ fun ProductDetailsScreen(
     }
 }
 
-/* ---------------- RELATED PRODUCT ITEM ---------------- */
+/* ---------------- RELATED PRODUCT ITEM - UI UNCHANGED ---------------- */
 
 @Composable
-fun RelatedProductItem(product: Product) {
+fun RelatedProductItem(product: Product) {  // ✅ BACKEND: Product type
     Card(
         modifier = Modifier.width(160.dp),
         shape = RoundedCornerShape(18.dp),
@@ -276,22 +290,35 @@ fun RelatedProductItem(product: Product) {
     ) {
         Column(Modifier.padding(12.dp)) {
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(95.dp)
-                    .background(Color.LightGray, RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Image", color = Color.DarkGray)
+            // ✅ BACKEND: Show image from imageUrls
+            if (product.imageUrls.isNotEmpty()) {
+                AsyncImage(
+                    model = product.imageUrls.first(),
+                    contentDescription = product.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(95.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(95.dp)
+                        .background(Color.LightGray, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Image", color = Color.DarkGray)
+                }
             }
 
             Spacer(Modifier.height(10.dp))
 
             Text(product.name, fontWeight = FontWeight.Bold)
 
+            // ✅ BACKEND: price is Double
             Text(
-                "₦${product.price}",
+                "₦${product.price.toInt()}",
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFFF6A00)
             )
@@ -299,22 +326,30 @@ fun RelatedProductItem(product: Product) {
     }
 }
 
-/* ---------------- PREVIEW FIXED ---------------- */
+/* ---------------- PREVIEW - BACKEND DATA ---------------- */
 
 @Preview(showBackground = true)
 @Composable
 fun ProductDetailsPreview() {
 
     val mainProduct = Product(
-        id = 1,
-        image_url = R.drawable.shirt,
+        productId = "1",
+        vendorId = "vendor123",
+        vendorName = "Fashion Store",
         name = "Classic T-Shirt",
         description = "Premium cotton shirt.",
+        price = 3500.0,
+        discountPrice = null,
         category = "Fashion",
-        price = "3500",
-        vendor_id = 1,
-        quantity = 50,
-        location = "Lagos"
+        imageUrls = emptyList(),
+        variants = emptyList(),
+        totalStock = 50,
+        inStock = true,
+        tags = emptyList(),
+        views = 0,
+        sold = 0,
+        createdAt = null,
+        updatedAt = null
     )
 
     val allProducts = listOf(mainProduct)

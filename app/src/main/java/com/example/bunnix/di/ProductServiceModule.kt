@@ -4,6 +4,7 @@ import com.example.bunnix.data.repository.ProductRepositoryImpl
 import com.example.bunnix.data.repository.ServiceRepositoryImpl
 import com.example.bunnix.domain.repository.ProductRepository
 import com.example.bunnix.domain.repository.ServiceRepository
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

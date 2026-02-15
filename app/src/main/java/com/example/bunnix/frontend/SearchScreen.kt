@@ -9,29 +9,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.bunnix.data.ProductData
+import com.example.bunnix.database.models.Product
+import com.example.bunnix.database.models.Service
 
+// ✅ BACKEND INTEGRATED - UI UNCHANGED
 @Composable
 fun SearchScreen(
     query: String,
-    onProductClick: (Int) -> Unit,
+    products: List<Product> = emptyList(),
+    services: List<Service> = emptyList(),
+    onProductClick: (String) -> Unit,
     onServiceClick: (String, String) -> Unit
 ) {
 
-    // ✅ Filter Products
-    val filteredProducts = ProductData.products.filter {
-        it.name.contains(query, ignoreCase = true)
+    // ✅ Filter Products - BACKEND
+    val filteredProducts = products.filter {
+        it.name.contains(query, ignoreCase = true) ||
+                it.description.contains(query, ignoreCase = true) ||
+                it.category.contains(query, ignoreCase = true) ||
+                it.tags.any { tag -> tag.contains(query, ignoreCase = true) }
     }
 
-    // ✅ Fake Services List (replace with yours)
-    val services = listOf(
-        "Hair Styling" to "5000",
-        "Makeup Booking" to "8000",
-        "Photography" to "12000"
-    )
-
+    // ✅ Filter Services - BACKEND
     val filteredServices = services.filter {
-        it.first.contains(query, ignoreCase = true)
+        it.name.contains(query, ignoreCase = true) ||
+                it.description.contains(query, ignoreCase = true) ||
+                it.category.contains(query, ignoreCase = true)
     }
 
     Column(Modifier.padding(16.dp)) {
@@ -43,7 +46,7 @@ fun SearchScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // ✅ PRODUCTS RESULTS
+        // ✅ PRODUCTS RESULTS - UI UNCHANGED
         if (filteredProducts.isNotEmpty()) {
             Text("Products", style = MaterialTheme.typography.titleMedium)
 
@@ -56,12 +59,12 @@ fun SearchScreen(
                             .fillMaxWidth()
                             .padding(bottom = 10.dp)
                             .clickable {
-                                onProductClick(product.id)
+                                onProductClick(product.productId)
                             }
                     ) {
                         Column(Modifier.padding(14.dp)) {
                             Text(product.name, fontWeight = FontWeight.Bold)
-                            Text("₦${product.price}")
+                            Text("₦${product.price.toInt()}")
                         }
                     }
                 }
@@ -70,7 +73,7 @@ fun SearchScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // ✅ SERVICES RESULTS
+        // ✅ SERVICES RESULTS - UI UNCHANGED
         if (filteredServices.isNotEmpty()) {
             Text("Services", style = MaterialTheme.typography.titleMedium)
 
@@ -82,18 +85,18 @@ fun SearchScreen(
                         .fillMaxWidth()
                         .padding(bottom = 10.dp)
                         .clickable {
-                            onServiceClick(service.first, service.second)
+                            onServiceClick(service.name, service.price.toString())
                         }
                 ) {
                     Column(Modifier.padding(14.dp)) {
-                        Text(service.first, fontWeight = FontWeight.Bold)
-                        Text("₦${service.second}")
+                        Text(service.name, fontWeight = FontWeight.Bold)
+                        Text("₦${service.price.toInt()}")
                     }
                 }
             }
         }
 
-        // ✅ No Results
+        // ✅ No Results - UI UNCHANGED
         if (filteredProducts.isEmpty() && filteredServices.isEmpty()) {
             Text("No products or services found 😢")
         }

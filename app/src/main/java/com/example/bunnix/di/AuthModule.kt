@@ -4,6 +4,7 @@ import com.example.bunnix.data.auth.AuthManager
 import com.example.bunnix.data.repository.AuthRepositoryImpl
 import com.example.bunnix.domain.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

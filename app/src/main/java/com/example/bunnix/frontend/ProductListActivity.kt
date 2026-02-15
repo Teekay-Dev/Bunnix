@@ -16,18 +16,17 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bunnix.model.Product
+import com.example.bunnix.database.models.Product  // ✅ BACKEND MODEL
 import com.example.bunnix.ui.theme.OrangeEnd
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
-import com.example.bunnix.data.ProductData
+import coil.compose.AsyncImage  // ✅ For backend images
 
-// ✅ Product Card Item
+// ✅ Product Card Item - UI UNCHANGED
 @Composable
 fun ProductItem(product: Product, onClick: () -> Unit) {
     Card(
@@ -42,28 +41,44 @@ fun ProductItem(product: Product, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            Image(
-                painter = painterResource(id = product.image_url),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(65.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
-            )
+            // ✅ BACKEND: Show first image from imageUrls
+            if (product.imageUrls.isNotEmpty()) {
+                AsyncImage(
+                    model = product.imageUrls.first(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(65.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Fallback placeholder
+                Box(
+                    modifier = Modifier
+                        .size(65.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.LightGray),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No\nImage", fontSize = 10.sp, color = Color.Gray)
+                }
+            }
 
             Spacer(Modifier.width(14.dp))
 
             Column(Modifier.weight(1f)) {
                 Text(product.name, fontWeight = FontWeight.Bold)
 
+                // ✅ BACKEND: price is Double, format it
                 Text(
-                    product.price,
+                    "₦${product.price.toInt()}",
                     fontWeight = FontWeight.Bold,
                     color = OrangeEnd
                 )
 
+                // ✅ BACKEND: Show vendorName instead of location
                 Text(
-                    product.location,
+                    product.vendorName,
                     fontSize = 12.sp,
                     color = Color.Gray
                 )
@@ -72,18 +87,16 @@ fun ProductItem(product: Product, onClick: () -> Unit) {
     }
 }
 
-// ✅ Product List Screen ONLY
+// ✅ Product List Screen - UI UNCHANGED
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductListScreen(
+    products: List<Product> = emptyList(),  // ✅ BACKEND: Accept products
     onBack: () -> Unit,
-    onProductClick: (Product) -> Unit
+    onProductClick: (Product) -> Unit  // ✅ BACKEND: Product type
 ) {
 
     var searchQuery by remember { mutableStateOf("") }
-    val products = ProductData.products
-
-
 
     // ✅ Filter Products by Search
     val filteredProducts = products.filter {
@@ -94,7 +107,7 @@ fun ProductListScreen(
         topBar = {
             Column {
 
-                // ✅ Top AppBar
+                // ✅ Top AppBar - UNCHANGED
                 TopAppBar(
                     title = { Text("All Products") },
                     navigationIcon = {
@@ -104,7 +117,7 @@ fun ProductListScreen(
                     }
                 )
 
-                // ✅ Search Bar
+                // ✅ Search Bar - UNCHANGED
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -142,11 +155,12 @@ fun ProductListScreen(
 }
 
 
-// ✅ Preview Fixed
+// ✅ Preview - UNCHANGED
 @Preview(showBackground = true)
 @Composable
 fun ProductListPreview() {
     ProductListScreen(
+        products = emptyList(),
         onBack = {},
         onProductClick = {}
     )

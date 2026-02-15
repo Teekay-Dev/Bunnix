@@ -87,31 +87,31 @@ interface AuthRepository {
      */
     suspend fun signInWithGoogle(idToken: String): AuthResult<User>
 
-    // ==================== APPLE SIGN-IN (NEW) ====================
-
-    /**
-     * Sign in with Apple (OAuth)
-     * Uses Apple's ID token and nonce for authentication
-     *
-     * @param idToken Apple ID token from Apple Sign-In
-     * @param rawNonce Raw nonce used for verification
-     * @return AuthResult with User data or error
-     */
-    suspend fun signInWithApple(
-        idToken: String,
-        rawNonce: String
-    ): AuthResult<User>
-
-    /**
-     * Start Apple Sign-In flow (Alternative method)
-     * Handles the entire Apple sign-in process automatically
-     *
-     * @param activity Current activity context
-     * @return AuthResult with User data or error
-     */
-    suspend fun startAppleSignIn(activity: Activity): AuthResult<User>
-
-    // ==================== END APPLE SIGN-IN ====================
+//    // ==================== APPLE SIGN-IN (NEW) ====================
+//
+//    /**
+//     * Sign in with Apple (OAuth)
+//     * Uses Apple's ID token and nonce for authentication
+//     *
+//     * @param idToken Apple ID token from Apple Sign-In
+//     * @param rawNonce Raw nonce used for verification
+//     * @return AuthResult with User data or error
+//     */
+//    suspend fun signInWithApple(
+//        idToken: String,
+//        rawNonce: String
+//    ): AuthResult<User>
+//
+//    /**
+//     * Start Apple Sign-In flow (Alternative method)
+//     * Handles the entire Apple sign-in process automatically
+//     *
+//     * @param activity Current activity context
+//     * @return AuthResult with User data or error
+//     */
+//    suspend fun startAppleSignIn(activity: Activity): AuthResult<User>
+//
+//    // ==================== END APPLE SIGN-IN ====================
 
     /**
      * Sign out current user

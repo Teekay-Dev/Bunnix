@@ -31,9 +31,7 @@ object ChatStorage {
             bucket.upload(
                 path = path,
                 data = fileBytes,
-                options = {
-                    upsert = false
-                }
+                upsert = false
             )
 
             val publicUrl = bucket.publicUrl(path)

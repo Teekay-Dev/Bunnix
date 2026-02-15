@@ -1,41 +1,45 @@
 package com.example.bunnix.frontend
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.example.bunnix.MainActivity
-import com.example.bunnix.R
+import com.example.bunnix.backend.Routes
+import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 
-//class SplashActivity : ComponentActivity() {
-//
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        super.onCreate(savedInstanceState)
-//
-//        setContent {
-//            SplashScreen { destination ->
-//                startActivity(Intent(this, destination))
-//                finish()
-//            }
-//        }
-//    }
-//}
+class SplashActivity : ComponentActivity() {
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            BunnixTheme {
+                val userPrefs = UserPreferences(this)
+
+                SplashScreen(
+                    userPrefs = userPrefs,
+                    onNavigate = { route ->
+                        // Navigate to MainActivity with route
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.putExtra("start_route", route)
+                        startActivity(intent)
+                        finish()
+                    }
+                )
+            }
+        }
+    }
+}
+
+// ✅ UNCHANGED - Your original UI
 @Composable
 fun SplashScreen(
     userPrefs: UserPreferences,
@@ -52,13 +56,13 @@ fun SplashScreen(
         delay(2000)
 
         when {
-            firstLaunch -> onNavigate("signup")
-            loggedIn -> onNavigate("home")
-            else -> onNavigate("login")
+            firstLaunch -> onNavigate(Routes.Signup)
+            loggedIn -> onNavigate(Routes.Home)
+            else -> onNavigate(Routes.Login)
         }
     }
 
-    // ✅ UI
+    // ✅ UI - UNCHANGED
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -68,6 +72,3 @@ fun SplashScreen(
         BunnixAnimatedLogo()
     }
 }
-
-
-
