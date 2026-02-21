@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.bunnix.ui.theme.SuccessGreen
+import com.example.bunnix.vendorUI.components.OrderStatusBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -167,7 +168,7 @@ fun OrderDetailScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     PaymentProofCard(
-                        status = order.paymentStatus,
+                        status = order.paymentStatus as String,
                         onVerify = onNavigateToPaymentVerification
                     )
                 }
@@ -627,6 +628,7 @@ fun StatusUpdateDialog(
         }
     )
 }
+
 
 data class OrderListItem(
     val productId: String,

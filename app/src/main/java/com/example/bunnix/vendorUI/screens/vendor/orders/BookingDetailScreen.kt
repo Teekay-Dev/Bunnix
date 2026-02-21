@@ -13,10 +13,47 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.bunnix.ui.theme.SuccessGreen
 import com.example.bunnix.ui.theme.WarningYellow
+
+// Data class for BookingItem
+data class BookingItem(
+    val bookingId: String,
+    val bookingNumber: String,
+    val serviceName: String,
+    val customerName: String,
+    val date: String,
+    val time: String,
+    val price: Double,
+    val status: String
+)
+
+// Sample data
+val sampleBookings = listOf(
+    BookingItem(
+        bookingId = "1",
+        bookingNumber = "BK-001",
+        serviceName = "Hair Styling",
+        customerName = "John Doe",
+        date = "2024-03-15",
+        time = "10:00 AM",
+        price = 5000.0,
+        status = "requested"
+    ),
+    BookingItem(
+        bookingId = "2",
+        bookingNumber = "BK-002",
+        serviceName = "Massage Therapy",
+        customerName = "Jane Smith",
+        date = "2024-03-16",
+        time = "2:00 PM",
+        price = 8000.0,
+        status = "confirmed"
+    )
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,6 +192,30 @@ fun BookingDetailScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+}
+
+@Composable
+fun BookingStatusBadge(status: String) {
+    val (backgroundColor, textColor, displayText) = when (status.lowercase()) {
+        "requested" -> Triple(WarningYellow.copy(alpha = 0.1f), WarningYellow, "Requested")
+        "confirmed" -> Triple(SuccessGreen.copy(alpha = 0.1f), SuccessGreen, "Confirmed")
+        "in_progress" -> Triple(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), MaterialTheme.colorScheme.primary, "In Progress")
+        "completed" -> Triple(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), MaterialTheme.colorScheme.secondary, "Completed")
+        "cancelled" -> Triple(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), MaterialTheme.colorScheme.error, "Cancelled")
+        else -> Triple(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant, status.replaceFirstChar { it.uppercase() })
+    }
+
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = backgroundColor
+    ) {
+        Text(
+            text = displayText,
+            style = MaterialTheme.typography.labelMedium,
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
         )
     }
 }

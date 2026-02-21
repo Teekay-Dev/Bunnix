@@ -3,20 +3,14 @@ package com.example.bunnix.ui.theme
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Light color scheme using your orange theme
 private val LightColorScheme = lightColorScheme(
     primary = OrangePrimary,
     onPrimary = OrangeOnPrimary,
@@ -29,37 +23,34 @@ private val LightColorScheme = lightColorScheme(
     tertiary = OrangeTertiary,
     onTertiary = OrangeOnTertiary,
     background = BackgroundLight,
-    onBackground = Color(0xFF201A19),
+    onBackground = OnSurfaceLight,
     surface = SurfaceLight,
-    onSurface = Color(0xFF201A19),
+    onSurface = OnSurfaceLight,
     surfaceVariant = SurfaceVariantLight,
-    onSurfaceVariant = Color(0xFF534341),
-    outline = Color(0xFF857370),
+    onSurfaceVariant = OnSurfaceVariantLight,
     error = ErrorRed,
-    onError = Color.White,
-    errorContainer = Color(0xFFFFDAD6),
-    onErrorContainer = Color(0xFF410002)
+    onError = Color.White
 )
 
-// Dark color scheme using your orange theme
 private val DarkColorScheme = darkColorScheme(
     primary = OrangePrimary,
     onPrimary = OrangeOnPrimary,
-    primaryContainer = Color(0xFF7D2C12),
-    onPrimaryContainer = OrangePrimaryContainer,
-    secondary = Color(0xFFFFB4A4),
-    onSecondary = Color(0xFF5E2314),
-    secondaryContainer = Color(0xFF7D2C12),
-    onSecondaryContainer = Color(0xFFFFDAD3),
-    tertiary = Color(0xFFDBC3A4),
-    onTertiary = Color(0xFF3E2E16),
+    primaryContainer = OrangePrimaryContainer.copy(alpha = 0.8f),
+    onPrimaryContainer = OrangeOnPrimaryContainer,
+    secondary = OrangeSecondary,
+    onSecondary = OrangeOnSecondary,
+    secondaryContainer = OrangeSecondaryContainer.copy(alpha = 0.8f),
+    onSecondaryContainer = OrangeOnSecondaryContainer,
+    tertiary = OrangeTertiary,
+    onTertiary = OrangeOnTertiary,
     background = BackgroundDark,
-    onBackground = Color(0xFFEDE0DD),
+    onBackground = OnSurfaceDark,
     surface = SurfaceDark,
-    onSurface = Color(0xFFEDE0DD),
+    onSurface = OnSurfaceDark,
     surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = Color(0xFFD8C2BE),
-    outline = Color(0xFFA08C89)
+    onSurfaceVariant = OnSurfaceVariantDark,
+    error = ErrorRed,
+    onError = Color.White
 )
 
 @Composable
@@ -77,12 +68,15 @@ fun BunnixTheme(
         else -> LightColorScheme
     }
 
+    // Replace the SideEffect block with this:
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            @Suppress("DEPRECATION")
-            window.statusBarColor = colorScheme.primary.toArgb()
+            // Remove the deprecated statusBarColor line
+            // window.statusBarColor = colorScheme.primary.toArgb()
+
+            // Only control the status bar icon appearance
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

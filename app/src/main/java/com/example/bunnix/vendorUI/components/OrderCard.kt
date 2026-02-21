@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.bunnix.ui.theme.SuccessGreen
-import com.example.bunnix.ui.theme.WarningYellow
 
 @SuppressLint("DefaultLocale")
 @Composable
@@ -19,7 +18,7 @@ fun OrderCard(
     customerName: String,
     amount: Double,
     status: String,
-    items: Int,
+    items: List<String>,
     date: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -64,7 +63,7 @@ fun OrderCard(
             ) {
                 Column {
                     Text(
-                        "$items item${if (items > 1) "s" else ""}",
+                        "${items.size} item${if (items.size > 1) "s" else ""}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

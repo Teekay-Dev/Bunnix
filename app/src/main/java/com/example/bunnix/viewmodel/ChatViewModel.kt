@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bunnix.domain.usecase.chat.*
 import com.example.bunnix.vendorUI.screens.vendor.messages.ChatMessage
-import com.example.bunnix.vendorUI.screens.vendor.messages.Conversation
+import com.google.ai.edge.litertlm.Conversation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -2,6 +2,8 @@ package com.example.bunnix.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.bunnix.data.auth.AuthResult
+import com.example.bunnix.database.models.Order
 import com.example.bunnix.domain.usecase.order.*
 import com.example.bunnix.vendorUI.screens.vendor.orders.OrderItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,36 +34,18 @@ class OrdersViewModel @Inject constructor(
 
     fun loadOrders(vendorId: String, status: String? = null) {
         currentVendorId = vendorId
-
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
             getVendorOrdersUseCase(vendorId, status)
                 .onSuccess { orders ->
                     _uiState.update { state ->
                         state.copy(
                             isLoading = false,
-                            orders = orders.map { order ->
-                                OrderItem(
-                                    orderId = order.orderId,
-                                    orderNumber = order.orderNumber,
-                                    customerName = order.customerName,
-                                    totalAmount = order.totalAmount,
-                                    status = order.status,
-                                    items = order.items.size,
-                                    date = order.createdAt?.toDate()?.toString() ?: "",
-                                    paymentStatus = if (order.paymentVerified)
-                                        "verified" else "awaiting_verification",
-                                    paymentMethod = order.paymentMethod,
-                                    paymentVerified = order.paymentVerified,
-                                    vendorId = order.vendorId,
-                                    vendorName = order.vendorName
-                                )
-                            }
+                            orders = orders.map { order -> order.toOrderItem() }
                         )
                     }
                 }
-                .onFailure { error: Throwable ->  // Explicitly type the error parameter
+                .onFailure { error ->
                     _uiState.update {
                         it.copy(isLoading = false, error = error.message ?: "Unknown error")
                     }
@@ -71,26 +55,39 @@ class OrdersViewModel @Inject constructor(
 
     fun updateOrderStatus(orderId: String, newStatus: String) {
         viewModelScope.launch {
-            updateOrderStatusUseCase(orderId, newStatus, currentVendorId)  // Add vendorId parameter
-                .onSuccess { loadOrders(currentVendorId) }
-                .onFailure { error: Throwable ->  // Explicitly type the error parameter
-                    _uiState.update { it.copy(error = error.message ?: "Unknown error") }
+            when (val result = updateOrderStatusUseCase(orderId, newStatus, currentVendorId)) {
+                is AuthResult.Success -> loadOrders(currentVendorId)
+                is AuthResult.Error -> _uiState.update {
+                    it.copy(error = result.message ?: "Unknown error")
                 }
+
+                else -> Unit
+            }
         }
     }
 
     fun verifyPayment(orderId: String) {
         viewModelScope.launch {
-            updateOrderStatusUseCase(orderId, "payment_verified", currentVendorId)  // Add vendorId parameter
-                .onSuccess { loadOrders(currentVendorId) }
-                .onFailure { error: Throwable ->  // Explicitly type the error parameter
-                    _uiState.update { it.copy(error = error.message ?: "Unknown error") }
+            when (val result =
+                updateOrderStatusUseCase(orderId, "Payment Confirmed", currentVendorId)) {
+                is AuthResult.Success -> loadOrders(currentVendorId)
+                is AuthResult.Error -> _uiState.update {
+                    it.copy(error = result.message ?: "Unknown error")
                 }
+
+                else -> Unit
+            }
         }
     }
 
-    private fun Unit.onFailure(function: (Throwable) -> Unit) {
-
-
-    }
+    private fun Order.toOrderItem() = OrderItem(
+        orderId = orderId,
+        orderNumber = orderNumber,
+        customerName = customerName,
+        total = totalAmount,
+        status = status,
+        items = items.map { it["name"]?.toString() ?: "" },
+        customerImage = "",
+        timeAgo = createdAt?.toDate()?.toString() ?: ""
+    )
 }
