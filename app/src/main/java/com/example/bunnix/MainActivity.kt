@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,12 +22,14 @@ import com.example.bunnix.backend.Routes
 import com.example.bunnix.data.CartData
 import com.example.bunnix.frontend.*
 import com.example.bunnix.model.vendorList
+import com.example.bunnix.vendorUI.navigation.VendorBottomNavItem
+import com.example.bunnix.vendorUI.navigation.VendorNavHost
 import com.example.bunnix.presentation.viewmodel.ProductViewModel
+import com.example.bunnix.vendorUI.components.BunnixBottomNav
 import com.example.bunnix.ui.theme.BunnixTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
-// ✅ BACKEND INTEGRATED
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,21 +37,69 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BunnixTheme {
-                BunnixNavigation()
+                // ✅ Read mode here at the top level and decide which app to show
+                val context = LocalContext.current
+                val prefs = UserPreferences(context)
+                val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
+
+                if (currentMode == "VENDOR") {
+                    VendorApp(
+                        onSwitchToCustomerMode = {
+                            // VendorApp will call prefs.switchMode() internally via ProfileScreen
+                        }
+                    )
+                } else {
+                    BunnixNavigation()
+                }
             }
         }
     }
 }
 
+// ✅ VENDOR APP
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VendorApp(onSwitchToCustomerMode: () -> Unit = {}) {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val bottomNavRoutes = listOf(
+        "dashboard", "orders_bookings", "messages", "analytics", "profile"
+    )
+    val showBottomNav = currentRoute in bottomNavRoutes
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomNav) {
+                BunnixBottomNav(
+                    navController = navController,
+                    items = listOf(
+                        VendorBottomNavItem.Dashboard,
+                        VendorBottomNavItem.Orders,
+                        VendorBottomNavItem.Messages,
+                        VendorBottomNavItem.Analytics,
+                        VendorBottomNavItem.Profile
+                    )
+                )
+            }
+        }
+    ) { innerPadding ->
+        VendorNavHost(
+            navController = navController,
+            onSwitchToCustomerMode = onSwitchToCustomerMode,
+            modifier = Modifier.padding(innerPadding)
+        )
+    }
+}
+
+// ✅ CUSTOMER APP
 @Composable
 fun BunnixNavigation() {
 
     val navController = rememberNavController()
-
-    // ✅ Get current route
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
-    // ✅ Screens where BottomBar should appear
     val bottomBarScreens = listOf(
         Routes.Home,
         Routes.Cart,
@@ -245,36 +296,30 @@ fun BunnixNavigation() {
             // ✅ Product List - BACKEND INTEGRATED
             composable(Routes.ProductList) {
                 val productViewModel: ProductViewModel = hiltViewModel()
-
-                // ✅ Observe products from Firestore
                 val products by productViewModel.products.collectAsState()
 
                 ProductListScreen(
-                    products = products,  // 'products' = is red
+                    products = products,
                     onBack = { navController.popBackStack() },
                     onProductClick = { product ->
-                        navController.navigate("product_detail/${product.productId}") //productId is red
+                        navController.navigate("product_detail/${product.productId}")
                     }
                 )
             }
 
-            // ✅ Product Detail - BACKEND INTEGRATED (FIXED!)
+            // ✅ Product Detail - BACKEND INTEGRATED
             composable("product_detail/{productId}") { entry ->
                 val productId = entry.arguments?.getString("productId") ?: ""
                 val productViewModel: ProductViewModel = hiltViewModel()
-
-                // ✅ Observe all products
                 val allProducts by productViewModel.products.collectAsState()
-
-                // ✅ Find the specific product (FIXED - No more red error!)
                 val product = allProducts.find { it.productId == productId }
 
                 if (product != null) {
                     ProductDetailsScreen(
-                        product = product, // = 'product' is red
-                        allProducts = allProducts, //allProducts is red
+                        product = product,
+                        allProducts = allProducts,
                         onAddToCart = {
-                            CartData.addToCart(it) //'it' is red
+                            CartData.addToCart(it)
                             navController.navigate("cart")
                         },
                         onBuyNow = {
@@ -282,7 +327,6 @@ fun BunnixNavigation() {
                         }
                     )
                 } else {
-                    // ✅ Product not found - show error or navigate back
                     LaunchedEffect(Unit) {
                         navController.popBackStack()
                     }
@@ -297,11 +341,10 @@ fun BunnixNavigation() {
                 NotificationScreen()
             }
 
+            // ✅ Profile Screen - with vendor mode switch support
             composable(Routes.Profile) {
                 val context = LocalContext.current
                 val prefs = UserPreferences(context)
-
-                // ✅ Collect Flow properly
                 val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
                 val hasVendor by prefs.hasVendorAccount().collectAsState(initial = false)
                 val scope = rememberCoroutineScope()
@@ -310,6 +353,8 @@ fun BunnixNavigation() {
                     currentMode = currentMode,
                     vendorEnabled = hasVendor,
                     onSwitchMode = {
+                        // ✅ Switching to VENDOR mode - prefs update triggers
+                        // the top-level mode check in MainActivity, swapping to VendorApp
                         scope.launch {
                             prefs.switchMode()
                         }
