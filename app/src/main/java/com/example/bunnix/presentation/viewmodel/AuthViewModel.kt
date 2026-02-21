@@ -8,6 +8,7 @@ import com.example.bunnix.domain.usecase.auth.SignUpUseCase
 import com.example.bunnix.domain.usecase.auth.SignInUseCase
 import com.example.bunnix.domain.usecase.auth.SignOutUseCase
 import com.example.bunnix.domain.usecase.auth.GetCurrentUserUseCase
+import com.example.bunnix.domain.usecase.auth.SignInWithGoogleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,8 @@ class AuthViewModel @Inject constructor(
     private val signUpUseCase: SignUpUseCase,
     private val signInUseCase: SignInUseCase,
     private val signOutUseCase: SignOutUseCase,
-    private val getCurrentUserUseCase: GetCurrentUserUseCase
+    private val getCurrentUserUseCase: GetCurrentUserUseCase,
+    private val signInWithGoogleUseCase: SignInWithGoogleUseCase
 ) : ViewModel() {
 
     // State flows for UI
@@ -111,5 +113,23 @@ class AuthViewModel @Inject constructor(
                 _currentUser.value = result.data
             }
         }
+    }
+
+    /**
+     * Sign in with Google
+     * Called from LoginActivity when Google button is clicked
+     */
+    suspend fun signInWithGoogle(idToken: String): AuthResult<User> {
+        _isLoading.value = true
+
+        // You need to create this use case
+        val result = signInWithGoogleUseCase(idToken)
+
+        if (result is AuthResult.Success) {
+            _currentUser.value = result.data
+        }
+
+        _isLoading.value = false
+        return result
     }
 }
