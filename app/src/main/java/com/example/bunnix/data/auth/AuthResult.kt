@@ -6,6 +6,11 @@ package com.example.bunnix.data.auth
  * Provides type-safe success and error handling.
  */
 sealed class AuthResult<out T> {
+    fun onSuccess(function: () -> Unit) {
+
+
+    }
+
     /**
      * Successful authentication result with data
      */

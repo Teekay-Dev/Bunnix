@@ -131,4 +131,6 @@ interface OrderRepository {
         orderId: String,
         userId: String
     ): AuthResult<Unit>
+
+    fun getOrderById(orderId: String): Result<Order>
 }

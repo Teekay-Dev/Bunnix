@@ -147,4 +147,6 @@ interface ChatRepository {
         messageId: String,
         userId: String
     ): AuthResult<Unit>
+
+    fun getVendorChats(vendorId: String): Result<List<Chat>>
 }

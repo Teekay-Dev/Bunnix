@@ -29,9 +29,12 @@ data class Message(
     val senderId: String = "",
     val senderName: String = "",
     val text: String = "",
-    val imageUrl: String = "",
+    val imageUrl: String? = "",
     val messageType: String = "text", // "text" | "image" | "order_link"
     val orderPreview: Map<String, Any> = emptyMap(),
     val isRead: Boolean = false,
-    val timestamp: Timestamp? = null
+    val timestamp: Timestamp? = null,
+    val content: String,
+    val chatId: String,
+    val type: String
 )
