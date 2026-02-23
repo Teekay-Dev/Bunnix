@@ -3,6 +3,7 @@ import kotlin.apply
 
 plugins {
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     id("com.android.application")
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
@@ -60,12 +61,14 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+//    composeOptions {
+//        kotlinCompilerExtensionVersion = "1.5.14"
+//    }
 }
 
 dependencies {
+
+    implementation("androidx.compose.foundation:foundation:1.6.0")
 
     // ===== COMPOSE =====
     implementation(platform("androidx.compose:compose-bom:2024.04.01"))
@@ -74,6 +77,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.firebase.ai)
+    implementation(libs.androidx.compose.remote.creation.core)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -90,9 +95,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
     // ===== HILT =====
-    implementation("com.google.dagger:hilt-android:2.48")
-    kapt("com.google.dagger:hilt-compiler:2.48")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation("com.google.dagger:hilt-android:2.51.1")
+    kapt("com.google.dagger:hilt-compiler:2.51.1")
 
     // ===== ROOM =====
     implementation("androidx.room:room-runtime:2.6.1")
@@ -140,7 +145,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.2.0")
 
     // ===== SUPABASE =====
-    val supabaseVersion = "2.5.4"
+    val supabaseVersion = "2.3.0"
     implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
     implementation("io.github.jan-tennert.supabase:realtime-kt:$supabaseVersion")
     implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
@@ -155,3 +160,4 @@ dependencies {
     // Google Maps
     implementation("com.google.maps.android:maps-compose:6.1.0")
 }
+

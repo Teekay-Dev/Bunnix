@@ -149,7 +149,8 @@ fun SignupScreen(
             value = fullName,
             onValueChange = { fullName = it },
             placeholder = { Text("Full Name") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -161,7 +162,8 @@ fun SignupScreen(
                 value = businessName,
                 onValueChange = { businessName = it },
                 placeholder = { Text("Business Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -170,7 +172,8 @@ fun SignupScreen(
                 value = businessAddress,
                 onValueChange = { businessAddress = it },
                 placeholder = { Text("Business Address") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -181,7 +184,8 @@ fun SignupScreen(
             value = email,
             onValueChange = { email = it },
             placeholder = { Text("Email Address") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -190,7 +194,8 @@ fun SignupScreen(
             value = phone,
             onValueChange = { phone = it },
             placeholder = { Text("Phone Number") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -201,6 +206,7 @@ fun SignupScreen(
             placeholder = { Text("Password") },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
             trailingIcon = {
                 val image = if (passwordVisible)
                     Icons.Filled.Visibility
@@ -223,6 +229,7 @@ fun SignupScreen(
             placeholder = { Text("Confirm Password") },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
             trailingIcon = {
                 val image = if (passwordVisible)
                     Icons.Filled.Visibility

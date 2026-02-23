@@ -132,7 +132,9 @@ fun LoginScreen(
             placeholder = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(14.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
+
         )
 
         Spacer(Modifier.height(15.dp))
@@ -146,6 +148,8 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
+
             trailingIcon = {
                 val image = if (passwordVisible)
                     Icons.Filled.Visibility

@@ -17,7 +17,7 @@ object CartData {
     /**
      * Add product to cart
      */
-    fun addToCart(product: Product) {
+    fun addToCart(product: Product, quantity: Int) {
         _cartItems.add(product)
     }
 

@@ -3,8 +3,9 @@
 plugins {
     id("com.android.application") version "8.13.2" apply false
     id("com.android.library") version "8.13.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-    id("com.google.dagger.hilt.android") version "2.48" apply false
+    id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false  // Add Compose plugin
+    id("com.google.dagger.hilt.android") version "2.51.1" apply false
 
     // Add the dependency for the Google services Gradle plugin
     id("com.google.gms.google-services") version "4.4.4" apply false
