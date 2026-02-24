@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
             BunnixTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = SurfaceLight
+                    color = MaterialTheme.colorScheme.background
                 ) {
                     BunnixNavigation()
                 }

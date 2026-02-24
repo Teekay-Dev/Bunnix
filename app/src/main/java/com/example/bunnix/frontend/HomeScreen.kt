@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -157,8 +159,8 @@ val mockVendorList = listOf(
         id = "1",
         businessName = "TechHub Store",
         category = "Tech",
-        coverImageRes = R.drawable.ic_launcher_background,
-        logoImageRes = R.drawable.ic_launcher_foreground,
+        coverImageRes = R.drawable.tech_background,
+        logoImageRes = R.drawable.tech,
         rating = 4.8,
         reviewCount = 128,
         distance = "2.3 km",
@@ -168,8 +170,8 @@ val mockVendorList = listOf(
         id = "2",
         businessName = "Fashion Hub",
         category = "Fashion",
-        coverImageRes = R.drawable.ic_launcher_background,
-        logoImageRes = R.drawable.ic_launcher_foreground,
+        coverImageRes = R.drawable.hero_pic,
+        logoImageRes = R.drawable.style,
         rating = 4.5,
         reviewCount = 85,
         distance = "1.5 km"
@@ -561,21 +563,32 @@ private fun QuickActionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scale = remember { Animatable(1f) }
+    // FIXED: Use proper coroutine scope instead of GlobalScope
+    val scope = rememberCoroutineScope()
+    var isPressed by remember { mutableStateOf(false) }
+
+    // Animate scale based on press state
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = tween(100),
+        label = "scale"
+    )
 
     Card(
         onClick = {
-            kotlinx.coroutines.GlobalScope.launch {
-                scale.animateTo(0.95f, tween(100))
-                scale.animateTo(1f, tween(100))
-                onClick()
+            // FIXED: Use proper scope with proper animation sequence
+            scope.launch {
+                isPressed = true
+                delay(100) // Wait for animation
+                isPressed = false
+                onClick() // Call the actual click handler
             }
         },
         modifier = modifier
             .height(120.dp)
             .graphicsLayer {
-                scaleX = scale.value
-                scaleY = scale.value
+                scaleX = scale
+                scaleY = scale
             },
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -618,7 +631,6 @@ private fun QuickActionCard(
         }
     }
 }
-
 // ===== SLIDING SPECIAL OFFERS CAROUSEL =====
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
