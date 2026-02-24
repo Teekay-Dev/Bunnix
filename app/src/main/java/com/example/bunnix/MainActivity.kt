@@ -16,6 +16,9 @@ import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,12 +38,17 @@ import com.example.bunnix.data.CartData
 import com.example.bunnix.database.models.Service
 import com.example.bunnix.database.models.VendorProfile // IMPORT THE CORRECT MODEL
 import com.example.bunnix.frontend.*
+import com.example.bunnix.vendorUI.navigation.VendorBottomNavItem
+import com.example.bunnix.vendorUI.navigation.VendorNavHost
 import com.example.bunnix.presentation.viewmodel.ProductViewModel
+import com.example.bunnix.vendorUI.components.BunnixBottomNav
 import com.example.bunnix.ui.theme.BunnixTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.*
 
-// Modern Bunnix Color System
+
+// Color system
 val OrangePrimaryModern = Color(0xFFFF6B35)
 val OrangeLight = Color(0xFFFF8C61)
 val OrangeSoft = Color(0xFFFFF0EB)
@@ -60,15 +68,22 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    BunnixNavigation()
+                    val context = LocalContext.current
+                    val prefs = UserPreferences(context)
+                    val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
+
+                    if (currentMode == "VENDOR") {
+                        VendorApp()
+                    } else {
+                        BunnixNavigation()
+                    }
                 }
             }
         }
     }
 }
 
-// FIXED: Use VendorProfile instead of separate Vendor class
-// Extension function to create VendorProfile with UI-friendly fields
+// Vendor sample data
 val vendorList = listOf(
     VendorProfile(
         vendorId = "1",
@@ -108,13 +123,48 @@ val vendorList = listOf(
     )
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+// VENDOR APP
+@Composable
+fun VendorApp(onSwitchToCustomerMode: () -> Unit = {}) {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val bottomNavRoutes = listOf(
+        "dashboard", "orders_bookings", "messages", "analytics", "profile"
+    )
+    val showBottomNav = currentRoute in bottomNavRoutes
+
+    Scaffold(
+        bottomBar = {
+            if (showBottomNav) {
+                BunnixBottomNav(
+                    navController = navController,
+                    items = listOf(
+                        VendorBottomNavItem.Dashboard,
+                        VendorBottomNavItem.Orders,
+                        VendorBottomNavItem.Messages,
+                        VendorBottomNavItem.Analytics,
+                        VendorBottomNavItem.Profile
+                    )
+                )
+            }
+        }
+    ) { innerPadding ->
+        VendorNavHost(
+            navController = navController,
+            onSwitchToCustomerMode = onSwitchToCustomerMode,
+            modifier = Modifier.padding(innerPadding)
+        )
+    }
+}
+
+// CUSTOMER NAVIGATION
 @Composable
 fun BunnixNavigation() {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
-    // Screens where BottomBar appears
     val bottomBarScreens = listOf(
         Routes.Home,
         Routes.Cart,
@@ -130,10 +180,7 @@ fun BunnixNavigation() {
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it }
             ) {
-                ModernBottomNavBar(
-                    navController = navController,
-                    currentRoute = currentRoute
-                )
+                ModernBottomNavBar(navController, currentRoute)
             }
         }
     ) { padding ->
@@ -142,8 +189,6 @@ fun BunnixNavigation() {
             startDestination = Routes.Splash,
             modifier = Modifier.padding(padding)
         ) {
-            // ===== AUTHENTICATION FLOW =====
-
             composable(Routes.Signup) {
                 SignupScreen(
                     userPrefs = UserPreferences(LocalContext.current),
@@ -157,9 +202,7 @@ fun BunnixNavigation() {
 
             composable(Routes.Login) {
                 LoginScreen(
-                    onSignupClick = {
-                        navController.navigate(Routes.Signup)
-                    },
+                    onSignupClick = { navController.navigate(Routes.Signup) },
                     onLoginSuccess = {
                         navController.navigate(Routes.Home) {
                             popUpTo(Routes.Login) { inclusive = true }
@@ -168,54 +211,32 @@ fun BunnixNavigation() {
                 )
             }
 
-            // ===== MAIN CUSTOMER FLOW =====
             composable(Routes.Home) {
                 HomeScreen(
-                    onVendorClick = { vendorId ->
-                        navController.navigate("vendor_detail/$vendorId")
-                    },
-                    onBookServiceClick = {
-                        navController.navigate(Routes.ServiceList)
-                    },
-                    onShopProductClick = {
-                        navController.navigate(Routes.ProductList)
-                    },
-                    onSearchClick = { query ->
-                        navController.navigate("search/${Uri.encode(query)}")
-                    },
-
-                    bottomBar = {
-                        ModernBottomNavBar(
-                            navController = navController,
-                            currentRoute = Routes.Home
-                        )
-                    }
-
+                    onVendorClick = { id -> navController.navigate("vendor_detail/$id") },
+                    onBookServiceClick = { navController.navigate(Routes.ServiceList) },
+                    onShopProductClick = { navController.navigate(Routes.ProductList) },
+                    onSearchClick = { query -> navController.navigate("search/${Uri.encode(query)}") },
+                    bottomBar = { ModernBottomNavBar(navController, Routes.Home) }
                 )
             }
 
-            // ===== VENDOR DETAIL =====
             composable(
                 route = "vendor_detail/{vendorId}",
-                arguments = listOf(
-                    navArgument("vendorId") { type = NavType.StringType } // CHANGED to StringType
-                )
-            ) { backStackEntry ->
-                val vendorId = backStackEntry.arguments?.getString("vendorId") ?: ""
-                val selectedVendor = vendorList.find { it.vendorId == vendorId } ?: vendorList.first()
+                arguments = listOf(navArgument("vendorId") { type = NavType.StringType })
+            ) { entry ->
+                val vendorId = entry.arguments?.getString("vendorId") ?: ""
+                val vendor = vendorList.find { it.vendorId == vendorId } ?: vendorList.first()
 
                 VendorDetailScreen(
-                    vendor = selectedVendor, // NOW IT MATCHES - both are VendorProfile
+                    vendor = vendor,
                     onBack = { navController.popBackStack() }
                 )
             }
 
-            // ===== SEARCH =====
             composable(
                 route = "search/{query}",
-                arguments = listOf(
-                    navArgument("query") { type = NavType.StringType }
-                )
+                arguments = listOf(navArgument("query") { type = NavType.StringType })
             ) { entry ->
                 val query = entry.arguments?.getString("query") ?: ""
                 val productViewModel: ProductViewModel = hiltViewModel()
@@ -225,16 +246,11 @@ fun BunnixNavigation() {
                     query = query,
                     products = products,
                     services = emptyList(),
-                    onProductClick = { productId ->
-                        navController.navigate("product_detail/$productId")
-                    },
-                    onServiceClick = { serviceName, price ->
-                        // TODO: Navigate to service detail
-                    }
+                    onProductClick = { id -> navController.navigate("product_detail/$id") },
+                    onServiceClick = { _, _ -> }
                 )
             }
 
-            // ===== SERVICES & BOOKING =====
             composable(Routes.ServiceList) {
                 ServiceListScreen(
                     onBack = { navController.popBackStack() },
@@ -246,9 +262,7 @@ fun BunnixNavigation() {
 
             composable(
                 route = "booking/{serviceId}",
-                arguments = listOf(
-                    navArgument("serviceId") { type = NavType.StringType }
-                )
+                arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
             ) { entry ->
                 val serviceId = entry.arguments?.getString("serviceId") ?: ""
 
@@ -273,15 +287,12 @@ fun BunnixNavigation() {
                 BookingScreen(
                     service = service,
                     onBack = { navController.popBackStack() },
-                    onContinue = { bookingDetails ->
-                        navController.navigate(
-                            "checkout/service/${Uri.encode(serviceId)}/${bookingDetails.time}"
-                        )
+                    onContinue = { details ->
+                        navController.navigate("checkout/service/${Uri.encode(serviceId)}/${details.time}")
                     }
                 )
             }
 
-            // ===== PRODUCTS =====
             composable(Routes.ProductList) {
                 val productViewModel: ProductViewModel = hiltViewModel()
                 val products by productViewModel.products.collectAsState()
@@ -297,9 +308,7 @@ fun BunnixNavigation() {
 
             composable(
                 route = "product_detail/{productId}",
-                arguments = listOf(
-                    navArgument("productId") { type = NavType.StringType }
-                )
+                arguments = listOf(navArgument("productId") { type = NavType.StringType })
             ) { entry ->
                 val productId = entry.arguments?.getString("productId") ?: ""
                 val productViewModel: ProductViewModel = hiltViewModel()
@@ -310,25 +319,18 @@ fun BunnixNavigation() {
                     ProductDetailsScreen(
                         product = product,
                         allProducts = allProducts,
-                        onAddToCart = { addedProduct, quantity ->
-                            CartData.addToCart(addedProduct, quantity)
-                        },
-                        onBuyNow = { buyProduct, quantity ->
-                            navController.navigate("checkout/product/${buyProduct.productId}/$quantity")
+                        onAddToCart = { product, quantity -> CartData.addToCart(product, quantity) },
+                        onBuyNow = { product, qty ->
+                            navController.navigate("checkout/product/${product.productId}/$qty")
                         },
                         onBack = { navController.popBackStack() },
-                        onChatWithVendor = { vendorId ->
-                            navController.navigate("chat_detail/vendor_$vendorId")
-                        }
+                        onChatWithVendor = { id -> navController.navigate("chat_detail/vendor_$id") }
                     )
                 } else {
-                    ProductNotFoundScreen(
-                        onBack = { navController.popBackStack() }
-                    )
+                    ProductNotFoundScreen { navController.popBackStack() }
                 }
             }
 
-            // ===== CHECKOUT & PAYMENT =====
             composable(
                 route = "checkout/{type}/{id}/{quantity}",
                 arguments = listOf(
@@ -341,11 +343,12 @@ fun BunnixNavigation() {
                 val id = entry.arguments?.getString("id") ?: ""
                 val quantity = entry.arguments?.getInt("quantity") ?: 1
 
-                val checkoutItems: List<CheckoutItem> = when (type) {
+                val items = when (type) {
                     "product" -> {
-                        val productViewModel: ProductViewModel = hiltViewModel()
-                        val products by productViewModel.products.collectAsState()
+                        val vm: ProductViewModel = hiltViewModel()
+                        val products by vm.products.collectAsState()
                         val product = products.find { it.productId == id }
+
                         product?.let {
                             listOf(
                                 CheckoutItem(
@@ -359,53 +362,40 @@ fun BunnixNavigation() {
                             )
                         } ?: emptyList()
                     }
-                    "service" -> {
-                        listOf(
-                            CheckoutItem(
-                                id = id,
-                                name = "Service Booking",
-                                imageUrl = "",
-                                price = 0.0,
-                                quantity = 1,
-                                variant = null
-                            )
+                    "service" -> listOf(
+                        CheckoutItem(
+                            id = id,
+                            name = "Service Booking",
+                            imageUrl = "",
+                            price = 0.0,
+                            quantity = 1,
+                            variant = null
                         )
-                    }
-                    "cart" -> {
-                        CartData.cartItems.map { product ->
-                            CheckoutItem(
-                                id = product.productId,
-                                name = product.name,
-                                imageUrl = product.imageUrls.firstOrNull() ?: "",
-                                price = product.price,
-                                quantity = 1,
-                                variant = null
-                            )
-                        }
+                    )
+                    "cart" -> CartData.cartItems.map {
+                        CheckoutItem(
+                            id = it.productId,
+                            name = it.name,
+                            imageUrl = it.imageUrls.firstOrNull() ?: "",
+                            price = it.price,
+                            quantity = 1,
+                            variant = null
+                        )
                     }
                     else -> emptyList()
                 }
 
-                val calculatedTotal = checkoutItems.sumOf { it.price * it.quantity }
-                val isService = type == "service"
+                val total = items.sumOf { it.price * it.quantity }
                 val orderId = "ORD-${System.currentTimeMillis() % 100000}"
 
                 CheckoutScreen(
-                    items = checkoutItems,
-                    isServiceBooking = isService,
+                    items = items,
+                    total = total,
+                    isServiceBooking = type == "service",
                     onBack = { navController.popBackStack() },
-                    onPaymentMethodSelect = { paymentMethod ->
-                        navController.navigate("payment/$calculatedTotal/$orderId")
-                    },
-                    onApplyPromo = { promoCode ->
-                        promoCode.uppercase() == "WELCOME10" ||
-                                promoCode.uppercase() == "SAVE20" ||
-                                promoCode.uppercase() == "BUNNIX50"
-                    },
-                    onPlaceOrder = {
-                        navController.navigate(Routes.OrderSuccess)
-                    },
-                    total = calculatedTotal
+                    onPaymentMethodSelect = { navController.navigate("payment/$total/$orderId") },
+                    onApplyPromo = { it.uppercase() in setOf("WELCOME10", "SAVE20", "BUNNIX50") },
+                    onPlaceOrder = { navController.navigate(Routes.OrderSuccess) }
                 )
             }
 
@@ -431,12 +421,11 @@ fun BunnixNavigation() {
                 )
             }
 
-            // ===== ORDER SUCCESS =====
             composable(Routes.OrderSuccess) {
                 OrderPlacedScreen(
                     orderId = "ORD-${System.currentTimeMillis() % 10000}",
-                    onTrackOrder = { orderId ->
-                        navController.navigate("track_order/$orderId") {
+                    onTrackOrder = { id ->
+                        navController.navigate("track_order/$id") {
                             popUpTo(Routes.Home) { inclusive = false }
                         }
                     },
@@ -448,12 +437,9 @@ fun BunnixNavigation() {
                 )
             }
 
-            // ===== ORDER TRACKING =====
             composable(
                 route = "track_order/{orderId}",
-                arguments = listOf(
-                    navArgument("orderId") { type = NavType.StringType }
-                )
+                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
             ) { entry ->
                 val orderId = entry.arguments?.getString("orderId") ?: ""
                 TrackOrderScreen(
@@ -462,37 +448,22 @@ fun BunnixNavigation() {
                 )
             }
 
-            // ===== CHAT SYSTEM =====
             composable(Routes.Chat) {
-                ChatListScreen(
-                    navController = navController,
-                    currentUserId = "current_user_id"
-                )
+                ChatListScreen(navController, "current_user_id")
             }
 
             composable(
                 route = "chat_detail/{chatId}",
-                arguments = listOf(
-                    navArgument("chatId") { type = NavType.StringType }
-                )
+                arguments = listOf(navArgument("chatId") { type = NavType.StringType })
             ) { entry ->
                 val chatId = entry.arguments?.getString("chatId") ?: ""
-                ChatDetailScreen(
-                    navController = navController,
-                    chatId = chatId,
-                    currentUserId = "current_user_id"
-                )
+                ChatDetailScreen(navController, chatId, "current_user_id")
             }
 
-            // ===== NOTIFICATIONS =====
             composable(Routes.Notifications) {
-                NotificationScreen(
-                    navController = navController,
-                    currentUserId = "current_user_id"
-                )
+                NotificationScreen(navController, "current_user_id")
             }
 
-            // ===== PROFILE =====
             composable(Routes.Profile) {
                 val context = LocalContext.current
                 val prefs = UserPreferences(context)
@@ -502,83 +473,73 @@ fun BunnixNavigation() {
                 var currentUserName by remember { mutableStateOf("John Doe") }
                 var currentUserEmail by remember { mutableStateOf("john@example.com") }
                 var currentUserPhone by remember { mutableStateOf("+234 801 234 5678") }
-                var isVendorMode by remember { mutableStateOf(false) }
 
                 val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
-                LaunchedEffect(currentMode) {
-                    isVendorMode = currentMode == "VENDOR"
-                }
+                val isVendorMode = currentMode == "VENDOR"
+                val hasVendor by prefs.hasVendorAccount().collectAsState(initial = false)
 
-                Box {
-                    ProfileScreen(
-                        userName = currentUserName,
-                        userEmail = currentUserEmail,
-                        userPhone = currentUserPhone,
-                        isVendor = isVendorMode,
-                        vendorBusinessName = if (isVendorMode) "TechHub Store" else null,
-                        onBack = { navController.popBackStack() },
-                        onEditProfile = { showEditDialog = true },
-                        onViewOrders = {
-                            navController.navigate("order_history")
-                        },
-                        onViewNotifications = {
-                            navController.navigate(Routes.Notifications)
-                        },
-                        onMenuItemClick = { route ->
-                            // Handle other menu items
-                        },
-                        onSwitchMode = {
-                            scope.launch { prefs.switchMode() }
-                        },
-                        onBecomeVendor = {
-                            navController.navigate("vendor_onboarding")
-                        },
-                        onLogout = {
-                            scope.launch {
-                                prefs.logout()
-                                navController.navigate(Routes.Login) {
-                                    popUpTo(0) { inclusive = true }
-                                }
+                ProfileScreen(
+                    userName = currentUserName,
+                    userEmail = currentUserEmail,
+                    userPhone = currentUserPhone,
+                    isVendor = isVendorMode,
+                    vendorBusinessName = if (isVendorMode) "TechHub Store" else null,
+
+                    onBack = { navController.popBackStack() },
+                    onEditProfile = { showEditDialog = true },
+                    onViewOrders = { navController.navigate("order_history") },
+                    onViewNotifications = { navController.navigate(Routes.Notifications) },
+
+                    onSwitchMode = {
+                        scope.launch { prefs.switchMode() }
+                    },
+
+                    onBecomeVendor = {
+                        navController.navigate("vendor_onboarding")
+                    },
+
+                    onLogout = {
+                        scope.launch {
+                            prefs.logout()
+                            navController.navigate(Routes.Login) {
+                                popUpTo(0) { inclusive = true }
                             }
                         }
-                    )
+                    }
+                )
 
-                    EditProfileDialog(
-                        showDialog = showEditDialog,
-                        onDismiss = { showEditDialog = false },
-                        isVendor = isVendorMode,
-                        currentName = currentUserName,
-                        currentEmail = currentUserEmail,
-                        currentPhone = currentUserPhone,
-                        currentBusinessName = if (isVendorMode) "TechHub Store" else null,
-                        currentBusinessAddress = if (isVendorMode) "123 Tech Street, Lagos" else null,
-                        currentBusinessDescription = if (isVendorMode) "Quality electronics seller" else null,
-                        onSaveProfile = { name, email, phone, bizName, bizAddr, bizDesc ->
-                            currentUserName = name
-                            currentUserEmail = email
-                            currentUserPhone = phone
-                        },
-                        onChangeProfilePicture = {
-                            // Handle profile picture change
-                        }
-                    )
-                }
-            }
+                EditProfileDialog(
+                    showDialog = showEditDialog,
+                    onDismiss = { showEditDialog = false },
+                    isVendor = isVendorMode,
+                    currentName = currentUserName,
+                    currentEmail = currentUserEmail,
+                    currentPhone = currentUserPhone,
+                    currentBusinessName = if (isVendorMode) "TechHub Store" else null,
+                    currentBusinessAddress = if (isVendorMode) "123 Tech Street, Lagos" else null,
+                    currentBusinessDescription = if (isVendorMode) "Quality electronics seller" else null,
 
-            // ===== CART =====
-            composable(Routes.Cart) {
-                CartScreen(
-                    onBack = { navController.popBackStack() },
-                    onCheckout = {
-                        navController.navigate("checkout/cart/0/1")
+                    onSaveProfile = { name, email, phone, _, _, _ ->
+                        currentUserName = name
+                        currentUserEmail = email
+                        currentUserPhone = phone
+                        showEditDialog = false
                     },
-                    onContinueShopping = {
-                        navController.navigate(Routes.Home)
+
+                    onChangeProfilePicture = {
+                        // handle profile picture update
                     }
                 )
             }
 
-            // ===== VENDOR ONBOARDING =====
+            composable(Routes.Cart) {
+                CartScreen(
+                    onBack = { navController.popBackStack() },
+                    onCheckout = { navController.navigate("checkout/cart/0/1") },
+                    onContinueShopping = { navController.navigate(Routes.Home) }
+                )
+            }
+
             composable("vendor_onboarding") {
                 VendorOnboardingScreen(
                     onBack = { navController.popBackStack() },
@@ -664,6 +625,7 @@ fun ModernBottomNavBar(
             )
         }
     }
+
 }
 
 data class BottomNavItem(
@@ -751,4 +713,5 @@ fun VendorOnboardingScreen(
             Text("Maybe Later")
         }
     }
+
 }

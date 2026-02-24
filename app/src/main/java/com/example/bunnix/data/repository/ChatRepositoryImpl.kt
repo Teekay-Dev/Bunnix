@@ -116,11 +116,7 @@ class ChatRepositoryImpl @Inject constructor(
                 senderId = senderId,
                 senderName = senderName,
                 text = text,
-                imageUrl = "",
-                messageType = "text",
-                orderPreview = emptyMap(),
-                isRead = false,
-                timestamp = Timestamp.now()
+                timestamp = Timestamp.now(),
             )
 
             messageRef.set(message).await()
@@ -163,12 +159,9 @@ class ChatRepositoryImpl @Inject constructor(
                 messageId = messageRef.id,
                 senderId = senderId,
                 senderName = senderName,
-                text = "",
                 imageUrl = publicUrl,
                 messageType = "image",
-                orderPreview = emptyMap(),
-                isRead = false,
-                timestamp = Timestamp.now()
+                timestamp = Timestamp.now(),
             )
 
             messageRef.set(message).await()
@@ -202,12 +195,9 @@ class ChatRepositoryImpl @Inject constructor(
                 messageId = messageRef.id,
                 senderId = senderId,
                 senderName = senderName,
-                text = "",
-                imageUrl = "",
                 messageType = "order_link",
                 orderPreview = orderPreview,
-                isRead = false,
-                timestamp = Timestamp.now()
+                timestamp = Timestamp.now(),
             )
 
             messageRef.set(message).await()

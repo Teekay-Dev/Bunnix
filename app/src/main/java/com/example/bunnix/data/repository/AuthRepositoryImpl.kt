@@ -1,18 +1,23 @@
 package com.example.bunnix.data.repository
 
 import android.app.Activity
+import android.util.Log
 import com.example.bunnix.data.auth.AuthManager
 import com.example.bunnix.data.auth.AuthResult
+import com.example.bunnix.database.config.FirebaseConfig.auth
 import com.example.bunnix.database.models.User
 import com.example.bunnix.database.models.VendorProfile
 import com.example.bunnix.domain.repository.AuthRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * CORRECTED Implementation matching BUNNIX_COMPLETE_DATABASE_GUIDE.txt
@@ -208,47 +213,53 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun signInWithGoogle(idToken: String): AuthResult<User> {
-        return try {
-            val firebaseUser = authManager.signInWithGoogle(idToken)
-            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
+        return withContext(Dispatchers.IO) {
+            try {
+                val credential = GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = auth.signInWithCredential(credential).await()
+                val firebaseUser = authResult.user
+                    ?: return@withContext AuthResult.Error("Authentication failed")
 
-            val user = if (existingUser != null) {
-                updateLastActive(firebaseUser.uid)
-                existingUser
-            } else {
-                val newUser = User(
-                    userId = firebaseUser.uid,
-                    name = firebaseUser.displayName ?: "",
-                    email = firebaseUser.email ?: "",
-                    phone = firebaseUser.phoneNumber ?: "",
-                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
-                    isVendor = false,
-                    address = "",
-                    city = "",
-                    state = "",
-                    country = "Nigeria",
-                    createdAt = Timestamp.now(),
-                    lastActive = Timestamp.now()
-                )
-
-                firestore.collection(USERS_COLLECTION)
+                val userRef = firestore.collection(USERS_COLLECTION)
                     .document(firebaseUser.uid)
-                    .set(newUser)
-                    .await()
 
-                newUser
+                val userDoc = userRef.get().await()
+
+                if (userDoc.exists()) {
+                    val user = userDoc.toObject(User::class.java)
+
+                    if (user != null) {
+                        userRef.update("lastActive", Timestamp.now()).await()
+                        AuthResult.Success(user)
+                    } else {
+                        AuthResult.Error("Failed to load user data")
+                    }
+                } else {
+                    val newUser = User(
+                        userId = firebaseUser.uid,
+                        name = firebaseUser.displayName ?: "User",
+                        email = firebaseUser.email ?: "",
+                        phone = firebaseUser.phoneNumber ?: "",
+                        profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
+                        isVendor = false,
+                        address = "",
+                        city = "",
+                        state = "",
+                        country = "Nigeria",
+                        createdAt = Timestamp.now(),
+                        lastActive = Timestamp.now()
+                    )
+
+                    userRef.set(newUser).await()
+                    AuthResult.Success(newUser)
+                }
+
+            } catch (e: Exception) {
+                Log.e("AuthRepository", "Google Sign-In failed", e)
+                AuthResult.Error(e.message ?: "Google Sign-In failed")
             }
-
-            AuthResult.Success(user)
-
-        } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "Google sign-in failed",
-                exception = e
-            )
         }
     }
-
 //    // ==================== APPLE SIGN-IN (NEW) ====================
 //
 //    override suspend fun signInWithApple(

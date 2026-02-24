@@ -12,7 +12,20 @@
           "package_name": "com.example.bunnix"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "310257768573-9hjig6i6cgqdig41939bfuohgh6sgocv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bunnix",
+            "certificate_hash": "3b79e7746ff34032df9f68678476e83728a94599"
+          }
+        },
+        {
+          "client_id": "310257768573-9fkhu78ia58jhjt6vlprgoq9fnffap04.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCi7C2J0eeJ-wLNTyc8hd9dQi_kx4S3kWI"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "310257768573-9fkhu78ia58jhjt6vlprgoq9fnffap04.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

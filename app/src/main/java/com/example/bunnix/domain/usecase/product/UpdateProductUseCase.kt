@@ -15,7 +15,7 @@ class UpdateProductUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(
         productId: String,
-        name: String? = null,
+        name: Map<String, Any> = null,
         description: String? = null,
         price: Double? = null,
         category: String? = null,
