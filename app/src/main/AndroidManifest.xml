@@ -27,12 +27,12 @@
             android:name=".MainActivity"
             android:exported="false" />
 
-        <activity android:name=".frontend.LoginActivity" />
-        <activity android:name=".frontend.SignupActivity" />
-        <activity android:name=".frontend.HomeActivity" />
-        <activity android:name=".frontend.OnboardingActivity" />
-        <activity android:name=".frontend.BookingActivity" />
-        <activity android:name=".frontend.CartActivity" />
+<!--        <activity android:name=".frontend.LoginActivity" />-->
+<!--        <activity android:name=".frontend.SignupActivity" />-->
+<!--        <activity android:name=".frontend.HomeActivity" />-->
+<!--        <activity android:name=".frontend.OnboardingActivity" />-->
+<!--        <activity android:name=".frontend.BookingActivity" />-->
+<!--        <activity android:name=".frontend.CartActivity" />-->
 
     </application>
 

@@ -40,9 +40,12 @@ class OnboardingActivity : ComponentActivity() {
 
         setContent {
             OnboardingPager(onFinish = {
+                // Save that onboarding is complete
                 runBlocking { userPrefs.setFirstLaunch(false) }
+
+                // Go to Signup (create account)
                 startActivity(Intent(this, SignupActivity::class.java))
-                finish()
+                finish() // Close OnboardingActivity so user can't go back
             })
         }
     }
@@ -91,7 +94,7 @@ fun OnboardingPage(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color.White)
             .padding(30.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -110,7 +113,7 @@ fun OnboardingPage(
         Text(
             text = "Bunnix",
             fontSize = 60.sp,
-            color = Color.White,
+            color = Color.Black,
             fontWeight = FontWeight.Medium,
             fontFamily = FontFamily.SansSerif,
             modifier = Modifier.padding(bottom = 10.dp),
@@ -126,7 +129,7 @@ fun OnboardingPage(
         Text(
             text = title,
             fontSize = 25.sp,
-            color = Color.White,
+            color = Color.Black,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(bottom = 20.dp)
         )
@@ -134,7 +137,7 @@ fun OnboardingPage(
         Text(
             text = description,
             fontSize = 20.sp,
-            color = Color(0xFFCCCCCC),
+            color = Color(0xFF383636),
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(bottom = 50.dp)
         )

@@ -174,7 +174,10 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
             enabled = !isLoading
+
+
         )
 
         Spacer(Modifier.height(15.dp))
@@ -188,7 +191,12 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
+
+            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
+
+
             enabled = !isLoading,
+
             trailingIcon = {
                 val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {

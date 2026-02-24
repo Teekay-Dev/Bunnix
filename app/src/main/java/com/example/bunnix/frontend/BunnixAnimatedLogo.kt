@@ -77,7 +77,7 @@ fun BunnixAnimatedLogo() {
                     text = letter,
                     fontFamily = Baskerville,
                     fontSize = 64.sp,
-                    color = Color.White,
+                    color = Color.Black,
                     modifier = Modifier.offset(
                         x = letterOffsets[index].value.dp
                     )
