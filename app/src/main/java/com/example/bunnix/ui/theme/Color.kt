@@ -20,7 +20,7 @@ val OrangeOnTertiary = Color(0xFFFFFFFF)
 
 // Light Theme
 val BackgroundLight = Color(0xFFF8F9FA)
-val SurfaceLight = Color(0xFFFFFFFF)
+//val SurfaceLight = Color(0xFFFFFFFF)
 val SurfaceVariantLight = Color(0xFFF5DDDA)
 val OnSurfaceLight = Color(0xFF201A19)
 val OnSurfaceVariantLight = Color(0xFF534341)

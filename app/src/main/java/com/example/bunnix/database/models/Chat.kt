@@ -25,11 +25,11 @@ data class ParticipantInfo(
 
 data class Message(
     @DocumentId
-    val messageId: String = "",
-    val senderId: String = "",
-    val senderName: String = "",
-    val text: String = "",
-    val imageUrl: String? = "",
+    val messageId: String = " ",
+    val senderId: String = " ",
+    val senderName: String = " ",
+    val text: String = " ",
+    val imageUrl: String? = " ",
     val messageType: String = "text", // "text" | "image" | "order_link"
     val orderPreview: Map<String, Any> = emptyMap(),
     val isRead: Boolean = false,

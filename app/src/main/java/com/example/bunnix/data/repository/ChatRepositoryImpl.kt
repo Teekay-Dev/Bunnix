@@ -1,5 +1,6 @@
 package com.example.bunnix.data.repository
 
+import android.R.id.message
 import android.net.Uri
 import com.example.bunnix.data.auth.AuthResult
 import com.example.bunnix.database.models.Chat
@@ -117,6 +118,9 @@ class ChatRepositoryImpl @Inject constructor(
                 senderName = senderName,
                 text = text,
                 timestamp = Timestamp.now(),
+                content = "",
+                chatId = "",
+                type = ""
             )
 
             messageRef.set(message).await()
@@ -162,6 +166,9 @@ class ChatRepositoryImpl @Inject constructor(
                 imageUrl = publicUrl,
                 messageType = "image",
                 timestamp = Timestamp.now(),
+                content = "",
+                chatId = "",
+                type = ""
             )
 
             messageRef.set(message).await()
@@ -198,7 +205,12 @@ class ChatRepositoryImpl @Inject constructor(
                 messageType = "order_link",
                 orderPreview = orderPreview,
                 timestamp = Timestamp.now(),
+                content = "",
+                chatId = "",
+                type = ""
             )
+
+
 
             messageRef.set(message).await()
 
@@ -396,4 +408,20 @@ class ChatRepositoryImpl @Inject constructor(
             // Non-critical, log but don't throw
         }
     }
+
+    override fun getVendorChats(vendorId: String): Result<List<Chat>> {
+        return try {
+            // For now, reuse getUserChats logic
+            val snapshot = firestore.collection(CHATS_COLLECTION)
+                .whereArrayContains("participants", vendorId)
+                .get()
+                .result
+
+            val chats = snapshot?.toObjects(Chat::class.java) ?: emptyList()
+            Result.success(chats)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
 }

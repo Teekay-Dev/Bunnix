@@ -2,14 +2,13 @@ import java.util.Properties
 import kotlin.apply
 
 plugins {
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("plugin.serialization")
     id("com.google.gms.google-services")
-    alias(libs.plugins.kotlin.compose)
 }
 
 android {
