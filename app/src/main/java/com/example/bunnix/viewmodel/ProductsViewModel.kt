@@ -73,7 +73,7 @@ class ProductsViewModel @Inject constructor(
 
     fun updateProduct(productId: String, updates: Map<String, Any>) {
         viewModelScope.launch {
-            val result = updateProductUseCase(productId, updates)
+            val result = updateProductUseCase(productId, "Updates")
             when {
                 result.isSuccess() -> loadProducts(currentVendorId)
                 else -> _uiState.update { it.copy(error = result.getErrorMessage()) }

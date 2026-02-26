@@ -17,7 +17,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.bunnix"
-        minSdk = 24
+        minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -78,7 +78,8 @@ dependencies {
     implementation(libs.androidx.compose.remote.creation.core)
 //    implementation(libs.androidx.compose.foundation)
     implementation("androidx.compose.material3:material3:1.2.0")
-//    implementation(libs.litertlm) // or 1.3.0+
+    implementation(libs.litertlm.jvm)
+    implementation(libs.litertlm) // or 1.3.0+
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -96,8 +97,8 @@ dependencies {
 
     // ===== HILT =====
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
-    implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-compiler:2.51.1")
+    implementation("com.google.dagger:hilt-android:2.52")
+    kapt("com.google.dagger:hilt-compiler:2.52")
 
     // ===== ROOM =====
     implementation("androidx.room:room-runtime:2.6.1")

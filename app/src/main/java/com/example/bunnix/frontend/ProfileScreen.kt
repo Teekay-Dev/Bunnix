@@ -162,6 +162,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(-20.dp))
 
                 // Vendor Mode Card
+                // Vendor Mode Card - Always show switch/become vendor option
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -182,19 +183,19 @@ fun ProfileScreen(
                     ) {
                         Column {
                             Text(
-                                "Vendor Mode",
+                                if (isVendor) "Switch to Business" else "Become a Vendor",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
                                 color = White
                             )
                             Text(
-                                "Manage your business",
+                                if (isVendor) "Manage your business account" else "Create a business account",
                                 fontSize = 14.sp,
                                 color = White.copy(alpha = 0.9f)
                             )
                         }
 
-                        // Circular switch button
+                        // Switch/Arrow button
                         Surface(
                             onClick = onSwitchMode,
                             modifier = Modifier.size(48.dp),
@@ -206,8 +207,8 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 Icon(
-                                    Icons.Default.Sync,
-                                    contentDescription = "Switch Mode",
+                                    if (isVendor) Icons.Default.Sync else Icons.Default.ArrowForward,
+                                    contentDescription = if (isVendor) "Switch Mode" else "Become Vendor",
                                     tint = White,
                                     modifier = Modifier.size(24.dp)
                                 )

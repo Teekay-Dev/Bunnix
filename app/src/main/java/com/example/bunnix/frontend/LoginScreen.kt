@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,23 +32,22 @@ import com.example.bunnix.MainActivity
 import com.example.bunnix.R
 import com.example.bunnix.data.auth.AuthResult
 import com.example.bunnix.presentation.viewmodel.AuthViewModel
+import com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.tasks.await
+import kotlin.jvm.java
 
 @AndroidEntryPoint
 class LoginActivity : ComponentActivity() {
 
-    private lateinit var userPrefs: UserPreferences
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        userPrefs = UserPreferences(this)
 
         setContent {
             LoginScreen(
@@ -57,12 +55,12 @@ class LoginActivity : ComponentActivity() {
                     startActivity(Intent(this, SignupActivity::class.java))
                     finish()
                 },
-                onLoginSuccess = {
-                    runBlocking {
-                        userPrefs.setLoggedIn(true)
-                        userPrefs.setFirstLaunch(false)
+                onLoginSuccess = { isVendor ->
+                    if (isVendor) {
+                        startActivity(Intent(this, VendorMainActivity::class.java))
+                    } else {
+                        startActivity(Intent(this, MainActivity::class.java))
                     }
-                    startActivity(Intent(this, MainActivity::class.java))
                     finish()
                 }
             )
@@ -70,13 +68,11 @@ class LoginActivity : ComponentActivity() {
     }
 }
 
-
-// ✅ LOGIN SCREEN - BACKEND INTEGRATED (YOUR EXACT UI - ZERO CHANGES)
 @Composable
 fun LoginScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
     onSignupClick: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: (Boolean) -> Unit // Pass isVendor flag
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -86,8 +82,9 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val firestore = FirebaseFirestore.getInstance()
 
-    // ✅ GOOGLE SIGN-IN LAUNCHER
+    // Google Sign-In Launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -95,7 +92,6 @@ fun LoginScreen(
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             val account = task.getResult(ApiException::class.java)
 
-            // ✅ Use the idToken to sign in with Firebase
             account.idToken?.let { idToken ->
                 scope.launch {
                     isLoading = true
@@ -103,12 +99,22 @@ fun LoginScreen(
 
                     when (authResult) {
                         is AuthResult.Success -> {
-                            Toast.makeText(
-                                context,
-                                "Welcome! 👋",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            onLoginSuccess()
+                            // Check isVendor
+                            // CORRECT - Get user from FirebaseAuth after successful login
+                            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                            try {
+                                val userDoc = firestore.collection("users")
+                                    .document(userId)
+                                    .get()
+                                    .await()
+
+                                val isVendor = userDoc.getBoolean("isVendor") ?: false
+
+                                Toast.makeText(context, "Welcome! 👋", Toast.LENGTH_SHORT).show()
+                                onLoginSuccess(isVendor)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
                         }
                         is AuthResult.Error -> {
                             Toast.makeText(
@@ -123,11 +129,7 @@ fun LoginScreen(
                 }
             }
         } catch (e: ApiException) {
-            Toast.makeText(
-                context,
-                "Google Sign-In failed: ${e.message}",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -139,7 +141,7 @@ fun LoginScreen(
             .padding(30.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ✅ LOGO
+        // Logo
         Image(
             painter = painterResource(R.drawable.bunnix_2),
             contentDescription = null,
@@ -166,7 +168,7 @@ fun LoginScreen(
 
         Spacer(Modifier.height(30.dp))
 
-        // ✅ EMAIL FIELD
+        // Email Field
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -174,15 +176,16 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF7900),
+                unfocusedBorderColor = Color.LightGray
+            ),
             enabled = !isLoading
-
-
         )
 
         Spacer(Modifier.height(15.dp))
 
-        // ✅ PASSWORD FIELD
+        // Password Field
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -191,12 +194,11 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
-
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
-
-
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF7900),
+                unfocusedBorderColor = Color.LightGray
+            ),
             enabled = !isLoading,
-
             trailingIcon = {
                 val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -207,7 +209,7 @@ fun LoginScreen(
 
         Spacer(Modifier.height(25.dp))
 
-        // ✅ LOGIN BUTTON
+        // Login Button
         Button(
             onClick = {
                 scope.launch {
@@ -225,8 +227,22 @@ fun LoginScreen(
 
                     when (result) {
                         is AuthResult.Success -> {
-                            Toast.makeText(context, "Welcome back! 👋", Toast.LENGTH_SHORT).show()
-                            onLoginSuccess()
+                            // Check isVendor flag
+                            // CORRECT
+                            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                            try {
+                                val userDoc = firestore.collection("users")
+                                    .document(userId)
+                                    .get()
+                                    .await()
+
+                                val isVendor = userDoc.getBoolean("isVendor") ?: false
+
+                                Toast.makeText(context, "Welcome back! 👋", Toast.LENGTH_SHORT).show()
+                                onLoginSuccess(isVendor)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
                         }
                         is AuthResult.Error -> {
                             Toast.makeText(context, result.message ?: "Login Failed", Toast.LENGTH_LONG).show()
@@ -256,14 +272,12 @@ fun LoginScreen(
 
         Spacer(Modifier.height(15.dp))
 
-        // ✅ SOCIAL BUTTONS
+        // Social Buttons
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // ✅ GOOGLE BUTTON - NOW WORKING!
             SocialButton(
                 icon = R.drawable.google,
                 enabled = !isLoading,
                 onClick = {
-                    // ✅ Launch Google Sign-In
                     val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                         .requestIdToken(context.getString(R.string.default_web_client_id))
                         .requestEmail()
@@ -274,23 +288,18 @@ fun LoginScreen(
                 }
             )
 
-            // ✅ APPLE BUTTON - DISABLED (not implemented)
             SocialButton(
                 icon = R.drawable.apple_logo,
                 enabled = false,
                 onClick = {
-                    Toast.makeText(
-                        context,
-                        "Apple Sign-In coming soon!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(context, "Apple Sign-In coming soon!", Toast.LENGTH_SHORT).show()
                 }
             )
         }
 
         Spacer(Modifier.height(30.dp))
 
-        // ✅ SIGNUP LINK
+        // Signup Link
         Row {
             Text("Don't have an account? ")
             Text(
@@ -303,7 +312,6 @@ fun LoginScreen(
     }
 }
 
-// ✅ SOCIAL BUTTON - UNCHANGED
 @Composable
 fun SocialButton(
     icon: Int,
@@ -327,11 +335,4 @@ fun SocialButton(
             alpha = if (enabled) 1f else 0.5f
         )
     }
-}
-
-// ✅ PREVIEW - UNCHANGED
-@Preview(showBackground = true)
-@Composable
-fun LoginPreview() {
-    LoginScreen(onSignupClick = {}, onLoginSuccess = {})
 }

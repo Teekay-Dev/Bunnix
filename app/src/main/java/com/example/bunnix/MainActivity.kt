@@ -1,5 +1,6 @@
 package com.example.bunnix
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -46,6 +47,7 @@ import com.example.bunnix.ui.theme.BunnixTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.*
+import com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity
 
 
 // Color system
@@ -190,12 +192,25 @@ fun BunnixNavigation() {
             modifier = Modifier.padding(padding)
         ) {
             composable(Routes.Signup) {
+                val context = LocalContext.current
+
                 SignupScreen(
-                    userPrefs = UserPreferences(LocalContext.current),
-                    onLogin = {
+                    isSwitchingMode = false, // Default for normal signup
+                    currentMode = "customer", // Default for normal signup
+                    onLoginClick = {
                         navController.navigate(Routes.Login) {
                             popUpTo(Routes.Signup) { inclusive = true }
                         }
+                    },
+                    onSignupSuccess = { isVendor ->
+                        // Navigate based on account type
+                        if (isVendor) {
+                            context.startActivity(Intent(context, VendorMainActivity::class.java))
+                        } else {
+                            context.startActivity(Intent(context, MainActivity::class.java))
+                        }
+                        // Close current activity
+                        (context as? ComponentActivity)?.finish()
                     }
                 )
             }

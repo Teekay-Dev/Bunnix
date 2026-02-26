@@ -10,43 +10,61 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.bunnix.MainActivity
 import com.example.bunnix.R
 import com.example.bunnix.data.auth.AuthResult
 import com.example.bunnix.presentation.viewmodel.AuthViewModel
+import com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity
+import com.google.firebase.auth.FirebaseAuth
+//import com.example.bunnix.vendorui.VendorMainActivity
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlin.jvm.java
 
-// ✅ SIGNUP ACTIVITY - BACKEND CONNECTED
 @AndroidEntryPoint
 class SignupActivity : ComponentActivity() {
-
-    private lateinit var userPrefs: UserPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        userPrefs = UserPreferences(this)
+        // Check if user is switching modes (already has an account)
+        val isSwitchingMode = intent.getBooleanExtra("IS_SWITCHING_MODE", false)
+        val currentMode = intent.getStringExtra("CURRENT_MODE") ?: "customer"
 
         setContent {
             SignupScreen(
-                userPrefs = userPrefs,
-                onLogin = {
+                isSwitchingMode = isSwitchingMode,
+                currentMode = currentMode,
+                onLoginClick = {
                     startActivity(Intent(this, LoginActivity::class.java))
+                    finish()
+                },
+                onSignupSuccess = { isVendor ->
+                    if (isVendor) {
+                        startActivity(Intent(this, VendorMainActivity::class.java))
+                    } else {
+                        startActivity(Intent(this, MainActivity::class.java))
+                    }
                     finish()
                 }
             )
@@ -54,203 +72,313 @@ class SignupActivity : ComponentActivity() {
     }
 }
 
-// ✅ SIGNUP SCREEN - BACKEND INTEGRATED (UI UNCHANGED)
 @Composable
 fun SignupScreen(
-    userPrefs: UserPreferences,
     authViewModel: AuthViewModel = hiltViewModel(),
-    onLogin: () -> Unit
+    isSwitchingMode: Boolean = false,
+    currentMode: String = "customer",
+    onLoginClick: () -> Unit,
+    onSignupSuccess: (Boolean) -> Unit // Pass isVendor flag
 ) {
-
     var passwordVisible by remember { mutableStateOf(false) }
-    // 🔹 COMMON INPUTS
+
+    // Common inputs
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
 
-    // 🔹 CUSTOMER INPUT
+    // Customer input
     var fullName by remember { mutableStateOf("") }
 
-    // 🔹 BUSINESS INPUTS
+    // Business inputs
     var businessName by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
 
-    // 🔹 MODE SELECTOR
+    // Mode selector
     var isCustomer by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val firestore = FirebaseFirestore.getInstance()
 
     var isLoading by remember { mutableStateOf(false) }
+
+    // Show different title based on mode
+    val titleText = when {
+        isSwitchingMode && currentMode == "customer" -> "Create Business Account"
+        isSwitchingMode && currentMode == "vendor" -> "Create Customer Account"
+        else -> "Create Account"
+    }
+
+    val subtitleText = when {
+        isSwitchingMode && currentMode == "customer" -> "Use a different email for your business"
+        isSwitchingMode && currentMode == "vendor" -> "Use a different email for shopping"
+        else -> "Join Bunnix today"
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White) // ✅ WHITE BACKGROUND - UNCHANGED
+            .background(Color.White)
             .verticalScroll(scrollState)
             .padding(30.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-        // ✅ LOGO - UNCHANGED
+        // Logo
         Image(
             painter = painterResource(R.drawable.bunnix_2),
             contentDescription = null,
             modifier = Modifier
-                .width(200.dp)
-                .height(150.dp)
+                .width(120.dp)
+                .height(120.dp)
         )
 
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
             text = "Bunnix",
-            fontSize = 50.sp,
+            fontSize = 36.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Create Account",
-            fontSize = 26.sp,
-            color = Color.Black
+            text = titleText, // Dynamic title
+            fontSize = 20.sp,
+            color = Color.Black,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        Text(
+            text = subtitleText, // Dynamic subtitle
+            fontSize = 14.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp)
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ✅ CUSTOMER / BUSINESS SELECTOR - UNCHANGED
+        // Show current account info if switching
+        if (isSwitchingMode) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFF3E0)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFFFF7900)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "You need a different email address for your ${if (currentMode == "customer") "business" else "customer"} account",
+                        fontSize = 13.sp,
+                        color = Color(0xFF666666)
+                    )
+                }
+            }
+        }
+
+        // Customer / Business Toggle
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFF5F5F5), RoundedCornerShape(50.dp))
+                .padding(4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text(
-                "Customer",
-                fontSize = 18.sp,
-                color = if (isCustomer) Color(0xFFFF7900) else Color.Gray,
-                modifier = Modifier.clickable { isCustomer = true }
-            )
+            // Customer Button
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (isCustomer) Color(0xFFFF7900) else Color.Transparent,
+                        RoundedCornerShape(50.dp)
+                    )
+                    .clickable { isCustomer = true }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Customer",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isCustomer) Color.White else Color.Gray
+                )
+            }
 
-            Text(
-                "Business",
-                fontSize = 18.sp,
-                color = if (!isCustomer) Color(0xFFFF7900) else Color.Gray,
-                modifier = Modifier.clickable { isCustomer = false }
-            )
+            // Business Button
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        if (!isCustomer) Color(0xFFFF7900) else Color.Transparent,
+                        RoundedCornerShape(50.dp)
+                    )
+                    .clickable { isCustomer = false }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Business",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (!isCustomer) Color.White else Color.Gray
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ✅ FULL NAME (Both) - UNCHANGED
+        // Full Name
         OutlinedTextField(
             value = fullName,
             onValueChange = { fullName = it },
             placeholder = { Text("Full Name") },
             modifier = Modifier.fillMaxWidth(),
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF7900),
+                unfocusedBorderColor = Color.LightGray
+            ),
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ✅ BUSINESS INPUTS ONLY - UNCHANGED
+        // Business Name (only for vendors)
         if (!isCustomer) {
-
             OutlinedTextField(
                 value = businessName,
                 onValueChange = { businessName = it },
                 placeholder = { Text("Business Name") },
                 modifier = Modifier.fillMaxWidth(),
-                textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFFF7900),
+                    unfocusedBorderColor = Color.LightGray
+                ),
+                enabled = !isLoading
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Business Address
             OutlinedTextField(
                 value = businessAddress,
                 onValueChange = { businessAddress = it },
                 placeholder = { Text("Business Address") },
                 modifier = Modifier.fillMaxWidth(),
-                textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFFF7900),
+                    unfocusedBorderColor = Color.LightGray
+                ),
+                enabled = !isLoading
             )
 
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // ✅ COMMON INPUTS - UNCHANGED
+        // Email
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             placeholder = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF7900),
+                unfocusedBorderColor = Color.LightGray
+            ),
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Phone
         OutlinedTextField(
             value = phone,
             onValueChange = { phone = it },
             placeholder = { Text("Phone Number") },
             modifier = Modifier.fillMaxWidth(),
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black)
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF7900),
+                unfocusedBorderColor = Color.LightGray
+            ),
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Password
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             placeholder = { Text("Password") },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF7900),
+                unfocusedBorderColor = Color.LightGray
+            ),
+            enabled = !isLoading,
             trailingIcon = {
-                val image = if (passwordVisible)
-                    Icons.Filled.Visibility
-                else Icons.Filled.VisibilityOff
-
-                // Description for accessibility (screen readers)
-                val description = if (passwordVisible) "Hide password" else "Show password"
-
+                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = image, contentDescription = description)
+                    Icon(imageVector = image, contentDescription = null)
                 }
             }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Confirm Password
         OutlinedTextField(
             value = confirm,
             onValueChange = { confirm = it },
             placeholder = { Text("Confirm Password") },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            textStyle = androidx.compose.ui.text.TextStyle(color = Color.Black),
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF7900),
+                unfocusedBorderColor = Color.LightGray
+            ),
+            enabled = !isLoading,
             trailingIcon = {
-                val image = if (passwordVisible)
-                    Icons.Filled.Visibility
-                else Icons.Filled.VisibilityOff
-
-                // Description for accessibility (screen readers)
-                val description = if (passwordVisible) "Hide password" else "Show password"
-
+                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = image, contentDescription = description)
+                    Icon(imageVector = image, contentDescription = null)
                 }
             }
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ✅ SIGNUP BUTTON - BACKEND INTEGRATED (UI UNCHANGED)
+        // Create Account Button
         Button(
             onClick = {
                 scope.launch {
-                    // ✅ VALIDATION
+                    // Validation
                     if (fullName.isBlank()) {
                         Toast.makeText(context, "Please enter your full name", Toast.LENGTH_SHORT).show()
                         return@launch
@@ -288,7 +416,7 @@ fun SignupScreen(
 
                     isLoading = true
 
-                    // ✅ BACKEND CALL - USING YOUR BACKEND USE CASE
+                    // Sign up with email
                     val result = authViewModel.signUpWithEmail(
                         email = email,
                         password = password,
@@ -301,24 +429,71 @@ fun SignupScreen(
 
                     when (result) {
                         is AuthResult.Success -> {
-                            // ✅ Save Login Session
-                            userPrefs.setLoggedIn(true)
+                            // CORRECT
+                            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
 
-                            if (isCustomer) {
-                                userPrefs.setCustomerCreated(true)
-                                userPrefs.setMode("CUSTOMER")
-                            } else {
-                                userPrefs.setVendorCreated(true)
-                                userPrefs.setMode("VENDOR")
+                            try {
+                                // Create user document in Firestore
+                                val userData = hashMapOf(
+                                    "userId" to userId,
+                                    "name" to fullName,
+                                    "email" to email,
+                                    "phone" to phone,
+                                    "isVendor" to !isCustomer,
+                                    "profilePicUrl" to "",
+                                    "address" to if (!isCustomer) businessAddress else "",
+                                    "city" to "",
+                                    "state" to "",
+                                    "country" to "Nigeria",
+                                    "fcmToken" to "",
+                                    "createdAt" to FieldValue.serverTimestamp(),
+                                    "lastActive" to FieldValue.serverTimestamp()
+                                )
+
+                                firestore.collection("users")
+                                    .document(userId)
+                                    .set(userData)
+                                    .await()
+
+                                // If vendor, create vendor profile
+                                if (!isCustomer) {
+                                    val vendorData = hashMapOf(
+                                        "vendorId" to userId,
+                                        "userId" to userId,
+                                        "businessName" to businessName,
+                                        "description" to "",
+                                        "coverPhotoUrl" to "",
+                                        "category" to "",
+                                        "subCategories" to emptyList<String>(),
+                                        "bankName" to "",
+                                        "accountNumber" to "",
+                                        "accountName" to "",
+                                        "alternativePayment" to "",
+                                        "rating" to 0.0,
+                                        "totalReviews" to 0,
+                                        "totalSales" to 0,
+                                        "totalRevenue" to 0.0,
+                                        "isAvailable" to true,
+                                        "workingHours" to emptyMap<String, String>(),
+                                        "location" to null,
+                                        "address" to businessAddress,
+                                        "phone" to phone,
+                                        "email" to email,
+                                        "createdAt" to FieldValue.serverTimestamp(),
+                                        "updatedAt" to FieldValue.serverTimestamp()
+                                    )
+
+                                    firestore.collection("vendorProfiles")
+                                        .document(userId)
+                                        .set(vendorData)
+                                        .await()
+                                }
+
+                                Toast.makeText(context, "Welcome to Bunnix 🎉", Toast.LENGTH_SHORT).show()
+                                onSignupSuccess(!isCustomer)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                             }
-
-                            Toast.makeText(
-                                context,
-                                "Welcome to Bunnix 🎉",
-                                Toast.LENGTH_SHORT
-                            ).show()
-
-                            onLogin()
                         }
 
                         is AuthResult.Error -> {
@@ -339,35 +514,61 @@ fun SignupScreen(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7900))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7900)),
+            enabled = !isLoading
         ) {
-            if (isLoading)
-                CircularProgressIndicator(color = Color.White)
-            else
-                Text("Create Account")
+            if (isLoading) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            } else {
+                Text(
+                    "Create Account",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // ✅ LOGIN LINK - UNCHANGED
+        // Secure Registration Text
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_lock),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = Color.Gray
+            )
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text(
+                    "Secure Registration",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Gray
+                )
+                Text(
+                    "We protect your data",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Login Link
         Row {
             Text("Already have an account? ", color = Color.Black)
-
             Text(
                 "Login",
                 color = Color(0xFFFF7900),
-                modifier = Modifier.clickable { onLogin() }
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onLoginClick() }
             )
         }
     }
-}
-
-// ✅ PREVIEW - UNCHANGED
-@Preview(showBackground = true)
-@Composable
-fun SignupPreview() {
-    SignupScreen(
-        userPrefs = UserPreferences(LocalContext.current),
-        onLogin = {}
-    )
 }

@@ -15,7 +15,7 @@ class UpdateProductUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(
         productId: String,
-        name: Map<String, Any> = null,
+        name: String,
         description: String? = null,
         price: Double? = null,
         category: String? = null,
@@ -28,7 +28,7 @@ class UpdateProductUseCase @Inject constructor(
     ): AuthResult<Product> {
         // Validation
         name?.let {
-            if (it.isBlank() || it.length < 3) {
+            if (it.isEmpty() || name.length < 3) {
                 return AuthResult.Error("Product name must be at least 3 characters")
             }
         }

@@ -11,26 +11,34 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.example.bunnix.MainActivity
-import com.example.bunnix.backend.Routes
 import com.example.bunnix.ui.theme.BunnixTheme
+import com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.await
+import kotlin.jvm.java
 
 class SplashActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContent {
             BunnixTheme {
-                val userPrefs = UserPreferences(this)
-
                 SplashScreen(
-                    userPrefs = userPrefs,
-                    onNavigate = { route ->
-                        // Navigate to MainActivity with route
-                        val intent = Intent(this, MainActivity::class.java)
-                        intent.putExtra("start_route", route)
-                        startActivity(intent)
+                    onNavigateToLogin = {
+                        startActivity(Intent(this, LoginActivity::class.java))
+                        finish()
+                    },
+                    onNavigateToSignup = {
+                        startActivity(Intent(this, SignupActivity::class.java))
+                        finish()
+                    },
+                    onNavigateToCustomer = {
+                        startActivity(Intent(this, MainActivity::class.java))
+                        finish()
+                    },
+                    onNavigateToVendor = {
+                        startActivity(Intent(this, VendorMainActivity::class.java))
                         finish()
                     }
                 )
@@ -39,30 +47,47 @@ class SplashActivity : ComponentActivity() {
     }
 }
 
-// ✅ UNCHANGED - Your original UI
 @Composable
 fun SplashScreen(
-    userPrefs: UserPreferences,
-    onNavigate: (String) -> Unit
+    onNavigateToLogin: () -> Unit,
+    onNavigateToSignup: () -> Unit,
+    onNavigateToCustomer: () -> Unit,
+    onNavigateToVendor: () -> Unit
 ) {
+    val auth = FirebaseAuth.getInstance()
+    val firestore = FirebaseFirestore.getInstance()
 
-    // ✅ Collect flows OUTSIDE LaunchedEffect
-    val loggedIn by userPrefs.isLoggedIn.collectAsState(initial = false)
-    val firstLaunch by userPrefs.isFirstLaunch.collectAsState(initial = true)
-
-    // ✅ Navigation logic inside LaunchedEffect
     LaunchedEffect(true) {
+        delay(2000) // Show splash for 2 seconds
 
-        delay(2000)
+        val currentUser = auth.currentUser
 
-        when {
-            firstLaunch -> onNavigate(Routes.Signup)
-            loggedIn -> onNavigate(Routes.Home)
-            else -> onNavigate(Routes.Login)
+        if (currentUser != null) {
+            // User is logged in, check if vendor or customer
+            try {
+                val userDoc = firestore.collection("users")
+                    .document(currentUser.uid)
+                    .get()
+                    .await()
+
+                val isVendor = userDoc.getBoolean("isVendor") ?: false
+
+                if (isVendor) {
+                    onNavigateToVendor()
+                } else {
+                    onNavigateToCustomer()
+                }
+            } catch (e: Exception) {
+                // Error fetching user data, go to login
+                onNavigateToLogin()
+            }
+        } else {
+            // User NOT logged in, go to login
+            onNavigateToLogin()
         }
     }
 
-    // ✅ UI - UNCHANGED
+    // UI
     Box(
         modifier = Modifier
             .fillMaxSize()

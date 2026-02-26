@@ -4,16 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bunnix.domain.usecase.chat.*
 import com.example.bunnix.vendorUI.screens.vendor.messages.ChatMessage
-import com.google.ai.edge.litertlm.Conversation
+//import com.google.ai.edge.litertlm.Conversation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.example.bunnix.database.models.Chat
 
 data class ChatUiState(
     val isLoading: Boolean = false,
-    val chats: List<Conversation> = emptyList(),
+    val chats: List<Chat> = emptyList(),
     val messages: List<ChatMessage> = emptyList(),
     val error: String? = null
 )
