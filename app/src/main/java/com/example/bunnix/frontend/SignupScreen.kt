@@ -31,7 +31,6 @@ import com.example.bunnix.MainActivity
 import com.example.bunnix.R
 import com.example.bunnix.data.auth.AuthResult
 import com.example.bunnix.presentation.viewmodel.AuthViewModel
-import com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity
 import com.google.firebase.auth.FirebaseAuth
 //import com.example.bunnix.vendorui.VendorMainActivity
 import com.google.firebase.firestore.FieldValue
@@ -59,12 +58,8 @@ class SignupActivity : ComponentActivity() {
                     startActivity(Intent(this, LoginActivity::class.java))
                     finish()
                 },
-                onSignupSuccess = { isVendor ->
-                    if (isVendor) {
-                        startActivity(Intent(this, VendorMainActivity::class.java))
-                    } else {
-                        startActivity(Intent(this, MainActivity::class.java))
-                    }
+                onSignupSuccess = {
+                    startActivity(Intent(this, MainActivity::class.java))
                     finish()
                 }
             )

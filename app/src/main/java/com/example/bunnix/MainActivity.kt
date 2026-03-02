@@ -46,8 +46,7 @@ import com.example.bunnix.vendorUI.components.BunnixBottomNav
 import com.example.bunnix.ui.theme.BunnixTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.filled.*
-import com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity
+import com.example.bunnix.frontend.UserPreferences
 
 
 // Color system
@@ -74,8 +73,16 @@ class MainActivity : ComponentActivity() {
                     val prefs = UserPreferences(context)
                     val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
 
+                    val scope = rememberCoroutineScope()
+
                     if (currentMode == "VENDOR") {
-                        VendorApp()
+                        VendorApp(
+                            onSwitchToCustomerMode = {
+                                scope.launch {
+                                    prefs.setMode("CUSTOMER")
+                                }
+                            }
+                        )
                     } else {
                         BunnixNavigation()
                     }
@@ -188,35 +195,47 @@ fun BunnixNavigation() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.Splash,
+            startDestination = Routes.Home,
             modifier = Modifier.padding(padding)
         ) {
+
+
             composable(Routes.Signup) {
+
                 val context = LocalContext.current
+                val prefs = UserPreferences(context)
+                val scope = rememberCoroutineScope()
 
                 SignupScreen(
-                    isSwitchingMode = false, // Default for normal signup
-                    currentMode = "customer", // Default for normal signup
+                    isSwitchingMode = false,
+                    currentMode = "customer",
+
                     onLoginClick = {
                         navController.navigate(Routes.Login) {
                             popUpTo(Routes.Signup) { inclusive = true }
                         }
                     },
+
                     onSignupSuccess = { isVendor ->
-                        // Navigate based on account type
-                        if (isVendor) {
-                            context.startActivity(Intent(context, VendorMainActivity::class.java))
-                        } else {
-                            context.startActivity(Intent(context, MainActivity::class.java))
+
+                        scope.launch {
+                            if (isVendor) {
+                                prefs.setMode("VENDOR")
+                            } else {
+                                prefs.setMode("CUSTOMER")
+                            }
+
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Signup) { inclusive = true }
+                            }
                         }
-                        // Close current activity
-                        (context as? ComponentActivity)?.finish()
                     }
                 )
             }
 
-            composable(Routes.Login) {
+            composable(Routes.Login) { backStackEntry ->
                 LoginScreen(
+                    authViewModel = hiltViewModel(backStackEntry),
                     onSignupClick = { navController.navigate(Routes.Signup) },
                     onLoginSuccess = {
                         navController.navigate(Routes.Home) {
@@ -225,6 +244,9 @@ fun BunnixNavigation() {
                     }
                 )
             }
+
+
+
 
             composable(Routes.Home) {
                 HomeScreen(
@@ -556,15 +578,26 @@ fun BunnixNavigation() {
             }
 
             composable("vendor_onboarding") {
+
+                val context = LocalContext.current
+                val prefs = UserPreferences(context)
+                val scope = rememberCoroutineScope()
+
                 VendorOnboardingScreen(
                     onBack = { navController.popBackStack() },
                     onComplete = {
-                        navController.navigate(Routes.Profile) {
-                            popUpTo(Routes.Profile) { inclusive = true }
+                        scope.launch {
+                            prefs.setMode("VENDOR")
+                        }
+
+                        navController.navigate(Routes.Home) {
+                            popUpTo(0) { inclusive = true }
                         }
                     }
                 )
             }
+
+
         }
     }
 }

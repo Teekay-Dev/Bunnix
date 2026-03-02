@@ -40,40 +40,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import com.example.bunnix.MainActivity
-import com.example.bunnix.ui.theme.BunnixTheme
 import com.example.bunnix.vendorUI.navigation.VendorNavHost
-import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.foundation.layout.padding
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
-@AndroidEntryPoint
-class VendorMainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            BunnixTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    VendorScaffold(
-                        onSwitchToCustomerMode = {
-                            // Switch back to customer MainActivity
-                            startActivity(Intent(this, MainActivity::class.java))
-                            finish()
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun VendorScaffold(

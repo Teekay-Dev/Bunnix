@@ -197,7 +197,13 @@ fun ProfileScreen(
 
                         // Switch/Arrow button
                         Surface(
-                            onClick = onSwitchMode,
+                            onClick = {
+                                if (isVendor) {
+                                    onSwitchMode()
+                                } else {
+                                    onBecomeVendor()
+                                }
+                            },
                             modifier = Modifier.size(48.dp),
                             shape = CircleShape,
                             color = White.copy(alpha = 0.2f)

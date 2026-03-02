@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.bunnix">
 
-    <!-- Internet permission for Firebase -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -15,7 +15,7 @@
         android:theme="@style/Theme.Bunnix.Splash">
 
         <activity
-            android:name=".frontend.SplashActivity"
+            android:name="com.example.bunnix.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,15 +24,24 @@
         </activity>
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.example.bunnix.frontend.LoginActivity"
             android:exported="false" />
 
-<!--        <activity android:name=".frontend.LoginActivity" />-->
-<!--        <activity android:name=".frontend.SignupActivity" />-->
-<!--        <activity android:name=".frontend.HomeActivity" />-->
-<!--        <activity android:name=".frontend.OnboardingActivity" />-->
-<!--        <activity android:name=".frontend.BookingActivity" />-->
-<!--        <activity android:name=".frontend.CartActivity" />-->
+        <activity
+            android:name="com.example.bunnix.frontend.SignupActivity"
+            android:exported="false" />
+
+<!--        <activity-->
+<!--            android:name="com.example.bunnix.MainActivity"-->
+<!--            android:exported="false" />-->
+
+        <activity
+            android:name="com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name="com.example.bunnix.frontend.OnboardingActivity"
+            android:exported="false" />
 
     </application>
 

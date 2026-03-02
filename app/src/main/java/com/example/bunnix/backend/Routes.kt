@@ -7,6 +7,7 @@ object Routes {
     const val Login = "login"
 
     // ✅ Main Screens
+    const val VendorDashboard = "vendor_dashboard"
     const val Home = "home"
 
     const val Chat = "chat"

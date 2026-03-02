@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,7 +33,6 @@ import com.example.bunnix.MainActivity
 import com.example.bunnix.R
 import com.example.bunnix.data.auth.AuthResult
 import com.example.bunnix.presentation.viewmodel.AuthViewModel
-import com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -42,6 +42,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlin.jvm.java
+import androidx.activity.viewModels
 
 @AndroidEntryPoint
 class LoginActivity : ComponentActivity() {
@@ -49,18 +50,17 @@ class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val viewModel: AuthViewModel by viewModels()
+
         setContent {
             LoginScreen(
+                authViewModel = viewModel,
                 onSignupClick = {
                     startActivity(Intent(this, SignupActivity::class.java))
                     finish()
                 },
-                onLoginSuccess = { isVendor ->
-                    if (isVendor) {
-                        startActivity(Intent(this, VendorMainActivity::class.java))
-                    } else {
-                        startActivity(Intent(this, MainActivity::class.java))
-                    }
+                onLoginSuccess = {
+                    startActivity(Intent(this, MainActivity::class.java))
                     finish()
                 }
             )
@@ -70,9 +70,9 @@ class LoginActivity : ComponentActivity() {
 
 @Composable
 fun LoginScreen(
-    authViewModel: AuthViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel,
     onSignupClick: () -> Unit,
-    onLoginSuccess: (Boolean) -> Unit // Pass isVendor flag
+    onLoginSuccess: () -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -111,7 +111,7 @@ fun LoginScreen(
                                 val isVendor = userDoc.getBoolean("isVendor") ?: false
 
                                 Toast.makeText(context, "Welcome! 👋", Toast.LENGTH_SHORT).show()
-                                onLoginSuccess(isVendor)
+                                onLoginSuccess()
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
@@ -239,7 +239,7 @@ fun LoginScreen(
                                 val isVendor = userDoc.getBoolean("isVendor") ?: false
 
                                 Toast.makeText(context, "Welcome back! 👋", Toast.LENGTH_SHORT).show()
-                                onLoginSuccess(isVendor)
+                                onLoginSuccess()
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
@@ -301,7 +301,9 @@ fun LoginScreen(
 
         // Signup Link
         Row {
-            Text("Don't have an account? ")
+            Text("Don't have an account? ",
+                color = Color(0xFF0A0A0A)
+            )
             Text(
                 "Sign Up",
                 color = Color(0xFFFF7900),
