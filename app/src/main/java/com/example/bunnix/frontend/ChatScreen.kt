@@ -90,7 +90,10 @@ fun ChatDetailScreen(
                     text = "Hi! Thank you for booking our Premium Spa Package. We're excited to have you! 🎉",
                     messageType = "text",
                     timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2))),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 Message(
                     messageId = "msg_2",
@@ -99,7 +102,10 @@ fun ChatDetailScreen(
                     text = "Hi! I'm excited about the appointment. What time should I arrive?",
                     messageType = "text",
                     timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1) - TimeUnit.MINUTES.toMillis(45))),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 Message(
                     messageId = "msg_3",
@@ -108,7 +114,10 @@ fun ChatDetailScreen(
                     text = "Please arrive 15 minutes early for preparation. Also, don't forget to bring the payment receipt!",
                     messageType = "text",
                     timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1) - TimeUnit.MINUTES.toMillis(30))),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 // Order link message using your orderPreview Map
                 Message(
@@ -127,7 +136,10 @@ fun ChatDetailScreen(
                         "location" to "123 Victoria Island, Lagos"
                     ),
                     timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1))),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 Message(
                     messageId = "msg_5",
@@ -136,7 +148,10 @@ fun ChatDetailScreen(
                     text = "Perfect! I've made the transfer. Here's the receipt:",
                     messageType = "text",
                     timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(30))),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 // Image message using your imageUrl field
                 Message(
@@ -147,7 +162,10 @@ fun ChatDetailScreen(
                     imageUrl = "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600",
                     messageType = "image",
                     timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(25))),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 Message(
                     messageId = "msg_7",
@@ -156,7 +174,10 @@ fun ChatDetailScreen(
                     text = "Thank you! Payment received ✅. See you tomorrow at 2 PM. Don't be late! 😊",
                     messageType = "text",
                     timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(5))),
-                    isRead = false
+                    isRead = false,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 )
             )
         )
@@ -198,7 +219,10 @@ fun ChatDetailScreen(
                             text = messageText,
                             messageType = "text",
                             timestamp = Timestamp.now(),
-                            isRead = false
+                            isRead = false,
+                            content = "",
+                            chatId = "",
+                            type = ""
                         )
                         messages = messages + newMessage
                         messageText = ""
@@ -214,7 +238,10 @@ fun ChatDetailScreen(
                                 text = "Thanks for your message! We'll get back to you shortly.",
                                 messageType = "text",
                                 timestamp = Timestamp.now(),
-                                isRead = false
+                                isRead = false,
+                                content = "",
+                                chatId = "",
+                                type = ""
                             )
                             messages = messages + replyMessage
                         }
@@ -937,7 +964,10 @@ fun TextMessagePreview() {
                     text = "Hello! How can I help you today?",
                     messageType = "text",
                     timestamp = Timestamp.now(),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 isFromMe = false
             )
@@ -950,7 +980,10 @@ fun TextMessagePreview() {
                     text = "I'd like to book an appointment please!",
                     messageType = "text",
                     timestamp = Timestamp.now(),
-                    isRead = true
+                    isRead = true,
+                    content = "",
+                    chatId = "",
+                    type = ""
                 ),
                 isFromMe = true
             )
@@ -979,7 +1012,10 @@ fun OrderLinkCardPreview() {
                     "location" to "123 Victoria Island"
                 ),
                 timestamp = Timestamp.now(),
-                isRead = false
+                isRead = false,
+                content = "",
+                chatId = "",
+                type = ""
             ),
             isFromMe = false,
             onClick = {}

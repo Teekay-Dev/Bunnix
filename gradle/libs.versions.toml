@@ -20,6 +20,7 @@ hilt = "2.51.1"  # Hilt 2.51.1 supports Kotlin 2.0.21
 supabase = "2.5.4"
 foundation = "1.10.3"
 litertlm = "0.0.0-alpha05"
+litertlmJvm = "0.8.0"
 
 
 # ✅ FIXED - Remove these outdated versions, use BoM instead
@@ -54,6 +55,7 @@ androidx-compose-remote-creation-core = { group = "androidx.compose.remote", nam
 
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 litertlm = { group = "com.google.ai.edge.litertlm", name = "litertlm", version.ref = "litertlm" }
+litertlm-jvm = { group = "com.google.ai.edge.litertlm", name = "litertlm-jvm", version.ref = "litertlmJvm" }
 
 
 # ✅ FIXED - Remove these, Firebase BoM handles versions

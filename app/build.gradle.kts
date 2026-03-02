@@ -2,14 +2,13 @@ import java.util.Properties
 import kotlin.apply
 
 plugins {
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("plugin.serialization")
     id("com.google.gms.google-services")
-    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -18,7 +17,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.bunnix"
-        minSdk = 24
+        minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -79,6 +78,7 @@ dependencies {
     implementation(libs.androidx.compose.remote.creation.core)
 //    implementation(libs.androidx.compose.foundation)
     implementation("androidx.compose.material3:material3:1.2.0")
+    implementation("com.google.ai.edge.litertlm:litertlm:0.0.0-alpha05")
 //    implementation(libs.litertlm) // or 1.3.0+
 
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -97,8 +97,8 @@ dependencies {
 
     // ===== HILT =====
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
-    implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-compiler:2.51.1")
+    implementation("com.google.dagger:hilt-android:2.52")
+    kapt("com.google.dagger:hilt-compiler:2.52")
 
     // ===== ROOM =====
     implementation("androidx.room:room-runtime:2.6.1")
@@ -147,10 +147,14 @@ dependencies {
 
     // ===== SUPABASE =====
     val supabaseVersion = "2.3.0"
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
-    implementation("io.github.jan-tennert.supabase:realtime-kt:$supabaseVersion")
-    implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
-    implementation("io.github.jan-tennert.supabase:storage-kt:$supabaseVersion")
+
+    implementation(platform("io.github.jan-tennert.supabase:bom:$supabaseVersion"))
+
+    implementation("io.github.jan-tennert.supabase:supabase-kt")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:realtime-kt")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
 
     // Ktor Client (Required by Supabase)
     implementation("io.ktor:ktor-client-android:2.3.7")

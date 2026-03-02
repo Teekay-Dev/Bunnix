@@ -1,6 +1,7 @@
 package com.example.bunnix.vendorUI.screens.vendor.dashboard
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -34,6 +35,65 @@ import com.example.bunnix.vendorUI.components.ShimmerCard
 import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.StatCard
 import com.example.bunnix.viewmodel.VendorDashboardViewModel
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import com.example.bunnix.vendorUI.navigation.VendorNavHost
+import androidx.compose.foundation.layout.padding
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+
+
+@Composable
+fun VendorScaffold(
+    onSwitchToCustomerMode: () -> Unit
+) {
+    val navController = rememberNavController()
+
+    // Bottom nav items
+    val items = listOf(
+        Triple("dashboard", "Home", Icons.Default.Home),
+        Triple("orders_bookings", "Orders", Icons.Default.ShoppingBag),
+        Triple("inventory", "Inventory", Icons.Default.Inventory),
+        Triple("messages", "Messages", Icons.Default.Message),
+        Triple("profile", "Profile", Icons.Default.Person)
+    )
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                items.forEach { (route, label, icon) ->
+                    NavigationBarItem(
+                        icon = { Icon(icon, contentDescription = label) },
+                        label = { Text(label) },
+                        selected = currentDestination?.hierarchy?.any { it.route == route } == true,
+                        onClick = {
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        VendorNavHost(
+            navController = navController,
+            onSwitchToCustomerMode = onSwitchToCustomerMode,
+            modifier = Modifier.padding(innerPadding)
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

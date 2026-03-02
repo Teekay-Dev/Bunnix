@@ -227,7 +227,7 @@ fun HomeScreen(
                 )
             }
         },
-        bottomBar = bottomBar,
+//        bottomBar = bottomBar,
         containerColor = SurfaceLight
     ) { padding ->
         Column(

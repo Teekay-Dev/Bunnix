@@ -24,6 +24,10 @@ val LightGrayBg = Color(0xFFF8F9FE)
 val SurfaceLight = Color(0xFFFAFAFA)
 val TextPrimary = Color(0xFF1A1A2E)
 val TextSecondary = Color(0xFF6B7280)
+val Pink80 = Color(0xFFFC12DD)
+val Pink40 = Color(0xFFFC3EE3)
+val PurpleGrey40 = Color(0xFFB655FA)
+val PurpleGrey80 = Color(0xFF6709A8)
 
 // FIXED: Proper dark color scheme with explicit text colors
 private val DarkColorScheme = darkColorScheme(

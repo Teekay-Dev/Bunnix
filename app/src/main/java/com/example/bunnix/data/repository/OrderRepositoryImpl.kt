@@ -35,6 +35,8 @@ class OrderRepositoryImpl @Inject constructor(
         private const val PAYMENT_RECEIPTS_BUCKET = "payment-receipts"
     }
 
+
+
     override suspend fun createOrder(
         customerId: String,
         customerName: String,
@@ -394,5 +396,9 @@ class OrderRepositoryImpl @Inject constructor(
                 exception = e
             )
         }
+    }
+
+    override fun getOrderById(orderId: String): Result<Order> {
+        TODO("Not yet implemented")
     }
 }

@@ -25,42 +25,25 @@ import androidx.compose.ui.unit.sp
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
 
-// Colors
-private val OrangePrimary = Color(0xFFFF6B35)
-private val OrangeLight = Color(0xFFFF8C61)
-private val OrangeSoft = Color(0xFFFFF0EB)
-private val TealAccent = Color(0xFF2EC4B6)
-private val PurpleAccent = Color(0xFF9B5DE5)
-private val SurfaceLight = Color(0xFFFAFAFA)
+// Exact colors from the image
+private val OrangePrimary = Color(0xFFFF8C42)
+private val OrangeLight = Color(0xFFFFA726)
+private val OrangeGradientStart = Color(0xFFFF8C42)
+private val OrangeGradientEnd = Color(0xFFFFB74D)
+private val BackgroundGray = Color(0xFFF5F5F5)
 private val TextPrimary = Color(0xFF1A1A2E)
 private val TextSecondary = Color(0xFF6B7280)
-private val TextTertiary = Color(0xFF9CA3AF)
-private val VendorOrange = Color(0xFFFF8C42)
-
-sealed class ProfileMenuItem(
-    val title: String,
-    val icon: ImageVector,
-    val route: String
-) {
-    object Orders : ProfileMenuItem("My Orders", Icons.Default.ShoppingBag, "orders")
-    object Bookings : ProfileMenuItem("My Bookings", Icons.Default.CalendarToday, "bookings")
-    object Addresses : ProfileMenuItem("Saved Addresses", Icons.Default.LocationOn, "addresses")
-    object Payments : ProfileMenuItem("Payment Methods", Icons.Default.Payment, "payments")
-    object Notifications : ProfileMenuItem("Notifications", Icons.Default.Notifications, "notifications")
-    object Help : ProfileMenuItem("Help Center", Icons.Default.Help, "help")
-    object About : ProfileMenuItem("About Bunnix", Icons.Default.Info, "about")
-}
+private val White = Color.White
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     userName: String = "John Doe",
-    userEmail: String = "john.doe@email.com",
+    userEmail: String = "john@example.com",
     userPhone: String = "+234 801 234 5678",
     profileImageUrl: String? = null,
     isVendor: Boolean = false,
     vendorBusinessName: String? = null,
-    // NEW PARAMETERS ADDED for MainActivity integration
     onBack: () -> Unit = {},
     onEditProfile: () -> Unit = {},
     onViewOrders: () -> Unit = {},
@@ -78,36 +61,8 @@ fun ProfileScreen(
         isVisible = true
     }
 
-    val menuItems = listOf(
-        ProfileMenuItem.Orders,
-        ProfileMenuItem.Bookings,
-        ProfileMenuItem.Addresses,
-        ProfileMenuItem.Payments,
-        ProfileMenuItem.Notifications,
-        ProfileMenuItem.Help,
-        ProfileMenuItem.About
-    )
-
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Profile", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    // ADDED: Back button
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = OrangePrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        },
-        containerColor = SurfaceLight
+        containerColor = BackgroundGray
     ) { padding ->
         AnimatedVisibility(
             visible = isVisible,
@@ -119,80 +74,286 @@ fun ProfileScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                // Profile Header with Gradient
-                ProfileHeader(
-                    userName = userName,
-                    userEmail = userEmail,
-                    userPhone = userPhone,
-                    profileImageUrl = profileImageUrl,
-                    isVendor = isVendor,
-                    vendorBusinessName = vendorBusinessName,
-                    onEditProfile = onEditProfile
-                )
+                // Orange Gradient Header with Wave
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(OrangeGradientStart, OrangeGradientEnd)
+                            )
+                        )
+                ) {
+                    // Wave decoration at bottom
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                color = BackgroundGray,
+                                shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
+                            )
+                    )
 
-                // Mode Switch Card (Customer/Vendor)
-                ModeSwitchCard(
-                    isVendor = isVendor,
-                    onSwitchMode = onSwitchMode,
-                    onBecomeVendor = onBecomeVendor
-                )
+                    // Profile content in header
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Circular Profile Image
+                        Surface(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .border(4.dp, White.copy(alpha = 0.3f), CircleShape),
+                            shape = CircleShape,
+                            color = White
+                        ) {
+                            if (profileImageUrl != null) {
+                                // AsyncImage would go here
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Icon(
+                                        Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = OrangePrimary,
+                                        modifier = Modifier.size(50.dp)
+                                    )
+                                }
+                            } else {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Text(
+                                        userName.take(2).uppercase(),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 36.sp,
+                                        color = OrangePrimary
+                                    )
+                                }
+                            }
+                        }
 
-                // Menu Items
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // User Name
+                        Text(
+                            userName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            color = White
+                        )
+
+                        // Email
+                        Text(
+                            userEmail,
+                            fontSize = 14.sp,
+                            color = White.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(-20.dp))
+
+                // Vendor Mode Card
+                // Vendor Mode Card - Always show switch/become vendor option
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    colors = CardDefaults.cardColors(
+                        containerColor = OrangePrimary
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    Column {
-                        menuItems.forEachIndexed { index, item ->
-                            // MODIFIED: Handle Orders and Notifications with specific callbacks
-                            val onItemClick = when (item.route) {
-                                "orders" -> onViewOrders
-                                "notifications" -> onViewNotifications
-                                else -> { { onMenuItemClick(item.route) } }
-                            }
-                            MenuItemRow(
-                                item = item,
-                                onClick = onItemClick,
-                                showDivider = index < menuItems.size - 1
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                if (isVendor) "Switch to Business" else "Become a Vendor",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = White
                             )
+                            Text(
+                                if (isVendor) "Manage your business account" else "Create a business account",
+                                fontSize = 14.sp,
+                                color = White.copy(alpha = 0.9f)
+                            )
+                        }
+
+                        // Switch/Arrow button
+                        Surface(
+                            onClick = {
+                                if (isVendor) {
+                                    onSwitchMode()
+                                } else {
+                                    onBecomeVendor()
+                                }
+                            },
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = White.copy(alpha = 0.2f)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    if (isVendor) Icons.Default.Sync else Icons.Default.ArrowForward,
+                                    contentDescription = if (isVendor) "Switch Mode" else "Become Vendor",
+                                    tint = White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     }
                 }
 
+                // Account Settings Section
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            "Account Settings",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        // Edit Profile
+                        MenuItem(
+                            icon = Icons.Default.Person,
+                            title = "Edit Profile",
+                            onClick = onEditProfile
+                        )
+
+                        Divider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+
+                        // Addresses
+                        MenuItem(
+                            icon = Icons.Default.LocationOn,
+                            title = "Addresses",
+                            onClick = { onMenuItemClick("addresses") }
+                        )
+
+                        Divider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+
+                        // Payment Methods
+                        MenuItem(
+                            icon = Icons.Default.CreditCard,
+                            title = "Payment Methods",
+                            onClick = { onMenuItemClick("payments") }
+                        )
+
+                        Divider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+
+                        // Notifications
+                        MenuItem(
+                            icon = Icons.Default.Notifications,
+                            title = "Notifications",
+                            onClick = onViewNotifications
+                        )
+                    }
+                }
+
+                // Support Section
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            "Support",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        // Help Center
+                        MenuItem(
+                            icon = Icons.Default.Help,
+                            title = "Help Center",
+                            iconBackground = OrangePrimary.copy(alpha = 0.1f),
+                            iconTint = OrangePrimary,
+                            onClick = { onMenuItemClick("help") }
+                        )
+
+                        Divider(color = Color(0xFFEEEEEE), thickness = 1.dp)
+
+                        // Privacy & Security
+                        MenuItem(
+                            icon = Icons.Default.Security,
+                            title = "Privacy & Security",
+                            iconBackground = OrangePrimary.copy(alpha = 0.1f),
+                            iconTint = OrangePrimary,
+                            onClick = { onMenuItemClick("privacy") }
+                        )
+                    }
+                }
+
                 // Logout Button
-                Button(
+                Surface(
                     onClick = { showLogoutDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(56.dp),
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFEE2E2),
-                        contentColor = Color(0xFFDC2626)
-                    ),
-                    elevation = null
+                    color = White
                 ) {
-                    Icon(Icons.Default.Logout, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Logout", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Logout,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Log Out",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            color = Color(0xFFDC2626)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
-
-                // App Version
-                Text(
-                    "Bunnix v1.0.0",
-                    fontSize = 12.sp,
-                    color = TextTertiary,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -209,302 +370,56 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileHeader(
-    userName: String,
-    userEmail: String,
-    userPhone: String,
-    profileImageUrl: String?,
-    isVendor: Boolean,
-    vendorBusinessName: String?,
-    onEditProfile: () -> Unit
+private fun MenuItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    iconBackground: Color = Color(0xFFF5F5F5),
+    iconTint: Color = TextSecondary
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(280.dp)
-    ) {
-        // Gradient Background
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(OrangePrimary, OrangeLight)
-                    )
-                )
-        )
-
-        // Profile Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 100.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Profile Image
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Surface(
-                        color = OrangeSoft,
-                        shape = CircleShape,
-                        modifier = Modifier.size(100.dp),
-                        border = BorderStroke(4.dp, Color.White),
-                        shadowElevation = 4.dp
-                    ) {
-                        if (profileImageUrl != null) {
-                            // AsyncImage here
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = OrangePrimary,
-                                    modifier = Modifier.size(50.dp)
-                                )
-                            }
-                        } else {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    userName.take(2).uppercase(),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 36.sp,
-                                    color = OrangePrimary
-                                )
-                            }
-                        }
-                    }
-
-                    // Edit Button
-                    Surface(
-                        onClick = onEditProfile,
-                        color = OrangePrimary,
-                        shape = CircleShape,
-                        modifier = Modifier.size(36.dp),
-                        shadowElevation = 2.dp
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint = Color.White,
-                            modifier = Modifier.padding(8.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // User Info
-                Text(
-                    userName,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 22.sp,
-                    color = TextPrimary
-                )
-
-                Text(
-                    userEmail,
-                    fontSize = 14.sp,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Text(
-                    userPhone,
-                    fontSize = 14.sp,
-                    color = TextTertiary
-                )
-
-                // Vendor Badge
-                if (isVendor && vendorBusinessName != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        color = VendorOrange.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(20.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Store,
-                                contentDescription = null,
-                                tint = VendorOrange,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                vendorBusinessName,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = VendorOrange
-                            )
-                            Surface(
-                                color = VendorOrange,
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    "VENDOR",
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModeSwitchCard(
-    isVendor: Boolean,
-    onSwitchMode: () -> Unit,
-    onBecomeVendor: () -> Unit
-) {
-    val scale by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "scale"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .scale(scale),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isVendor) VendorOrange.copy(alpha = 0.1f) else TealAccent.copy(alpha = 0.1f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(
-            1.dp,
-            if (isVendor) VendorOrange.copy(alpha = 0.3f) else TealAccent.copy(alpha = 0.3f)
-        )
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Surface(
+                color = iconBackground,
+                shape = CircleShape,
+                modifier = Modifier.size(40.dp)
             ) {
-                Surface(
-                    color = if (isVendor) VendorOrange else TealAccent,
-                    shape = CircleShape,
-                    modifier = Modifier.size(48.dp)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(
-                        if (isVendor) Icons.Default.Store else Icons.Default.ShoppingBag,
+                        icon,
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-
-                Column {
-                    Text(
-                        if (isVendor) "Vendor Mode" else "Customer Mode",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = if (isVendor) VendorOrange else TealAccent
-                    )
-                    Text(
-                        if (isVendor) "Manage your business" else "Shop and book services",
-                        fontSize = 12.sp,
-                        color = TextSecondary
+                        tint = iconTint,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            if (isVendor) {
-                Switch(
-                    checked = true,
-                    onCheckedChange = { onSwitchMode() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = VendorOrange
-                    )
-                )
-            } else {
-                Button(
-                    onClick = onBecomeVendor,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = VendorOrange
-                    )
-                ) {
-                    Text("Become a Vendor", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}
+            Spacer(modifier = Modifier.width(16.dp))
 
-@Composable
-private fun MenuItemRow(
-    item: ProfileMenuItem,
-    onClick: () -> Unit,
-    showDivider: Boolean
-) {
-    Column {
-        Surface(
-            onClick = onClick,
-            color = Color.Transparent
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    color = OrangeSoft,
-                    shape = CircleShape,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        item.icon,
-                        contentDescription = null,
-                        tint = OrangePrimary,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
+            Text(
+                title,
+                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp,
+                color = TextPrimary,
+                modifier = Modifier.weight(1f)
+            )
 
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Text(
-                    item.title,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Icon(
-                    Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = TextTertiary
-                )
-            }
-        }
-
-        if (showDivider) {
-            Divider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = TextTertiary.copy(alpha = 0.1f)
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = TextSecondary,
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -542,12 +457,13 @@ private fun LogoutConfirmationDialog(
             OutlinedButton(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, TextTertiary)
+                border = BorderStroke(1.dp, TextSecondary)
             ) {
                 Text("Cancel", color = TextPrimary)
             }
         },
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(24.dp),
+        containerColor = White
     )
 }
 
@@ -556,16 +472,5 @@ private fun LogoutConfirmationDialog(
 fun ProfileScreenPreview() {
     BunnixTheme {
         ProfileScreen(isVendor = false)
-    }
-}
-
-@Preview(showBackground = true, device = "id:pixel_5")
-@Composable
-fun ProfileScreenVendorPreview() {
-    BunnixTheme {
-        ProfileScreen(
-            isVendor = true,
-            vendorBusinessName = "TechHub Store"
-        )
     }
 }
