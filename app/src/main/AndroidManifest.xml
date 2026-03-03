@@ -8,9 +8,9 @@
     <application
         android:name=".BunnixApplication"
         android:allowBackup="true"
-        android:icon="@drawable/bunnix_2"
+        android:icon="@drawable/img"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/bunnix_2"
+        android:roundIcon="@drawable/img"
         android:supportsRtl="true"
         android:theme="@style/Theme.Bunnix.Splash">
 
@@ -35,9 +35,9 @@
 <!--            android:name="com.example.bunnix.MainActivity"-->
 <!--            android:exported="false" />-->
 
-        <activity
-            android:name="com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity"
-            android:exported="false" />
+<!--        <activity-->
+<!--            android:name="com.example.bunnix.vendorUI.screens.vendor.dashboard.VendorMainActivity"-->
+<!--            android:exported="false" />-->
 
         <activity
             android:name="com.example.bunnix.frontend.OnboardingActivity"

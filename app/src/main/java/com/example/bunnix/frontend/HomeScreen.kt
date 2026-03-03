@@ -100,7 +100,7 @@ val specialOffers = listOf(
         title = "New Vendors!",
         subtitle = "Discover 50+ new businesses",
         discount = "NEW",
-        backgroundColor = listOf(Color(0xFF2EC4B6), Color(0xFF00BBF9)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
         actionText = "Explore"
     ),
     SpecialOffer(
@@ -108,7 +108,7 @@ val specialOffers = listOf(
         title = "Flash Sale",
         subtitle = "Limited time deals on electronics",
         discount = "-50%",
-        backgroundColor = listOf(Color(0xFF9B5DE5), Color(0xFF00F5D4)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
         actionText = "Grab Deal"
     ),
     SpecialOffer(
@@ -116,7 +116,7 @@ val specialOffers = listOf(
         title = "Free Delivery",
         subtitle = "On all orders above ₦10,000",
         discount = "FREE",
-        backgroundColor = listOf(Color(0xFFFFBE0B), Color(0xFFFF6B35)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
         actionText = "Order Now"
     )
 )
@@ -538,7 +538,7 @@ private fun QuickActionSection(
             title = "Book Service",
             subtitle = "Find experts",
             icon = Icons.Default.CalendarToday,
-            gradient = listOf(TealAccent, Color(0xFF00BBF9)),
+            gradient = listOf(OrangePrimary, OrangeLight),
             onClick = onBookService,
             modifier = Modifier.weight(1f)
         )

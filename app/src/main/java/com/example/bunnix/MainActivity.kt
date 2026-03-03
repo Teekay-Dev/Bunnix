@@ -8,6 +8,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -17,14 +19,13 @@ import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material3.*
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,17 +38,17 @@ import androidx.navigation.navArgument
 import com.example.bunnix.backend.Routes
 import com.example.bunnix.data.CartData
 import com.example.bunnix.database.models.Service
-import com.example.bunnix.database.models.VendorProfile // IMPORT THE CORRECT MODEL
+import com.example.bunnix.database.models.VendorProfile
 import com.example.bunnix.frontend.*
 import com.example.bunnix.vendorUI.navigation.VendorBottomNavItem
 import com.example.bunnix.vendorUI.navigation.VendorNavHost
 import com.example.bunnix.presentation.viewmodel.ProductViewModel
 import com.example.bunnix.vendorUI.components.BunnixBottomNav
 import com.example.bunnix.ui.theme.BunnixTheme
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.example.bunnix.frontend.UserPreferences
-
 
 // Color system
 val OrangePrimaryModern = Color(0xFFFF6B35)
@@ -69,108 +70,362 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val context = LocalContext.current
-                    val prefs = UserPreferences(context)
-                    val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
-
-                    val scope = rememberCoroutineScope()
-
-                    if (currentMode == "VENDOR") {
-                        VendorApp(
-                            onSwitchToCustomerMode = {
-                                scope.launch {
-                                    prefs.setMode("CUSTOMER")
-                                }
-                            }
-                        )
-                    } else {
-                        BunnixNavigation()
-                    }
+                    AppNavigation()
                 }
             }
         }
     }
 }
 
-// Vendor sample data
-val vendorList = listOf(
-    VendorProfile(
-        vendorId = "1",
-        businessName = "TechHub Store",
-        category = "Tech",
-        description = "Your one-stop electronics shop",
-        coverPhotoUrl = "",
-        rating = 4.8,
-        totalReviews = 128,
-        address = "2.3 km away",
-        phone = "+234 123 456 7890",
-        isAvailable = true
-    ),
-    VendorProfile(
-        vendorId = "2",
-        businessName = "Fashion Hub",
-        category = "Fashion",
-        description = "Latest trends and styles",
-        coverPhotoUrl = "",
-        rating = 4.5,
-        totalReviews = 85,
-        address = "1.5 km away",
-        phone = "+234 987 654 3210",
-        isAvailable = true
-    ),
-    VendorProfile(
-        vendorId = "3",
-        businessName = "Spa & Wellness",
-        category = "Beauty",
-        description = "Relax and rejuvenate",
-        coverPhotoUrl = "",
-        rating = 4.9,
-        totalReviews = 200,
-        address = "3.0 km away",
-        phone = "+234 456 789 0123",
-        isAvailable = true
-    )
-)
-
-// VENDOR APP
+// ===== MAIN APP NAVIGATION WITH SPLASH & ONBOARDING =====
 @Composable
-fun VendorApp(onSwitchToCustomerMode: () -> Unit = {}) {
+fun AppNavigation() {
+    val context = LocalContext.current
+    val prefs = UserPreferences(context)
     val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
 
-    val bottomNavRoutes = listOf(
-        "dashboard", "orders_bookings", "messages", "analytics", "profile"
-    )
-    val showBottomNav = currentRoute in bottomNavRoutes
+    // Check app state
+    val isFirstLaunch by prefs.isFirstLaunch.collectAsState(initial = true)
+    val isLoggedIn by prefs.isLoggedIn.collectAsState(initial = false)
+    val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
 
-    Scaffold(
-        bottomBar = {
-            if (showBottomNav) {
-                BunnixBottomNav(
-                    navController = navController,
-                    items = listOf(
-                        VendorBottomNavItem.Dashboard,
-                        VendorBottomNavItem.Orders,
-                        VendorBottomNavItem.Messages,
-                        VendorBottomNavItem.Analytics,
-                        VendorBottomNavItem.Profile
-                    )
-                )
+    // Determine start destination
+    val startDestination = remember(isFirstLaunch, isLoggedIn, currentMode) {
+        when {
+            isFirstLaunch -> "splash"
+            !isLoggedIn -> "login"
+            currentMode == "VENDOR" -> "vendor_mode"
+            else -> "customer_mode"
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
+    ) {
+        // ===== SPLASH SCREEN =====
+        composable("splash") {
+            AnimatedSplashScreen {
+                navController.navigate("onboarding") {
+                    popUpTo("splash") { inclusive = true }
+                }
             }
         }
-    ) { innerPadding ->
-        VendorNavHost(
-            navController = navController,
-            onSwitchToCustomerMode = onSwitchToCustomerMode,
-            modifier = Modifier.padding(innerPadding)
-        )
+
+        // ===== ONBOARDING SCREEN =====
+        composable("onboarding") {
+            val scope = rememberCoroutineScope()
+
+            OnboardingScreen(
+                onGetStarted = {
+                    scope.launch {
+                        prefs.setFirstLaunch(false)
+                        navController.navigate("signup") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+
+        // ===== SIGNUP SCREEN =====
+        composable("signup") {
+            val scope = rememberCoroutineScope()
+
+            SignupScreen(
+                isSwitchingMode = false,
+                currentMode = "customer",
+                onLoginClick = {
+                    navController.navigate("login") {
+                        popUpTo("signup") { inclusive = true }
+                    }
+                },
+                onSignupSuccess = { isVendor ->
+                    scope.launch {
+                        prefs.setLoggedIn(true)
+
+                        if (isVendor) {
+                            prefs.setMode("VENDOR")
+                            navController.navigate("vendor_mode") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        } else {
+                            prefs.setMode("CUSTOMER")
+                            navController.navigate("customer_mode") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+        // ===== LOGIN SCREEN =====
+        composable("login") {
+            val scope = rememberCoroutineScope()
+
+            LoginScreen(
+                authViewModel = hiltViewModel(),
+                onSignupClick = {
+                    navController.navigate("signup")
+                },
+                onLoginSuccess = {
+                    scope.launch {
+                        prefs.setLoggedIn(true)
+                        val mode = currentMode
+
+                        if (mode == "VENDOR") {
+                            navController.navigate("vendor_mode") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate("customer_mode") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+        // ===== VENDOR SIGNUP (When switching from customer) =====
+        composable("vendor_signup") {
+            val scope = rememberCoroutineScope()
+
+            SignupScreen(
+                isSwitchingMode = true,
+                currentMode = "customer",
+                onLoginClick = {
+                    navController.popBackStack()
+                },
+                onSignupSuccess = { isVendor ->
+                    scope.launch {
+                        if (isVendor) {
+                            prefs.setMode("VENDOR")
+                            navController.navigate("vendor_mode") {
+                                popUpTo("customer_mode") { inclusive = false }
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+        // ===== CUSTOMER MODE =====
+        composable("customer_mode") {
+            val scope = rememberCoroutineScope()
+
+            CustomerApp(
+                onSwitchToVendor = {
+                    // Navigate to vendor signup
+                    navController.navigate("vendor_signup")
+                },
+                onLogout = {
+                    scope.launch {
+                        prefs.logout()
+                        FirebaseAuth.getInstance().signOut()
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+
+        // ===== VENDOR MODE =====
+        composable("vendor_mode") {
+            val scope = rememberCoroutineScope()
+
+            VendorApp(
+                onSwitchToCustomerMode = {
+                    scope.launch {
+                        prefs.setMode("CUSTOMER")
+                        navController.navigate("customer_mode") {
+                            popUpTo("vendor_mode") { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
     }
 }
 
-// CUSTOMER NAVIGATION
+// ===== SPLASH SCREEN =====
 @Composable
-fun BunnixNavigation() {
+fun SplashScreen(onComplete: () -> Unit) {
+    LaunchedEffect(Unit) {
+        delay(2500) // 2.5 seconds
+        onComplete()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFFF9D5C),
+                        Color(0xFFFF7900)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // You can replace this with your logo
+            Image(
+                painter = painterResource(R.drawable.bunnix_2),
+                contentDescription = null,
+                modifier = Modifier.size(300.dp)
+            )
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Bunnix",
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Shop & Book Services",
+                fontSize = 18.sp,
+                color = Color.White.copy(alpha = 0.9f)
+            )
+        }
+    }
+}
+
+// ===== ONBOARDING SCREEN =====
+@Composable
+fun OnboardingScreen(onGetStarted: () -> Unit) {
+    var currentPage by remember { mutableStateOf(0) }
+
+    val onboardingPages = listOf(
+        OnboardingPage(
+            title = "Shop Products",
+            description = "Browse and purchase products from local vendors",
+            emoji = "🛍️"
+        ),
+        OnboardingPage(
+            title = "Book Services",
+            description = "Schedule appointments for services you need",
+            emoji = "📅"
+        ),
+        OnboardingPage(
+            title = "Become a Vendor",
+            description = "Start selling your products and services",
+            emoji = "💼"
+        )
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(60.dp))
+
+        // Page Indicator
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(3) { index ->
+                Box(
+                    modifier = Modifier
+                        .width(if (index == currentPage) 24.dp else 8.dp)
+                        .height(8.dp)
+                        .background(
+                            if (index == currentPage) OrangePrimaryModern else Color(0xFFE0E0E0),
+                            androidx.compose.foundation.shape.CircleShape
+                        )
+                )
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        // Emoji
+        Text(
+            onboardingPages[currentPage].emoji,
+            fontSize = 120.sp
+        )
+
+        Spacer(Modifier.height(48.dp))
+
+        // Title
+        Text(
+            onboardingPages[currentPage].title,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = TextPrimary
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        // Description
+        Text(
+            onboardingPages[currentPage].description,
+            fontSize = 16.sp,
+            color = TextSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+
+        Spacer(Modifier.weight(1f))
+
+        // Buttons
+        if (currentPage < 2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TextButton(onClick = onGetStarted) {
+                    Text("Skip", color = TextSecondary, fontSize = 16.sp)
+                }
+
+                Button(
+                    onClick = { currentPage++ },
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern),
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(48.dp)
+                ) {
+                    Text("Next", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else {
+            Button(
+                onClick = onGetStarted,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern)
+            ) {
+                Text("Get Started", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Spacer(Modifier.height(40.dp))
+    }
+}
+
+data class OnboardingPage(
+    val title: String,
+    val description: String,
+    val emoji: String
+)
+
+// ===== CUSTOMER APP =====
+@Composable
+fun CustomerApp(
+    onSwitchToVendor: () -> Unit,
+    onLogout: () -> Unit
+) {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
@@ -198,56 +453,6 @@ fun BunnixNavigation() {
             startDestination = Routes.Home,
             modifier = Modifier.padding(padding)
         ) {
-
-
-            composable(Routes.Signup) {
-
-                val context = LocalContext.current
-                val prefs = UserPreferences(context)
-                val scope = rememberCoroutineScope()
-
-                SignupScreen(
-                    isSwitchingMode = false,
-                    currentMode = "customer",
-
-                    onLoginClick = {
-                        navController.navigate(Routes.Login) {
-                            popUpTo(Routes.Signup) { inclusive = true }
-                        }
-                    },
-
-                    onSignupSuccess = { isVendor ->
-
-                        scope.launch {
-                            if (isVendor) {
-                                prefs.setMode("VENDOR")
-                            } else {
-                                prefs.setMode("CUSTOMER")
-                            }
-
-                            navController.navigate(Routes.Home) {
-                                popUpTo(Routes.Signup) { inclusive = true }
-                            }
-                        }
-                    }
-                )
-            }
-
-            composable(Routes.Login) { backStackEntry ->
-                LoginScreen(
-                    authViewModel = hiltViewModel(backStackEntry),
-                    onSignupClick = { navController.navigate(Routes.Signup) },
-                    onLoginSuccess = {
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Login) { inclusive = true }
-                        }
-                    }
-                )
-            }
-
-
-
-
             composable(Routes.Home) {
                 HomeScreen(
                     onVendorClick = { id -> navController.navigate("vendor_detail/$id") },
@@ -504,68 +709,44 @@ fun BunnixNavigation() {
             composable(Routes.Profile) {
                 val context = LocalContext.current
                 val prefs = UserPreferences(context)
-                val scope = rememberCoroutineScope()
 
                 var showEditDialog by remember { mutableStateOf(false) }
                 var currentUserName by remember { mutableStateOf("John Doe") }
                 var currentUserEmail by remember { mutableStateOf("john@example.com") }
                 var currentUserPhone by remember { mutableStateOf("+234 801 234 5678") }
 
-                val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
-                val isVendorMode = currentMode == "VENDOR"
-                val hasVendor by prefs.hasVendorAccount().collectAsState(initial = false)
-
                 ProfileScreen(
                     userName = currentUserName,
                     userEmail = currentUserEmail,
                     userPhone = currentUserPhone,
-                    isVendor = isVendorMode,
-                    vendorBusinessName = if (isVendorMode) "TechHub Store" else null,
-
+                    isVendor = false,
+                    vendorBusinessName = null,
                     onBack = { navController.popBackStack() },
                     onEditProfile = { showEditDialog = true },
                     onViewOrders = { navController.navigate("order_history") },
                     onViewNotifications = { navController.navigate(Routes.Notifications) },
-
-                    onSwitchMode = {
-                        scope.launch { prefs.switchMode() }
-                    },
-
-                    onBecomeVendor = {
-                        navController.navigate("vendor_onboarding")
-                    },
-
-                    onLogout = {
-                        scope.launch {
-                            prefs.logout()
-                            navController.navigate(Routes.Login) {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        }
-                    }
+                    onSwitchMode = onSwitchToVendor,
+                    onBecomeVendor = onSwitchToVendor,
+                    onLogout = onLogout
                 )
 
                 EditProfileDialog(
                     showDialog = showEditDialog,
                     onDismiss = { showEditDialog = false },
-                    isVendor = isVendorMode,
+                    isVendor = false,
                     currentName = currentUserName,
                     currentEmail = currentUserEmail,
                     currentPhone = currentUserPhone,
-                    currentBusinessName = if (isVendorMode) "TechHub Store" else null,
-                    currentBusinessAddress = if (isVendorMode) "123 Tech Street, Lagos" else null,
-                    currentBusinessDescription = if (isVendorMode) "Quality electronics seller" else null,
-
+                    currentBusinessName = null,
+                    currentBusinessAddress = null,
+                    currentBusinessDescription = null,
                     onSaveProfile = { name, email, phone, _, _, _ ->
                         currentUserName = name
                         currentUserEmail = email
                         currentUserPhone = phone
                         showEditDialog = false
                     },
-
-                    onChangeProfilePicture = {
-                        // handle profile picture update
-                    }
+                    onChangeProfilePicture = {}
                 )
             }
 
@@ -576,29 +757,83 @@ fun BunnixNavigation() {
                     onContinueShopping = { navController.navigate(Routes.Home) }
                 )
             }
+        }
+    }
+}
 
-            composable("vendor_onboarding") {
+// Vendor sample data
+val vendorList = listOf(
+    VendorProfile(
+        vendorId = "1",
+        businessName = "TechHub Store",
+        category = "Tech",
+        description = "Your one-stop electronics shop",
+        coverPhotoUrl = "",
+        rating = 4.8,
+        totalReviews = 128,
+        address = "2.3 km away",
+        phone = "+234 123 456 7890",
+        isAvailable = true
+    ),
+    VendorProfile(
+        vendorId = "2",
+        businessName = "Fashion Hub",
+        category = "Fashion",
+        description = "Latest trends and styles",
+        coverPhotoUrl = "",
+        rating = 4.5,
+        totalReviews = 85,
+        address = "1.5 km away",
+        phone = "+234 987 654 3210",
+        isAvailable = true
+    ),
+    VendorProfile(
+        vendorId = "3",
+        businessName = "Spa & Wellness",
+        category = "Beauty",
+        description = "Relax and rejuvenate",
+        coverPhotoUrl = "",
+        rating = 4.9,
+        totalReviews = 200,
+        address = "3.0 km away",
+        phone = "+234 456 789 0123",
+        isAvailable = true
+    )
+)
 
-                val context = LocalContext.current
-                val prefs = UserPreferences(context)
-                val scope = rememberCoroutineScope()
+// ===== VENDOR APP =====
+@Composable
+fun VendorApp(onSwitchToCustomerMode: () -> Unit = {}) {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-                VendorOnboardingScreen(
-                    onBack = { navController.popBackStack() },
-                    onComplete = {
-                        scope.launch {
-                            prefs.setMode("VENDOR")
-                        }
+    val bottomNavRoutes = listOf(
+        "dashboard", "orders_bookings", "messages", "analytics", "profile"
+    )
+    val showBottomNav = currentRoute in bottomNavRoutes
 
-                        navController.navigate(Routes.Home) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
+    Scaffold(
+        bottomBar = {
+            if (showBottomNav) {
+                BunnixBottomNav(
+                    navController = navController,
+                    items = listOf(
+                        VendorBottomNavItem.Dashboard,
+                        VendorBottomNavItem.Orders,
+                        VendorBottomNavItem.Messages,
+                        VendorBottomNavItem.Analytics,
+                        VendorBottomNavItem.Profile
+                    )
                 )
             }
-
-
         }
+    ) { innerPadding ->
+        VendorNavHost(
+            navController = navController,
+            onSwitchToCustomerMode = onSwitchToCustomerMode,
+            modifier = Modifier.padding(innerPadding)
+        )
     }
 }
 
@@ -673,7 +908,6 @@ fun ModernBottomNavBar(
             )
         }
     }
-
 }
 
 data class BottomNavItem(
@@ -719,47 +953,4 @@ fun ProductNotFoundScreen(onBack: () -> Unit) {
             Text("Go Back")
         }
     }
-}
-
-// ===== VENDOR ONBOARDING PLACEHOLDER =====
-@Composable
-fun VendorOnboardingScreen(
-    onBack: () -> Unit,
-    onComplete: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            "Become a Vendor",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            "Start selling your products and services on Bunnix!",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-        Button(
-            onClick = onComplete,
-            colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Get Started")
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Maybe Later")
-        }
-    }
-
 }
