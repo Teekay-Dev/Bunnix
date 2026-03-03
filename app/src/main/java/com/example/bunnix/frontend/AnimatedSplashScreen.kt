@@ -23,6 +23,7 @@ import com.example.bunnix.R
 import kotlinx.coroutines.delay
 
 
+
 @Composable
 fun AnimatedSplashScreen(onComplete: () -> Unit) {
     var startAnimation by remember { mutableStateOf(false) }
