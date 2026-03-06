@@ -1,11 +1,13 @@
 package com.example.bunnix
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -31,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.util.Log
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -39,16 +42,25 @@ import com.example.bunnix.backend.Routes
 import com.example.bunnix.data.CartData
 import com.example.bunnix.database.models.Service
 import com.example.bunnix.database.models.VendorProfile
+import com.example.bunnix.database.models.VerificationMethod
+import com.example.bunnix.database.models.VerificationStep
 import com.example.bunnix.frontend.*
+import com.example.bunnix.presentation.viewmodel.AuthUiState
+import com.example.bunnix.presentation.viewmodel.AuthViewModel
 import com.example.bunnix.vendorUI.navigation.VendorBottomNavItem
 import com.example.bunnix.vendorUI.navigation.VendorNavHost
 import com.example.bunnix.presentation.viewmodel.ProductViewModel
 import com.example.bunnix.vendorUI.components.BunnixBottomNav
 import com.example.bunnix.ui.theme.BunnixTheme
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import android.widget.Toast
 
 // Color system
 val OrangePrimaryModern = Color(0xFFFF6B35)
@@ -61,6 +73,7 @@ val TextSecondary = Color(0xFF6B7280)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val authViewModel: AuthViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -84,6 +97,11 @@ fun AppNavigation() {
     val prefs = UserPreferences(context)
     val navController = rememberNavController()
 
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val verificationState by authViewModel.verificationState.collectAsState()
+    val verificationId by authViewModel.phoneVerificationId.collectAsState()
+    val activity = LocalContext.current as Activity
+
     // Check app state
     val isFirstLaunch by prefs.isFirstLaunch.collectAsState(initial = true)
     val isLoggedIn by prefs.isLoggedIn.collectAsState(initial = false)
@@ -100,16 +118,23 @@ fun AppNavigation() {
     }
 
     NavHost(
-        navController = navController,
-        startDestination = startDestination
+        navController = navController, startDestination = "splash"
     ) {
         // ===== SPLASH SCREEN =====
         composable("splash") {
-            AnimatedSplashScreen {
-                navController.navigate("onboarding") {
+            AnimatedSplashScreen(onComplete = {
+                val route = when {
+                    isFirstLaunch -> "onboarding"
+                    !isLoggedIn -> "login"
+                    else -> {
+                        if (currentMode == "VENDOR") "vendor_mode" else "customer_mode"
+                    }
+                }
+
+                navController.navigate(route) {
                     popUpTo("splash") { inclusive = true }
                 }
-            }
+            })
         }
 
         // ===== ONBOARDING SCREEN =====
@@ -131,33 +156,300 @@ fun AppNavigation() {
         // ===== SIGNUP SCREEN =====
         composable("signup") {
             val scope = rememberCoroutineScope()
+            val authViewModel: AuthViewModel = hiltViewModel()
+            val verificationState by authViewModel.verificationState.collectAsState()
+            val uiState by authViewModel.uiState.collectAsState()
+            val lifecycleOwner = LocalLifecycleOwner.current
 
-            SignupScreen(
-                isSwitchingMode = false,
-                currentMode = "customer",
-                onLoginClick = {
-                    navController.navigate("login") {
-                        popUpTo("signup") { inclusive = true }
-                    }
-                },
-                onSignupSuccess = { isVendor ->
-                    scope.launch {
-                        prefs.setLoggedIn(true)
+            // DEBUG: Log current state
+            LaunchedEffect(verificationState.currentStep, verificationId, uiState) {
+                android.util.Log.d("MainActivity", "Step: ${verificationState.currentStep}, " +
+                        "verificationId: ${verificationId != null}, " +
+                        "uiState: $uiState")
+            }
 
-                        if (isVendor) {
-                            prefs.setMode("VENDOR")
-                            navController.navigate("vendor_mode") {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        } else {
-                            prefs.setMode("CUSTOMER")
-                            navController.navigate("customer_mode") {
-                                popUpTo(0) { inclusive = true }
-                            }
+            // Auto-check verification when returning to app
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        if (verificationState.currentStep == VerificationStep.EMAIL_INSTRUCTIONS) {
+                            authViewModel.checkEmailVerification()
                         }
                     }
                 }
-            )
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
+            // Handle successful signup completion
+            LaunchedEffect(uiState) {
+                if (uiState is AuthUiState.Success) {
+                    val user = (uiState as AuthUiState.Success).user
+
+                    prefs.setLoggedIn(true)
+
+                    if (user.isVendor) {
+                        prefs.setMode("VENDOR")
+                        if (verificationState.isPendingApproval) {
+                            // Stay on pending approval screen
+                        } else {
+                            navController.navigate("vendor_mode") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    } else {
+                        prefs.setMode("CUSTOMER")
+                        navController.navigate("customer_mode") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            }
+
+            // Show pending approval screen if vendor is pending
+            if (verificationState.isPendingApproval) {
+                PendingApprovalScreen(
+                    isApproved = false,
+                    onProceed = {
+                        navController.navigate("vendor_mode") {
+                            popUpTo("signup") { inclusive = true }
+                        }
+                    }
+                )
+            } else {
+                // Handle the verification flow steps
+                when (verificationState.currentStep) {
+                    VerificationStep.IDLE -> {
+                        // Check if we just came back from verification
+                        val isReturningFromVerification = authViewModel.isVerificationComplete() &&
+                                authViewModel.tempUserData != null
+
+                        if (isReturningFromVerification) {
+                            // Show loading while creating account
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = OrangePrimaryModern)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text("Creating your account...", color = TextSecondary)
+                                }
+                            }
+
+                            // Trigger account creation
+                            LaunchedEffect(Unit) {
+                                authViewModel.finalizeUserCreation()
+                            }
+                        } else {
+                            // Show normal SignupScreen
+                            SignupScreen(
+                                isSwitchingMode = false,
+                                currentMode = "customer",
+                                verificationStep = verificationState.currentStep,
+                                onLoginClick = {
+                                    navController.navigate("login") {
+                                        popUpTo("signup") { inclusive = true }
+                                    }
+                                },
+                                onSignupSuccess = { user, password ->
+                                    // Pass vendor data if business mode
+                                    val vendorData = if (!user.isVendor) null else VendorProfile(
+                                        vendorId = "",
+                                        businessName = user.name,
+                                        category = "",
+                                        address = user.address,
+                                        phone = user.phone,
+                                        email = user.email
+                                    )
+                                    authViewModel.initiateSignup(user, password, vendorData)
+                                }
+                            )
+                        }
+                    }
+                    VerificationStep.SELECT_METHOD -> {
+                        MethodSelectionScreen(
+                            onPhoneSelected = {
+                                // Show billing warning
+                                Toast.makeText(context, "Phone verification requires billing. Please use email.", Toast.LENGTH_LONG).show()
+                            },
+                            onEmailSelected = { authViewModel.setMethod(VerificationMethod.EMAIL) }
+                        )
+                    }
+                    VerificationStep.PHONE_OTP -> {
+                        // Skip or show error - phone disabled
+                        LaunchedEffect(Unit) {
+                            authViewModel.resetStep()
+                        }
+                    }
+                    VerificationStep.EMAIL_INSTRUCTIONS -> {
+                        // Poll for verification status every 3 seconds as backup
+                        LaunchedEffect(Unit) {
+                            while (true) {
+                                delay(3000)
+                                authViewModel.checkEmailVerification()
+                            }
+                        }
+
+                        EmailInstructionScreen(
+                            onOpenEmailApp = {
+                                val intent = Intent(Intent.ACTION_MAIN).apply {
+                                    addCategory(Intent.CATEGORY_APP_EMAIL)
+                                }
+                                context.startActivity(intent)
+                            },
+                            onCheckVerification = {
+                                authViewModel.checkEmailVerification()
+                            },
+                            onBackClick = { authViewModel.resetStep() }
+                        )
+                    }
+                    VerificationStep.COMPLETED -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
+            }
+        }
+
+        // ===== VENDOR SIGNUP =====
+        composable("vendor_signup") {
+            val authViewModel: AuthViewModel = hiltViewModel()
+            val verificationState by authViewModel.verificationState.collectAsState()
+            val uiState by authViewModel.uiState.collectAsState()
+            val lifecycleOwner = LocalLifecycleOwner.current
+
+            // Auto-check verification when returning to app
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        if (verificationState.currentStep == VerificationStep.EMAIL_INSTRUCTIONS) {
+                            authViewModel.checkEmailVerification()
+                        }
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
+
+            LaunchedEffect(uiState) {
+                if (uiState is AuthUiState.Success) {
+                    val user = (uiState as AuthUiState.Success).user
+                    prefs.setLoggedIn(true)
+                    prefs.setMode("VENDOR")
+
+                    if (verificationState.isPendingApproval) {
+                        // Stay on pending approval
+                    } else {
+                        navController.navigate("vendor_mode") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            }
+
+            if (verificationState.isPendingApproval) {
+                PendingApprovalScreen(
+                    isApproved = false,
+                    onProceed = {
+                        navController.navigate("vendor_mode") {
+                            popUpTo("vendor_signup") { inclusive = true }
+                        }
+                    }
+                )
+            } else {
+                when (verificationState.currentStep) {
+                    VerificationStep.IDLE -> {
+                        val isReturningFromVerification = authViewModel.isVerificationComplete() &&
+                                authViewModel.tempUserData != null
+
+                        if (isReturningFromVerification) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = OrangePrimaryModern)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text("Creating your business account...", color = TextSecondary)
+                                }
+                            }
+
+                            LaunchedEffect(Unit) {
+                                authViewModel.finalizeUserCreation()
+                            }
+                        } else {
+                            SignupScreen(
+                                isSwitchingMode = true,
+                                currentMode = "customer",
+                                verificationStep = verificationState.currentStep,
+                                onLoginClick = { navController.popBackStack() },
+                                onSignupSuccess = { user, password ->
+                                    // For vendor signup, create vendor data
+                                    val vendorUser = user.copy(isVendor = true)
+                                    val vendorData = VendorProfile(
+                                        vendorId = "",
+                                        businessName = user.name,
+                                        category = "",
+                                        address = user.address,
+                                        phone = user.phone,
+                                        email = user.email
+                                    )
+                                    authViewModel.initiateSignup(vendorUser, password, vendorData)
+                                }
+                            )
+                        }
+                    }
+                    VerificationStep.SELECT_METHOD -> {
+                        MethodSelectionScreen(
+                            onPhoneSelected = {
+                                Toast.makeText(context, "Phone verification requires billing. Please use email.", Toast.LENGTH_LONG).show()
+                            },
+                            onEmailSelected = { authViewModel.setMethod(VerificationMethod.EMAIL) }
+                        )
+                    }
+                    VerificationStep.PHONE_OTP -> {
+                        LaunchedEffect(Unit) {
+                            authViewModel.resetStep()
+                        }
+                    }
+                    VerificationStep.EMAIL_INSTRUCTIONS -> {
+                        // Poll for verification status every 3 seconds as backup
+                        LaunchedEffect(Unit) {
+                            while (true) {
+                                delay(3000)
+                                authViewModel.checkEmailVerification()
+                            }
+                        }
+
+                        EmailInstructionScreen(
+                            onOpenEmailApp = {
+                                val intent = Intent(Intent.ACTION_MAIN).apply {
+                                    addCategory(Intent.CATEGORY_APP_EMAIL)
+                                }
+                                context.startActivity(intent)
+                            },
+                            onCheckVerification = {
+                                authViewModel.checkEmailVerification()
+                            },
+                            onBackClick = { authViewModel.resetStep() }
+                        )
+                    }
+                    VerificationStep.COMPLETED -> {
+                        LaunchedEffect(Unit) {
+                            authViewModel.finalizeUserCreation()
+                        }
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
+            }
         }
 
         // ===== LOGIN SCREEN =====
@@ -188,42 +480,19 @@ fun AppNavigation() {
             )
         }
 
-        // ===== VENDOR SIGNUP (When switching from customer) =====
-        composable("vendor_signup") {
-            val scope = rememberCoroutineScope()
-
-            SignupScreen(
-                isSwitchingMode = true,
-                currentMode = "customer",
-                onLoginClick = {
-                    navController.popBackStack()
-                },
-                onSignupSuccess = { isVendor ->
-                    scope.launch {
-                        if (isVendor) {
-                            prefs.setMode("VENDOR")
-                            navController.navigate("vendor_mode") {
-                                popUpTo("customer_mode") { inclusive = false }
-                            }
-                        }
-                    }
-                }
-            )
-        }
-
         // ===== CUSTOMER MODE =====
         composable("customer_mode") {
             val scope = rememberCoroutineScope()
 
             CustomerApp(
                 onSwitchToVendor = {
-                    // Navigate to vendor signup
                     navController.navigate("vendor_signup")
                 },
                 onLogout = {
                     scope.launch {
                         prefs.logout()
                         FirebaseAuth.getInstance().signOut()
+                        authViewModel.signOut()
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
@@ -249,12 +518,11 @@ fun AppNavigation() {
         }
     }
 }
-
 // ===== SPLASH SCREEN =====
 @Composable
 fun SplashScreen(onComplete: () -> Unit) {
     LaunchedEffect(Unit) {
-        delay(2500) // 2.5 seconds
+        delay(9000) // 2.5 seconds
         onComplete()
     }
 
