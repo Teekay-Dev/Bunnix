@@ -84,7 +84,7 @@ fun AnimatedSplashScreen(onComplete: () -> Unit) {
     // Start animations and navigate after delay
     LaunchedEffect(Unit) {
         startAnimation = true
-        delay(9000) // 2.5 seconds
+        delay(6000) // 2.5 seconds
         onComplete()
     }
 
