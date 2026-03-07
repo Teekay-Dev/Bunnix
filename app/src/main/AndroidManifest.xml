@@ -15,12 +15,20 @@
         android:theme="@style/Theme.Bunnix.Splash">
 
         <activity
-            android:name="com.example.bunnix.MainActivity"
+            android:name=".MainActivity"
+            android:launchMode="singleTask"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+        </activity>
+
+        <activity
+            android:name=".frontend.SplashActivity"
+            android:exported="false">
         </activity>
 
         <activity
@@ -42,6 +50,12 @@
         <activity
             android:name="com.example.bunnix.frontend.OnboardingActivity"
             android:exported="false" />
+
+        <!-- ✅ ADD THIS - VENDOR MODE ENTRY -->
+        <activity
+            android:name="com.example.bunnix.vendorUI.VendorMainActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
     </application>
 

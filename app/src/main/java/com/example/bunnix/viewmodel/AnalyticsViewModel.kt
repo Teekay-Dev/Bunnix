@@ -2,87 +2,149 @@ package com.example.bunnix.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 
-data class AnalyticsUiState(
-    val isLoading: Boolean = false,
-    val totalRevenue: Double = 0.0,
-    val totalOrders: Int = 0,
-    val weeklyData: List<Double> = emptyList(),
-    val topProducts: List<TopProduct> = emptyList(),
-    val error: String? = null,
-    val vendorId: String = "",
-    val period: String = "week"
-)
-
-data class TopProduct(
-    val id: String,
-    val name: String,
-    val sales: Int,
-    val revenue: Double
-)
-
 @HiltViewModel
-class AnalyticsViewModel @Inject constructor() : ViewModel() {
+class AnalyticsViewModel @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AnalyticsUiState())
-    val uiState: StateFlow<AnalyticsUiState> = _uiState
+    private val _weeklyData = MutableStateFlow<List<DailySales>>(emptyList())
+    val weeklyData: StateFlow<List<DailySales>> = _weeklyData.asStateFlow()
 
-    init {
-        // Initialize with default values or load saved state
-        loadAnalytics("default_vendor", "week")
-    }
+    private val _monthlyRevenue = MutableStateFlow(0.0)
+    val monthlyRevenue: StateFlow<Double> = _monthlyRevenue.asStateFlow()
 
-    fun loadAnalytics(vendorId: String, period: String = "week") {
+    private val _topProducts = MutableStateFlow<List<TopProduct>>(emptyList())
+    val topProducts: StateFlow<List<TopProduct>> = _topProducts.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    fun loadAnalytics() {
         viewModelScope.launch {
-            // Use vendorId and period in state
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                vendorId = vendorId,
-                period = period
-            )
+            try {
+                _isLoading.value = true
+                val vendorId = auth.currentUser?.uid ?: return@launch
 
-            // Simulate different data based on period
-            val weeklyData = when (period.lowercase()) {
-                "day" -> listOf(12000.0, 15000.0, 8000.0, 20000.0)
-                "week" -> listOf(12000.0, 19000.0, 15000.0, 25000.0, 22000.0, 30000.0, 28000.0)
-                "month" -> listOf(45000.0, 52000.0, 48000.0, 61000.0)
-                "year" -> listOf(520000.0, 480000.0, 610000.0, 720000.0)
-                else -> listOf(12000.0, 19000.0, 15000.0, 25000.0, 22000.0, 30000.0, 28000.0)
+                loadWeeklyData(vendorId)
+                loadMonthlyRevenue(vendorId)
+                loadTopProducts(vendorId)
+
+            } catch (e: Exception) {
+                // Handle error
+            } finally {
+                _isLoading.value = false
             }
-
-            // Calculate different revenue based on vendorId length (just to use it)
-            val baseRevenue = 245000.0
-            val adjustedRevenue = baseRevenue + (vendorId.length * 1000)
-
-            _uiState.value = AnalyticsUiState(
-                isLoading = false,
-                vendorId = vendorId,
-                period = period,
-                totalRevenue = adjustedRevenue,
-                totalOrders = 45 + vendorId.length,
-                weeklyData = weeklyData,
-                topProducts = listOf(
-                    TopProduct("1", "iPhone 15 Pro", 12, 14400000.0),
-                    TopProduct("2", "Samsung Galaxy S24", 8, 7600000.0),
-                    TopProduct("3", "AirPods Pro 2", 25, 6250000.0)
-                )
-            )
         }
     }
 
-    fun refreshAnalytics() {
-        // Use current state values to reload
-        val currentState = _uiState.value
-        loadAnalytics(currentState.vendorId, currentState.period)
+    private suspend fun loadWeeklyData(vendorId: String) {
+        val calendar = Calendar.getInstance()
+        val dailySales = mutableListOf<DailySales>()
+
+        for (i in 6 downTo 0) {
+            calendar.add(Calendar.DAY_OF_YEAR, if (i == 6) 0 else 1)
+            val dayStart = calendar.apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+            }.time
+
+            val dayEnd = calendar.apply {
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+            }.time
+
+            val orders = firestore.collection("orders")
+                .whereEqualTo("vendorId", vendorId)
+                .whereEqualTo("status", "completed")
+                .whereGreaterThanOrEqualTo("createdAt", dayStart)
+                .whereLessThanOrEqualTo("createdAt", dayEnd)
+                .get()
+                .await()
+
+            val revenue = orders.documents.sumOf { it.getDouble("totalAmount") ?: 0.0 }
+
+            dailySales.add(
+                DailySales(
+                    day = SimpleDateFormat("EEE", Locale.getDefault()).format(dayStart),
+                    revenue = revenue
+                )
+            )
+        }
+
+        _weeklyData.value = dailySales
     }
 
-    fun updatePeriod(newPeriod: String) {
-        val currentState = _uiState.value
-        loadAnalytics(currentState.vendorId, newPeriod)
+    private suspend fun loadMonthlyRevenue(vendorId: String) {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        val monthStart = calendar.time
+
+        val orders = firestore.collection("orders")
+            .whereEqualTo("vendorId", vendorId)
+            .whereEqualTo("status", "completed")
+            .whereGreaterThanOrEqualTo("createdAt", monthStart)
+            .get()
+            .await()
+
+        _monthlyRevenue.value = orders.documents.sumOf { it.getDouble("totalAmount") ?: 0.0 }
+    }
+
+    private suspend fun loadTopProducts(vendorId: String) {
+        // Get all completed orders
+        val orders = firestore.collection("orders")
+            .whereEqualTo("vendorId", vendorId)
+            .whereEqualTo("status", "completed")
+            .get()
+            .await()
+
+        val productSales = mutableMapOf<String, Int>()
+
+        orders.documents.forEach { doc ->
+            val items = doc.get("items") as? List<Map<String, Any>> ?: return@forEach
+            items.forEach { item ->
+                val productId = item["productId"] as? String ?: return@forEach
+                productSales[productId] = (productSales[productId] ?: 0) + 1
+            }
+        }
+
+        val topProductsList = productSales.entries
+            .sortedByDescending { it.value }
+            .take(5)
+            .mapNotNull { entry ->
+                val productDoc = firestore.collection("products")
+                    .document(entry.key)
+                    .get()
+                    .await()
+
+                TopProduct(
+                    name = productDoc.getString("name") ?: "Unknown",
+                    sales = entry.value
+                )
+            }
+
+        _topProducts.value = topProductsList
     }
 }
+
+data class DailySales(
+    val day: String,
+    val revenue: Double
+)
+
+data class TopProduct(
+    val name: String,
+    val sales: Int
+)

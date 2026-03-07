@@ -79,6 +79,8 @@ dependencies {
 //    implementation(libs.androidx.compose.foundation)
     implementation("androidx.compose.material3:material3:1.2.0")
     implementation("com.google.ai.edge.litertlm:litertlm:0.0.0-alpha05")
+    implementation(libs.androidx.tv.material)
+    implementation(libs.androidx.media3.common.ktx)
 //    implementation(libs.litertlm) // or 1.3.0+
 
     debugImplementation("androidx.compose.ui:ui-tooling")

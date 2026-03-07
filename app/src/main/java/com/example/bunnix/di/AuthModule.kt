@@ -5,6 +5,7 @@ import com.example.bunnix.data.repository.AuthRepositoryImpl
 import com.example.bunnix.domain.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -56,8 +57,18 @@ object AuthModule {
     @Singleton
     fun provideAuthRepository(
         authManager: AuthManager,
-        firestore: FirebaseFirestore
+        firestore: FirebaseFirestore,
+        firebaseAuth: FirebaseAuth
     ): AuthRepository {
-        return AuthRepositoryImpl(authManager, firestore)
+        return AuthRepositoryImpl(authManager, firestore, firebaseAuth, firebaseAuth, firestore)
+    }
+
+    /**
+     * Provide Firebase Storage instance
+     */
+    @Provides
+    @Singleton
+    fun provideFirebaseStorage(): FirebaseStorage {
+        return FirebaseStorage.getInstance()
     }
 }

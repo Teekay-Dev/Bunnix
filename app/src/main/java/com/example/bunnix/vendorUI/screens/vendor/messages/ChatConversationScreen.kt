@@ -1,14 +1,12 @@
 package com.example.bunnix.vendorUI.screens.vendor.messages
 
-import android.annotation.SuppressLint
-import androidx.compose.foundation.background
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -18,25 +16,45 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.bunnix.ui.theme.*
+import com.example.bunnix.vendorUI.components.ShimmerLoading
+import com.example.bunnix.viewmodel.ChatViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatConversationScreen(
+    navController: NavController,
     chatId: String,
-    onBack: () -> Unit
+    viewModel: ChatViewModel = hiltViewModel()
 ) {
-    var messageText by remember { mutableStateOf("") }
-    val listState = rememberLazyListState()
-    val messages = remember { sampleChatMessages }
+    val messages by viewModel.messages.collectAsState()
+    val messageText by viewModel.messageText.collectAsState()
+    val customerInfo by viewModel.customerInfo.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
-    // Scroll to bottom on launch
-    LaunchedEffect(Unit) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(chatId) {
+        viewModel.loadMessages(chatId)
+        viewModel.loadCustomerInfo(chatId)
+    }
+
+    // Auto scroll to bottom when new message arrives
+    LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            scope.launch {
+                listState.animateScrollToItem(messages.size - 1)
+            }
         }
     }
 
@@ -44,136 +62,164 @@ fun ChatConversationScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(40.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    "J",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                            if (customerInfo?.imageUrl?.isNotBlank() == true) {
+                                AsyncImage(
+                                    model = customerInfo?.imageUrl,
+                                    contentDescription = "Customer",
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Customer",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+
                         Column {
                             Text(
-                                "John Doe",
-                                style = MaterialTheme.typography.titleMedium
+                                text = customerInfo?.name ?: "Loading...",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
                             )
-                            Text(
-                                "Online",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            if (customerInfo?.isOnline == true) {
+                                Text(
+                                    text = "Online",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
                         }
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
                 },
-                actions = {
-                    IconButton(onClick = { /* Call */ }) {
-                        Icon(Icons.Default.Phone, contentDescription = "Call")
-                    }
-                    IconButton(onClick = { /* More */ }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
-                    }
-                }
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = OrangePrimaryModern
+                )
             )
         },
-        bottomBar = {
-            ChatInputBar(
-                value = messageText,
-                onValueChange = { messageText = it },
-                onSend = {
-                    if (messageText.isNotBlank()) {
-                        // Send message
-                        messageText = ""
-                    }
-                },
-                onAttach = { /* Attach file */ }
-            )
-        }
+        containerColor = LightGrayBg
     ) { padding ->
-        LazyColumn(
-            state = listState,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            // Order Context Card (if applicable)
-            item {
-                OrderContextCard(
-                    orderNumber = "BNX-20240221-001",
-                    status = "Awaiting Payment",
-                    amount = 45999.0
-                )
+            // Messages List
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                state = listState,
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (isLoading && messages.isEmpty()) {
+                    items(5) {
+                        ShimmerMessageBubble()
+                    }
+                } else if (messages.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No messages yet\nSay hello!",
+                                color = TextSecondary,
+                                fontSize = 14.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    items(messages) { message ->
+                        ChatBubble(
+                            message = message,
+                            isVendor = message.isVendor
+                        )
+                    }
+                }
             }
 
-            items(messages) { message ->
-                ChatBubble(
-                    message = message,
-                    isFromMe = message.isFromVendor
-                )
-            }
-        }
-    }
-}
+            // Message Input
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = messageText,
+                        onValueChange = { viewModel.updateMessageText(it) },
+                        modifier = Modifier.weight(1f),
+                        placeholder = {
+                            Text(
+                                text = "Type a message...",
+                                color = TextSecondary
+                            )
+                        },
+                        shape = RoundedCornerShape(50.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = Color.LightGray,
+                            focusedBorderColor = OrangePrimaryModern
+                        ),
+                        maxLines = 4
+                    )
 
-@SuppressLint("DefaultLocale")
-@Composable
-fun OrderContextCard(
-    orderNumber: String,
-    status: String,
-    amount: Double
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.ShoppingBag,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    orderNumber,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Text(
-                    status,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
+                    FloatingActionButton(
+                        onClick = {
+                            viewModel.sendMessage(chatId)
+                            scope.launch {
+                                listState.animateScrollToItem(messages.size)
+                            }
+                        },
+                        modifier = Modifier.size(56.dp),
+                        containerColor = OrangePrimaryModern,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 0.dp
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = Color.White
+                        )
+                    }
+                }
             }
-            Text(
-                "₦${String.format("%,.2f", amount)}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
         }
     }
 }
@@ -181,153 +227,71 @@ fun OrderContextCard(
 @Composable
 fun ChatBubble(
     message: ChatMessage,
-    isFromMe: Boolean
+    isVendor: Boolean
 ) {
-    Column(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isFromMe) Alignment.End else Alignment.Start
+        horizontalArrangement = if (isVendor) Arrangement.End else Arrangement.Start
     ) {
-        Surface(
+        Card(
+            modifier = Modifier.widthIn(max = 280.dp),
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
-                bottomStart = if (isFromMe) 16.dp else 4.dp,
-                bottomEnd = if (isFromMe) 4.dp else 16.dp
+                bottomStart = if (isVendor) 16.dp else 4.dp,
+                bottomEnd = if (isVendor) 4.dp else 16.dp
             ),
-            color = if (isFromMe)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.widthIn(max = 280.dp)
+            colors = CardDefaults.cardColors(
+                containerColor = if (isVendor) OrangePrimaryModern else Color.White
+            ),
+            elevation = CardDefaults.cardElevation(2.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                if (message.imageUrl != null) {
-                    AsyncImage(
-                        model = message.imageUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+            Column(
+                modifier = Modifier.padding(12.dp)
+            ) {
                 Text(
-                    message.text,
-                    color = if (isFromMe)
-                        MaterialTheme.colorScheme.onPrimary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    text = message.text,
+                    fontSize = 14.sp,
+                    color = if (isVendor) Color.White else TextPrimary
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = message.timestamp,
+                    fontSize = 11.sp,
+                    color = if (isVendor) Color.White.copy(alpha = 0.7f) else TextSecondary,
+                    modifier = Modifier.align(Alignment.End)
                 )
             }
         }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            message.timestamp,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
 @Composable
-fun ChatInputBar(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSend: () -> Unit,
-    onAttach: () -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp
+fun ShimmerMessageBubble() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start
     ) {
-        Row(
+        ShimmerLoading(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onAttach) {
-                Icon(Icons.Default.AttachFile, contentDescription = "Attach")
-            }
-
-            Surface(
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.weight(1f)
-            ) {
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .fillMaxWidth(),
-                    decorationBox = { innerTextField ->
-                        if (value.isEmpty()) {
-                            Text(
-                                "Type a message...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        innerTextField()
-                    },
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            FloatingActionButton(
-                onClick = onSend,
-                modifier = Modifier.size(48.dp),
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        }
+                .width(200.dp)
+                .height(60.dp)
+        )
     }
 }
 
+// Data Classes
 data class ChatMessage(
     val messageId: String,
     val text: String,
-    val imageUrl: String?,
     val timestamp: String,
-    val isFromVendor: Boolean,
-    val isRead: Boolean
+    val isVendor: Boolean
 )
 
-val sampleChatMessages = listOf(
-    ChatMessage("1", "Hi, I'm interested in your iPhone 15 Pro", null, "2:15 PM",
-        isFromVendor = false,
-        isRead = true
-    ),
-    ChatMessage("2", "Hello! Yes, it's available. Would you like to place an order?", null, "2:16 PM",
-        isFromVendor = true,
-        isRead = true
-    ),
-    ChatMessage("3", "Yes please. How do I make payment?", null, "2:18 PM",
-        isFromVendor = false,
-        isRead = true
-    ),
-    ChatMessage("4", "You can transfer to my bank account. I'll send the details.", null, "2:20 PM",
-        isFromVendor = true,
-        isRead = true
-    ),
-    ChatMessage("5", "Please send the account details", null, "2:22 PM",
-        isFromVendor = false,
-        isRead = false
-    ),
-    ChatMessage("6", "GTBank: 0123456789\nName: John's Electronics", null, "2:23 PM",
-        isFromVendor = true,
-        isRead = false
-    ),
-    ChatMessage("7", "I just made the payment, please check", null, "2:30 PM",
-        isFromVendor = false,
-        isRead = false
-    )
+data class CustomerInfo(
+    val name: String,
+    val imageUrl: String,
+    val isOnline: Boolean
 )
