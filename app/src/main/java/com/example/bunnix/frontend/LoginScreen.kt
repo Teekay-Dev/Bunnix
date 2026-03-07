@@ -60,8 +60,10 @@ class LoginActivity : ComponentActivity() {
                     startActivity(Intent(this, SignupActivity::class.java))
                     finish()
                 },
-                onLoginSuccess = {
-                    startActivity(Intent(this, MainActivity::class.java))
+                onLoginSuccess = { isVendor ->
+                    val intent = Intent(this, MainActivity::class.java)
+                    intent.putExtra("isVendor", isVendor)
+                    startActivity(intent)
                     finish()
                 }
             )
@@ -73,7 +75,7 @@ class LoginActivity : ComponentActivity() {
 fun LoginScreen(
     authViewModel: AuthViewModel,
     onSignupClick: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: (isVendor: Boolean) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -109,7 +111,7 @@ fun LoginScreen(
                                 val isVendor = userDoc.getBoolean("isVendor") ?: false
 
                                 Toast.makeText(context, "Welcome! 👋", Toast.LENGTH_SHORT).show()
-                                onLoginSuccess()
+                                onLoginSuccess(isVendor)
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
@@ -267,19 +269,67 @@ fun LoginScreen(
                             }
 
                             isLoading = true
-                            val result = authViewModel.signInWithEmail(email, password)
+
+                            val result = authViewModel.signInWithEmail(email.trim(), password)
 
                             when (result) {
                                 is AuthResult.Success -> {
-                                    Toast.makeText(context, "Welcome back! 👋", Toast.LENGTH_SHORT).show()
-                                    onLoginSuccess()
+                                    // Check email verification first
+                                    val firebaseUser = FirebaseAuth.getInstance().currentUser
+                                    if (firebaseUser != null && !firebaseUser.isEmailVerified) {
+                                        FirebaseAuth.getInstance().signOut()
+                                        isLoading = false
+                                        Toast.makeText(
+                                            context,
+                                            "Please verify your email before logging in. Check your inbox.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@launch
+                                    }
+
+                                    // Fetch user role from Firestore
+                                    try {
+                                        val uid = firebaseUser?.uid ?: result.data.userId
+                                        val userDoc = firestore.collection("users")
+                                            .document(uid)
+                                            .get()
+                                            .await()
+
+                                        if (!userDoc.exists()) {
+                                            Toast.makeText(context, "Account not found. Please sign up.", Toast.LENGTH_LONG).show()
+                                            FirebaseAuth.getInstance().signOut()
+                                            isLoading = false
+                                            return@launch
+                                        }
+
+                                        val isVendor = userDoc.getBoolean("isVendor") ?: false
+                                        val userName = userDoc.getString("name") ?: "User"
+
+                                        Toast.makeText(context, "Welcome back, $userName! 👋", Toast.LENGTH_SHORT).show()
+                                        isLoading = false
+                                        onLoginSuccess(isVendor)
+
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Failed to load account: ${e.message}", Toast.LENGTH_LONG).show()
+                                        isLoading = false
+                                    }
                                 }
+
                                 is AuthResult.Error -> {
-                                    Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                                    val friendlyMessage = when {
+                                        result.message?.contains("no user record") == true -> "No account found with this email."
+                                        result.message?.contains("password is invalid") == true -> "Incorrect password."
+                                        result.message?.contains("badly formatted") == true -> "Please enter a valid email address."
+                                        result.message?.contains("network") == true -> "Network error. Check your connection."
+                                        result.message?.contains("too many requests") == true -> "Too many attempts. Try again later."
+                                        else -> result.message ?: "Login failed. Please try again."
+                                    }
+                                    Toast.makeText(context, friendlyMessage, Toast.LENGTH_LONG).show()
+                                    isLoading = false
                                 }
-                                else -> {}
+
+                                else -> { isLoading = false }
                             }
-                            isLoading = false
                         }
                     },
                     modifier = Modifier
