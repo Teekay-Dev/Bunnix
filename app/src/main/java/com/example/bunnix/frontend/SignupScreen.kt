@@ -7,8 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -28,16 +29,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.bunnix.MainActivity
 import com.example.bunnix.R
-import com.example.bunnix.data.auth.AuthResult
+import com.example.bunnix.database.models.User
+import com.example.bunnix.database.models.VerificationStep
 import com.example.bunnix.presentation.viewmodel.AuthViewModel
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.Timestamp
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 @AndroidEntryPoint
 class SignupActivity : ComponentActivity() {
@@ -45,21 +43,23 @@ class SignupActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Check if user is switching modes (already has an account) - UNCHANGED
         val isSwitchingMode = intent.getBooleanExtra("IS_SWITCHING_MODE", false)
         val currentMode = intent.getStringExtra("CURRENT_MODE") ?: "customer"
 
         setContent {
+            val authViewModel: AuthViewModel = hiltViewModel()
+            val verificationState by authViewModel.verificationState.collectAsState()
+
             SignupScreen(
                 isSwitchingMode = isSwitchingMode,
                 currentMode = currentMode,
+                verificationStep = verificationState.currentStep, // NEW: Pass verification state
                 onLoginClick = {
                     startActivity(Intent(this, LoginActivity::class.java))
                     finish()
                 },
-                onSignupSuccess = {
-                    startActivity(Intent(this, MainActivity::class.java))
-                    finish()
+                onSignupSuccess = { user, password ->
+                    authViewModel.initiateSignup(user, password)
                 }
             )
         }
@@ -71,8 +71,9 @@ fun SignupScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
     isSwitchingMode: Boolean = false,
     currentMode: String = "customer",
+    verificationStep: VerificationStep = VerificationStep.IDLE, // NEW PARAM
     onLoginClick: () -> Unit,
-    onSignupSuccess: (Boolean) -> Unit
+    onSignupSuccess: (User, String) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -86,11 +87,10 @@ fun SignupScreen(
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val firestore = FirebaseFirestore.getInstance()
 
-    var isLoading by remember { mutableStateOf(false) }
+    // NEW: Check if verification is in progress
+    val isVerificationInProgress = verificationStep != VerificationStep.IDLE
 
-    // Title logic - UNCHANGED
     val titleText = when {
         isSwitchingMode && currentMode == "customer" -> "Create Business Account"
         isSwitchingMode && currentMode == "vendor" -> "Create Customer Account"
@@ -103,7 +103,7 @@ fun SignupScreen(
         else -> "Join Bunnix today"
     }
 
-    // ========== UI STARTS HERE - MATCHING YOUR IMAGE ==========
+    // ========== UI EXACTLY AS YOUR IMAGE ==========
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -118,14 +118,11 @@ fun SignupScreen(
         ) {
             Spacer(Modifier.height(40.dp))
 
-            // Logo with orange border
-
-                Image(
-                    painter = painterResource(R.drawable.bunnix_2),
-                    contentDescription = null,
-                    modifier = Modifier.size(200.dp)
-                )
-
+            Image(
+                painter = painterResource(R.drawable.bunnix_2),
+                contentDescription = null,
+                modifier = Modifier.size(200.dp)
+            )
 
             Spacer(Modifier.height(16.dp))
 
@@ -147,28 +144,19 @@ fun SignupScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Show current account info if switching - UNCHANGED
             if (isSwitchingMode) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFF3E0)
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            tint = Color(0xFFFF7900)
-                        )
+                        Icon(Icons.Default.Info, null, tint = Color(0xFFFF7900))
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             "You need a different email address for your ${if (currentMode == "customer") "business" else "customer"} account",
@@ -179,7 +167,7 @@ fun SignupScreen(
                 }
             }
 
-            // Customer/Business Toggle - EXACT from image
+            // Toggle - DISABLED DURING VERIFICATION
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -194,15 +182,15 @@ fun SignupScreen(
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(24.dp))
                         .background(if (isCustomer) Color(0xFFFF7900) else Color.Transparent)
-                        .clickable { isCustomer = true },
+                        .clickable(enabled = !isVerificationInProgress) { // DISABLED
+                            if (!isCustomer){
+                                isCustomer = true
+                                email = ""; phone = ""; fullName = ""; password = ""; confirm = ""
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "Customer",
-                        color = if (isCustomer) Color.White else Color(0xFF666666),
-                        fontSize = 16.sp,
-                        fontWeight = if (isCustomer) FontWeight.Bold else FontWeight.Medium
-                    )
+                    Text("Customer", color = if (isCustomer) Color.White else Color(0xFF666666), fontSize = 16.sp, fontWeight = if (isCustomer) FontWeight.Bold else FontWeight.Medium)
                 }
 
                 Box(
@@ -211,38 +199,37 @@ fun SignupScreen(
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(24.dp))
                         .background(if (!isCustomer) Color(0xFFFF7900) else Color.Transparent)
-                        .clickable { isCustomer = false },
+                        .clickable(enabled = !isVerificationInProgress) { // DISABLED
+                            if (isCustomer){
+                                isCustomer = false
+                                email = ""; phone = ""; fullName = ""; password = ""; confirm = ""
+                                businessName = ""; businessAddress = ""
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "Business",
-                        color = if (!isCustomer) Color.White else Color(0xFF666666),
-                        fontSize = 16.sp,
-                        fontWeight = if (!isCustomer) FontWeight.Bold else FontWeight.Medium
-                    )
+                    Text("Business", color = if (!isCustomer) Color.White else Color(0xFF666666), fontSize = 16.sp, fontWeight = if (!isCustomer) FontWeight.Bold else FontWeight.Medium)
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // Form Fields with Icons - EXACT from image
-            IconTextField(fullName, { fullName = it }, "Full Name", Icons.Default.Person, isLoading)
+            // Form Fields - DISABLED DURING VERIFICATION
+            IconTextField(fullName, { fullName = it }, "Full Name", Icons.Default.Person, isVerificationInProgress, KeyboardType.Text)
             Spacer(Modifier.height(14.dp))
 
             if (!isCustomer) {
-                IconTextField(businessName, { businessName = it }, "Business Name", Icons.Default.Store, isLoading)
+                IconTextField(businessName, { businessName = it }, "Business Name", Icons.Default.Store, isVerificationInProgress, KeyboardType.Text)
                 Spacer(Modifier.height(14.dp))
-                IconTextField(businessAddress, { businessAddress = it }, "Business Address", Icons.Default.LocationOn, isLoading)
+                IconTextField(businessAddress, { businessAddress = it }, "Business Address", Icons.Default.LocationOn, isVerificationInProgress, KeyboardType.Text)
                 Spacer(Modifier.height(14.dp))
             }
 
-            IconTextField(email, { email = it }, "Email Address", Icons.Default.Email, isLoading)
+            IconTextField(email, { email = it }, "Email Address", Icons.Default.Email, isVerificationInProgress, KeyboardType.Email)
+            Spacer(Modifier.height(14.dp))
+            IconTextField(phone, { phone = it }, "Phone Number", Icons.Default.Phone, isVerificationInProgress, KeyboardType.Phone)
             Spacer(Modifier.height(14.dp))
 
-            IconTextField(phone, { phone = it }, "Phone Number", Icons.Default.Phone, isLoading)
-            Spacer(Modifier.height(14.dp))
-
-            // Password with eye icon
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -250,11 +237,7 @@ fun SignupScreen(
                 leadingIcon = { Icon(Icons.Default.Lock, null, tint = Color(0xFF999999)) },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            null,
-                            tint = Color(0xFF999999)
-                        )
+                        Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = Color(0xFF999999))
                     }
                 },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -262,155 +245,80 @@ fun SignupScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     focusedBorderColor = Color(0xFFFF7900),
                     unfocusedBorderColor = Color(0xFFE0E0E0),
                     cursorColor = Color(0xFFFF7900)
                 ),
-                enabled = !isLoading
+                enabled = !isVerificationInProgress // DISABLED
+            )
+            Spacer(Modifier.height(14.dp))
+
+            OutlinedTextField(
+                value = confirm,
+                onValueChange = { confirm = it },
+                placeholder = { Text(" Confirm Password", color = Color(0xFFB0B0B0)) },
+                leadingIcon = { Icon(Icons.Default.Lock, null, tint = Color(0xFF999999)) },
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null, tint = Color(0xFF999999))
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
+                    focusedBorderColor = Color(0xFFFF7900),
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    cursorColor = Color(0xFFFF7900)
+                ),
+                enabled = !isVerificationInProgress // DISABLED
             )
 
             Spacer(Modifier.height(24.dp))
 
-            // Create Account Button
+            // Create Account Button - SHOWS LOADING DURING VERIFICATION
             Button(
                 onClick = {
                     scope.launch {
-                        // ALL VALIDATION & BACKEND - UNCHANGED
-                        if (fullName.isBlank()) {
-                            Toast.makeText(context, "Please enter your full name", Toast.LENGTH_SHORT).show()
+                        if (fullName.isBlank() || email.isBlank() || phone.isBlank() || password.isBlank()) {
+                            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        if (!isCustomer && (businessName.isBlank() || businessAddress.isBlank())) {
+                            Toast.makeText(context, "Business details required", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        if (password.trim() != confirm.trim()) {
+                            Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
 
-                        if (!isCustomer && businessName.isBlank()) {
-                            Toast.makeText(context, "Please enter your business name", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
-                        if (!isCustomer && businessAddress.isBlank()) {
-                            Toast.makeText(context, "Please enter your business address", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
-                        if (email.isBlank()) {
-                            Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
-                        if (phone.isBlank()) {
-                            Toast.makeText(context, "Please enter your phone number", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
-                        if (password.isBlank()) {
-                            Toast.makeText(context, "Please enter a password", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
-                        if (password != confirm) {
-                            Toast.makeText(context, "Passwords don't match", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-
-                        isLoading = true
-
-                        val result = authViewModel.signUpWithEmail(
+                        val newUser = User(
+                            userId = "",
+                            name = fullName,
                             email = email,
-                            password = password,
-                            displayName = fullName,
                             phone = phone,
-                            isBusinessAccount = !isCustomer,
-                            businessName = businessName,
-                            businessAddress = businessAddress
+                            profilePicUrl = "",
+                            isVendor = !isCustomer,
+                            address = if (!isCustomer) businessAddress else "",
+                            city = "", state = "", country = "Nigeria",
+                            createdAt = Timestamp.now(),
+                            lastActive = Timestamp.now()
                         )
-
-                        when (result) {
-                            is AuthResult.Success -> {
-                                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-
-                                try {
-                                    val userData = hashMapOf(
-                                        "userId" to userId,
-                                        "name" to fullName,
-                                        "email" to email,
-                                        "phone" to phone,
-                                        "isVendor" to !isCustomer,
-                                        "profilePicUrl" to "",
-                                        "address" to if (!isCustomer) businessAddress else "",
-                                        "city" to "",
-                                        "state" to "",
-                                        "country" to "Nigeria",
-                                        "fcmToken" to "",
-                                        "createdAt" to FieldValue.serverTimestamp(),
-                                        "lastActive" to FieldValue.serverTimestamp()
-                                    )
-
-                                    firestore.collection("users")
-                                        .document(userId)
-                                        .set(userData)
-                                        .await()
-
-                                    if (!isCustomer) {
-                                        val vendorData = hashMapOf(
-                                            "vendorId" to userId,
-                                            "userId" to userId,
-                                            "businessName" to businessName,
-                                            "description" to "",
-                                            "coverPhotoUrl" to "",
-                                            "category" to "",
-                                            "subCategories" to emptyList<String>(),
-                                            "bankName" to "",
-                                            "accountNumber" to "",
-                                            "accountName" to "",
-                                            "alternativePayment" to "",
-                                            "rating" to 0.0,
-                                            "totalReviews" to 0,
-                                            "totalSales" to 0,
-                                            "totalRevenue" to 0.0,
-                                            "isAvailable" to true,
-                                            "workingHours" to emptyMap<String, String>(),
-                                            "location" to null,
-                                            "address" to businessAddress,
-                                            "phone" to phone,
-                                            "email" to email,
-                                            "createdAt" to FieldValue.serverTimestamp(),
-                                            "updatedAt" to FieldValue.serverTimestamp()
-                                        )
-
-                                        firestore.collection("vendorProfiles")
-                                            .document(userId)
-                                            .set(vendorData)
-                                            .await()
-                                    }
-
-                                    Toast.makeText(context, "Welcome to Bunnix 🎉", Toast.LENGTH_SHORT).show()
-                                    onSignupSuccess(!isCustomer)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                                }
-                            }
-
-                            is AuthResult.Error -> {
-                                Toast.makeText(
-                                    context,
-                                    result.message ?: "Registration Failed",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-
-                            else -> {}
-                        }
-
-                        isLoading = false
+                        onSignupSuccess(newUser, password)
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7900)),
-                enabled = !isLoading
+                enabled = !isVerificationInProgress // DISABLED
             ) {
-                if (isLoading) {
+                if (isVerificationInProgress) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
                     Text("Create Account", fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -419,7 +327,6 @@ fun SignupScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Secure Registration Badge - EXACT from image
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Lock, null, tint = Color(0xFF999999), modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))
@@ -431,7 +338,6 @@ fun SignupScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Login Link
             Row {
                 Text("Already have an account? ", color = Color(0xFF666666), fontSize = 14.sp)
                 Text(
@@ -439,7 +345,7 @@ fun SignupScreen(
                     color = Color(0xFFFF7900),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    modifier = Modifier.clickable { onLoginClick() }
+                    modifier = Modifier.clickable(enabled = !isVerificationInProgress) { onLoginClick() } // DISABLED
                 )
             }
 
@@ -448,14 +354,14 @@ fun SignupScreen(
     }
 }
 
-// Reusable TextField Component
 @Composable
 fun IconTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
     icon: ImageVector,
-    isLoading: Boolean
+    isLoading: Boolean, // Used to disable
+    keyboardType: KeyboardType = KeyboardType.Text
 ) {
     OutlinedTextField(
         value = value,
@@ -466,11 +372,14 @@ fun IconTextField(
         singleLine = true,
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black,
             focusedBorderColor = Color(0xFFFF7900),
             unfocusedBorderColor = Color(0xFFE0E0E0),
             cursorColor = Color(0xFFFF7900)
         ),
-        enabled = !isLoading
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        enabled = !isLoading // DISABLED
     )
 }
 
@@ -560,7 +469,7 @@ fun SignupScreenPreview() {
             val placeholders = listOf(
                 "Full Name",
                 "Email Address",
-                "Phone Number",
+                "Phone Number Eg:+2348012345678, not 08012345678",
                 "Password"
             )
 

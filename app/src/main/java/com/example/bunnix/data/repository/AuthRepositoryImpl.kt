@@ -4,37 +4,37 @@ import android.app.Activity
 import android.util.Log
 import com.example.bunnix.data.auth.AuthManager
 import com.example.bunnix.data.auth.AuthResult
-import com.example.bunnix.database.config.FirebaseConfig.auth
 import com.example.bunnix.database.models.User
 import com.example.bunnix.database.models.VendorProfile
 import com.example.bunnix.domain.repository.AuthRepository
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
-/**
- * CORRECTED Implementation matching BUNNIX_COMPLETE_DATABASE_GUIDE.txt
- * Collection names and fields strictly adhere to the guide
- *
- * UPDATED: Now includes Apple Sign-In support
- */
+
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val authManager: AuthManager,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val firebaseAuth: FirebaseAuth,
+    private val auth: FirebaseAuth,
+    private val db: FirebaseFirestore
 ) : AuthRepository {
 
+    private val TAG = "AuthRepository"
+
     companion object {
-        // EXACT collection names from BUNNIX_COMPLETE_DATABASE_GUIDE.txt
         private const val USERS_COLLECTION = "users"
-        private const val VENDOR_PROFILES_COLLECTION = "vendorProfiles"  // CORRECTED from "vendors"
+        private const val VENDOR_PROFILES_COLLECTION = "vendorProfiles"
         private const val MIN_PASSWORD_LENGTH = 6
         private const val MIN_NAME_LENGTH = 2
     }
@@ -46,23 +46,33 @@ class AuthRepositoryImpl @Inject constructor(
         phone: String,
         isBusinessAccount: Boolean,
         businessName: String,
-        businessAddress: String
+        businessAddress: String,
+        category: String
     ): AuthResult<User> {
         return try {
-            // 1. Validate inputs
-            validateEmail(email)
-            validatePassword(password)
-            validateDisplayName(displayName)
+            // Check if email already exists
+            val existingUserQuery = db.collection(USERS_COLLECTION)
+                .whereEqualTo("email", email)
+                .get()
+                .await()
 
-            // 2. Create Firebase Auth account
-            val firebaseUser = authManager.createUserWithEmail(email, password)
+            if (!existingUserQuery.isEmpty) {
+                val document = existingUserQuery.documents[0]
+                val isVendor = document.getBoolean("isVendor") ?: false
+                val role = if (isVendor) "Business/Vendor" else "Customer"
+                return AuthResult.Error("Email already exists as $role. Use another email!")
+            }
 
-            // 3. Update display name in Firebase Auth
-            authManager.updateDisplayName(displayName)
+            // Create Firebase Auth account
+            val authResult = auth.createUserWithEmailAndPassword(email, password).await()
+            val firebaseUser = authResult.user
+                ?: return AuthResult.Error("Account creation failed")
 
-            // 4. Create Firestore user document - EXACT fields from guide
-            val user = User(
-                userId = firebaseUser.uid,
+            val userId = firebaseUser.uid
+
+            // Create User document in Firestore
+            val newUser = User(
+                userId = userId,
                 name = displayName,
                 email = email,
                 phone = phone,
@@ -71,26 +81,28 @@ class AuthRepositoryImpl @Inject constructor(
                 address = if (isBusinessAccount) businessAddress else "",
                 city = "",
                 state = "",
-                country = "Nigeria",  // Default from guide
+                country = "Nigeria",
                 createdAt = Timestamp.now(),
                 lastActive = Timestamp.now()
             )
 
-            // 5. Save user to Firestore
-            firestore.collection(USERS_COLLECTION)
-                .document(firebaseUser.uid)
-                .set(user)
+            // Save user to Firestore
+            db.collection(USERS_COLLECTION)
+                .document(userId)
+                .set(newUser)
                 .await()
 
-            // 6. If business account, create VendorProfile - EXACT fields from guide
+            Log.d(TAG, "✅ User created in Firestore: $userId")
+
+            // If business account, create VendorProfile with pending status
             if (isBusinessAccount) {
                 val vendorProfile = VendorProfile(
-                    vendorId = firebaseUser.uid,
-                    userId = firebaseUser.uid,
+                    vendorId = userId,
+                    userId = userId,
                     businessName = businessName,
                     description = "",
                     coverPhotoUrl = "",
-                    category = "",
+                    category = category,
                     subCategories = emptyList(),
                     bankName = "",
                     accountNumber = "",
@@ -106,24 +118,43 @@ class AuthRepositoryImpl @Inject constructor(
                     address = businessAddress,
                     phone = phone,
                     email = email,
+                    status = "pending", // Pending admin approval
                     createdAt = Timestamp.now(),
                     updatedAt = Timestamp.now()
                 )
 
-                // Save to vendorProfiles collection (NOT "vendors")
-                firestore.collection(VENDOR_PROFILES_COLLECTION)
-                    .document(firebaseUser.uid)
+                db.collection(VENDOR_PROFILES_COLLECTION)
+                    .document(userId)
                     .set(vendorProfile)
                     .await()
+
+                Log.d(TAG, "✅ VendorProfile created with pending status: $userId")
             }
 
+            AuthResult.Success(newUser)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Signup failed", e)
+            AuthResult.Error(e.message ?: "Signup failed. Please try again.")
+        }
+    }
+
+    override suspend fun createFinalUser(user: User): AuthResult<User> {
+        // This method is for creating user after verification
+        // In the current flow, signUpWithEmail handles everything
+        // Keeping this for compatibility
+        return try {
+            db.collection(USERS_COLLECTION)
+                .document(user.userId)
+                .set(user)
+                .await()
+
+            Log.d(TAG, "✅ Final user created: ${user.userId}")
             AuthResult.Success(user)
 
         } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "Sign up failed",
-                exception = e
-            )
+            Log.e(TAG, "❌ Final user creation failed", e)
+            AuthResult.Error(e.message ?: "Failed to save user data.")
         }
     }
 
@@ -132,59 +163,96 @@ class AuthRepositoryImpl @Inject constructor(
         password: String
     ): AuthResult<User> {
         return try {
-            validateEmail(email)
-            validatePassword(password)
+            // Sign in with Firebase Auth
+            val authResult = auth.signInWithEmailAndPassword(email, password).await()
+            val firebaseUser = authResult.user
+                ?: return AuthResult.Error("Login failed. No user signed in.")
 
-            val firebaseUser = authManager.signInWithEmail(email, password)
-            val user = getUserFromFirestore(firebaseUser.uid)
+            val userId = firebaseUser.uid
 
-            updateLastActive(firebaseUser.uid)
+            // Fetch user document from Firestore
+            val userDoc = db.collection(USERS_COLLECTION)
+                .document(userId)
+                .get()
+                .await()
+
+            if (!userDoc.exists()) {
+                Log.e(TAG, "❌ User document not found for: $userId")
+                return AuthResult.Error("User document not found. Please contact support.")
+            }
+
+            val user = userDoc.toObject(User::class.java)
+                ?: return AuthResult.Error("Failed to load user data")
+
+            // Update last active
+            db.collection(USERS_COLLECTION)
+                .document(userId)
+                .update("lastActive", Timestamp.now())
+                .await()
+
+            Log.d(TAG, "✅ Login successful: ${user.email}, isVendor: ${user.isVendor}")
 
             AuthResult.Success(user)
 
         } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "Sign in failed",
-                exception = e
-            )
+            Log.e(TAG, "❌ Login failed", e)
+            AuthResult.Error(e.message ?: "Login failed. Please check your credentials.")
         }
     }
 
-    override suspend fun signInWithPhone(
-        phoneNumber: String,
-        activity: Activity
-    ): AuthResult<String> {
+    override suspend fun signInWithPhone(phoneNumber: String, activity: Activity): AuthResult<String> {
         return try {
-            validatePhoneNumber(phoneNumber)
             val verificationId = authManager.sendPhoneVerificationCode(phoneNumber, activity)
             AuthResult.Success(verificationId)
         } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "Phone verification failed",
-                exception = e
-            )
+            AuthResult.Error("Failed to send SMS: ${e.message}")
         }
     }
 
-    override suspend fun verifyPhoneOtp(
-        verificationId: String,
-        code: String
-    ): AuthResult<User> {
+    override suspend fun verifyPhoneOtp(verificationId: String, code: String): AuthResult<String> {
         return try {
-            validateOtpCode(code)
             val firebaseUser = authManager.verifyPhoneCode(verificationId, code)
-            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
+            AuthResult.Success(firebaseUser.uid)
+        } catch (e: Exception) {
+            AuthResult.Error("Invalid OTP: ${e.message}")
+        }
+    }
 
-            val user = if (existingUser != null) {
-                updateLastActive(firebaseUser.uid)
-                existingUser
+    override suspend fun signInWithGoogle(idToken: String): AuthResult<User> {
+        return try {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = auth.signInWithCredential(credential).await()
+            val firebaseUser = authResult.user
+                ?: return AuthResult.Error("Google Sign-In failed")
+
+            val userId = firebaseUser.uid
+
+            // Check if user exists
+            val userDoc = db.collection(USERS_COLLECTION)
+                .document(userId)
+                .get()
+                .await()
+
+            if (userDoc.exists()) {
+                val user = userDoc.toObject(User::class.java)
+                    ?: return AuthResult.Error("Failed to load user data")
+
+                db.collection(USERS_COLLECTION)
+                    .document(userId)
+                    .update("lastActive", Timestamp.now())
+                    .await()
+
+                Log.d(TAG, "✅ Google Sign-In (existing): ${user.email}")
+                AuthResult.Success(user)
+
             } else {
+                // Create new user
                 val newUser = User(
-                    userId = firebaseUser.uid,
-                    name = firebaseUser.displayName ?: "",
+                    userId = userId,
+                    name = firebaseUser.displayName ?: "User",
                     email = firebaseUser.email ?: "",
                     phone = firebaseUser.phoneNumber ?: "",
-                    profilePicUrl = "",
+                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
                     isVendor = false,
                     address = "",
                     city = "",
@@ -194,190 +262,66 @@ class AuthRepositoryImpl @Inject constructor(
                     lastActive = Timestamp.now()
                 )
 
-                firestore.collection(USERS_COLLECTION)
-                    .document(firebaseUser.uid)
+                db.collection(USERS_COLLECTION)
+                    .document(userId)
                     .set(newUser)
                     .await()
 
-                newUser
+                Log.d(TAG, "✅ Google Sign-In (new user): ${newUser.email}")
+                AuthResult.Success(newUser)
             }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Google Sign-In failed", e)
+            val errorMessage = when {
+                e.message?.contains("NETWORK_ERROR") == true -> "No internet connection. Please check your network."
+                e.message?.contains("10:") == true -> "Google Sign-In configuration error. Please contact support."
+                e.message?.contains("12500") == true -> "SHA-1 fingerprint not configured. Please contact support."
+                else -> e.message ?: "Google Sign-In failed. Please try again."
+            }
+            AuthResult.Error(errorMessage)
+        }
+    }
+
+    override suspend fun signOut(): AuthResult<Unit> {
+        return try {
+            auth.signOut()
+            Log.d(TAG, "✅ User signed out")
+            AuthResult.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Sign out failed", e)
+            AuthResult.Error(e.message ?: "Sign out failed")
+        }
+    }
+
+    override suspend fun getCurrentUser(): AuthResult<User> {
+        return try {
+            val firebaseUser = auth.currentUser
+                ?: return AuthResult.Error("No user logged in")
+
+            val userId = firebaseUser.uid
+
+            val userDoc = db.collection(USERS_COLLECTION)
+                .document(userId)
+                .get()
+                .await()
+
+            if (!userDoc.exists()) {
+                return AuthResult.Error("User data not found")
+            }
+
+            val user = userDoc.toObject(User::class.java)
+                ?: return AuthResult.Error("Failed to load user data")
 
             AuthResult.Success(user)
 
         } catch (e: Exception) {
-            AuthResult.Error(
-                message = e.message ?: "OTP verification failed",
-                exception = e
-            )
+            Log.e(TAG, "Error getting current user", e)
+            AuthResult.Error(e.message ?: "Failed to get user")
         }
     }
 
-    override suspend fun signInWithGoogle(idToken: String): AuthResult<User> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val credential = GoogleAuthProvider.getCredential(idToken, null)
-                val authResult = auth.signInWithCredential(credential).await()
-                val firebaseUser = authResult.user
-                    ?: return@withContext AuthResult.Error("Authentication failed")
-
-                val userRef = firestore.collection(USERS_COLLECTION)
-                    .document(firebaseUser.uid)
-
-                val userDoc = userRef.get().await()
-
-                if (userDoc.exists()) {
-                    val user = userDoc.toObject(User::class.java)
-
-                    if (user != null) {
-                        userRef.update("lastActive", Timestamp.now()).await()
-                        AuthResult.Success(user)
-                    } else {
-                        AuthResult.Error("Failed to load user data")
-                    }
-                } else {
-                    val newUser = User(
-                        userId = firebaseUser.uid,
-                        name = firebaseUser.displayName ?: "User",
-                        email = firebaseUser.email ?: "",
-                        phone = firebaseUser.phoneNumber ?: "",
-                        profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
-                        isVendor = false,
-                        address = "",
-                        city = "",
-                        state = "",
-                        country = "Nigeria",
-                        createdAt = Timestamp.now(),
-                        lastActive = Timestamp.now()
-                    )
-
-                    userRef.set(newUser).await()
-                    AuthResult.Success(newUser)
-                }
-
-            } catch (e: Exception) {
-                Log.e("AuthRepository", "Google Sign-In failed", e)
-                AuthResult.Error(e.message ?: "Google Sign-In failed")
-            }
-        }
-    }
-//    // ==================== APPLE SIGN-IN (NEW) ====================
-//
-//    override suspend fun signInWithApple(
-//        idToken: String,
-//        rawNonce: String
-//    ): AuthResult<User> {
-//        return try {
-//            val firebaseUser = authManager.signInWithApple(idToken, rawNonce)
-//            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
-//
-//            val user = if (existingUser != null) {
-//                updateLastActive(firebaseUser.uid)
-//                existingUser
-//            } else {
-//                // Create new user from Apple sign-in
-//                val newUser = User(
-//                    userId = firebaseUser.uid,
-//                    name = firebaseUser.displayName ?: "",
-//                    email = firebaseUser.email ?: "",
-//                    phone = firebaseUser.phoneNumber ?: "",
-//                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
-//                    isVendor = false,
-//                    address = "",
-//                    city = "",
-//                    state = "",
-//                    country = "Nigeria",
-//                    createdAt = Timestamp.now(),
-//                    lastActive = Timestamp.now()
-//                )
-//
-//                firestore.collection(USERS_COLLECTION)
-//                    .document(firebaseUser.uid)
-//                    .set(newUser)
-//                    .await()
-//
-//                newUser
-//            }
-//
-//            AuthResult.Success(user)
-//
-//        } catch (e: Exception) {
-//            AuthResult.Error(
-//                message = e.message ?: "Apple sign-in failed",
-//                exception = e
-//            )
-//        }
-//    }
-//
-//    override suspend fun startAppleSignIn(activity: Activity): AuthResult<User> {
-//        return try {
-//            val firebaseUser = authManager.startAppleSignIn(activity)
-//            val existingUser = getUserFromFirestoreOrNull(firebaseUser.uid)
-//
-//            val user = if (existingUser != null) {
-//                updateLastActive(firebaseUser.uid)
-//                existingUser
-//            } else {
-//                val newUser = User(
-//                    userId = firebaseUser.uid,
-//                    name = firebaseUser.displayName ?: "",
-//                    email = firebaseUser.email ?: "",
-//                    phone = firebaseUser.phoneNumber ?: "",
-//                    profilePicUrl = firebaseUser.photoUrl?.toString() ?: "",
-//                    isVendor = false,
-//                    address = "",
-//                    city = "",
-//                    state = "",
-//                    country = "Nigeria",
-//                    createdAt = Timestamp.now(),
-//                    lastActive = Timestamp.now()
-//                )
-//
-//                firestore.collection(USERS_COLLECTION)
-//                    .document(firebaseUser.uid)
-//                    .set(newUser)
-//                    .await()
-//
-//                newUser
-//            }
-//
-//            AuthResult.Success(user)
-//
-//        } catch (e: Exception) {
-//            AuthResult.Error(
-//                message = e.message ?: "Apple sign-in failed",
-//                exception = e
-//            )
-//        }
-//    }
-//
-//    // ==================== END APPLE SIGN-IN ====================
-
-    override suspend fun signOut(): AuthResult<Unit> {
-        return try {
-            authManager.signOut()
-            AuthResult.Success(Unit)
-        } catch (e: Exception) {
-            AuthResult.Error("Sign out failed", e)
-        }
-    }
-
-    override suspend fun getCurrentUser(): AuthResult<User?> {
-        return try {
-            val firebaseUser = authManager.currentUser
-            if (firebaseUser == null) {
-                AuthResult.Success(null)
-            } else {
-                val user = getUserFromFirestore(firebaseUser.uid)
-                AuthResult.Success(user)
-            }
-        } catch (e: Exception) {
-            AuthResult.Error("Failed to get current user", e)
-        }
-    }
-
-    override fun observeAuthState(): Flow<FirebaseUser?> {
-        return authManager.observeAuthState()
-    }
+    override fun observeAuthState(): Flow<FirebaseUser?> = authManager.observeAuthState()
 
     override suspend fun resetPassword(email: String): AuthResult<Unit> {
         return try {
@@ -394,7 +338,7 @@ class AuthRepositoryImpl @Inject constructor(
         phone: String?
     ): AuthResult<User> {
         return try {
-            val currentUid = authManager.currentUser?.uid
+            val currentUid = firebaseAuth.currentUser?.uid
                 ?: throw Exception("No user signed in")
 
             displayName?.let {
@@ -426,7 +370,7 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun deleteAccount(): AuthResult<Unit> {
         return try {
-            val currentUid = authManager.currentUser?.uid
+            val currentUid = firebaseAuth.currentUser?.uid
                 ?: throw Exception("No user signed in")
 
             firestore.collection(USERS_COLLECTION)
@@ -435,7 +379,6 @@ class AuthRepositoryImpl @Inject constructor(
                 .await()
 
             authManager.deleteUser()
-
             AuthResult.Success(Unit)
 
         } catch (e: Exception) {
@@ -451,35 +394,81 @@ class AuthRepositoryImpl @Inject constructor(
             .get()
             .await()
 
-        return snapshot.toObject(User::class.java)
-            ?: throw Exception("User document not found")
-    }
-
-    private suspend fun getUserFromFirestoreOrNull(uid: String): User? {
-        return try {
-            val snapshot = firestore.collection(USERS_COLLECTION)
-                .document(uid)
-                .get()
-                .await()
-
-            snapshot.toObject(User::class.java)
-        } catch (e: Exception) {
-            null
+        if (!snapshot.exists()) {
+            return User(
+                userId = uid,
+                name = "New User",
+                email = firebaseAuth.currentUser?.email ?: ""
+            )
         }
-    }
 
-    private suspend fun updateLastActive(uid: String) {
-        try {
-            firestore.collection(USERS_COLLECTION)
-                .document(uid)
-                .update("lastActive", Timestamp.now())
-                .await()
-        } catch (e: Exception) {
-            // Non-critical
-        }
+        return snapshot.toObject(User::class.java) ?: throw Exception("Format error")
     }
 
     // ==================== VALIDATION FUNCTIONS ====================
+
+    override suspend fun checkEmailAvailability(email: String): AuthResult<String?> {
+        return try {
+            val query = firestore.collection(USERS_COLLECTION)
+                .whereEqualTo("email", email)
+                .get()
+                .await()
+
+            if (!query.isEmpty) {
+                val document = query.documents[0]
+                val isVendor = document.getBoolean("isVendor") ?: false
+                val role = if (isVendor) "Business" else "Customer"
+                AuthResult.Error("Email already exists as $role. Use another email!")
+            } else {
+                AuthResult.Success(null)
+            }
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Error checking email availability")
+        }
+    }
+
+    override suspend fun sendEmailOtp(email: String): AuthResult<Unit> {
+        return try {
+            AuthResult.Success(Unit)
+        } catch (e: Exception) {
+            AuthResult.Error("Failed to send verification code")
+        }
+    }
+
+    override suspend fun verifyEmailOtp(email: String, otp: String): AuthResult<Unit> {
+        return try {
+            AuthResult.Success(Unit)
+        } catch (e: Exception) {
+            AuthResult.Error("Invalid Email OTP")
+        }
+    }
+
+    override suspend fun sendPhoneOtp(phoneNumber: String, activity: Activity): AuthResult<String> {
+        return signInWithPhone(phoneNumber, activity)
+    }
+
+    override suspend fun checkBusinessApprovalStatus(uid: String): Flow<String> {
+        return callbackFlow {
+            val listener = firestore.collection(VENDOR_PROFILES_COLLECTION)
+                .document(uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null && snapshot.exists()) {
+                        val status = snapshot.getString("status") ?: "pending"
+                        trySend(status)
+                    } else {
+                        trySend("pending")
+                    }
+                }
+
+            // Remove listener when flow is cancelled
+            awaitClose { listener.remove() }
+        }
+    }
 
     private fun validateEmail(email: String) {
         if (email.isBlank()) throw Exception("Email cannot be empty")
@@ -488,30 +477,17 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun validatePassword(password: String) {
-        if (password.length < MIN_PASSWORD_LENGTH) {
-            throw Exception("Password must be at least $MIN_PASSWORD_LENGTH characters")
-        }
-    }
-
     private fun validateDisplayName(name: String) {
         if (name.isBlank()) throw Exception("Name cannot be empty")
-        if (name.length < MIN_NAME_LENGTH) {
-            throw Exception("Name must be at least $MIN_NAME_LENGTH characters")
+        if (name.length < 2) {
+            throw Exception("Name must be at least 2 characters")
         }
     }
 
     private fun validatePhoneNumber(phone: String) {
-        if (!phone.startsWith("+")) {
-            throw Exception("Phone number must start with country code (e.g., +234)")
-        }
-        if (phone.length < 10) throw Exception("Invalid phone number")
-    }
-
-    private fun validateOtpCode(code: String) {
-        if (code.length != 6) throw Exception("OTP code must be 6 digits")
-        if (!code.all { it.isDigit() }) {
-            throw Exception("OTP code must contain only digits")
+        if (phone.isBlank()) throw Exception("Phone number cannot be empty")
+        if (!phone.startsWith("+") && !phone.startsWith("0")) {
+            throw Exception("Invalid phone number format")
         }
     }
 }

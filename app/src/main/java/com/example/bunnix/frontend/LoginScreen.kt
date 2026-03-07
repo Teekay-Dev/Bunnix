@@ -10,8 +10,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -43,6 +43,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.compose.ui.text.input.KeyboardType
 
 @AndroidEntryPoint
 class LoginActivity : ComponentActivity() {
@@ -208,7 +209,10 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         focusedBorderColor = Color(0xFFFF7900),
                         unfocusedBorderColor = Color(0xFFE0E0E0),
                         cursorColor = Color(0xFFFF7900)
@@ -236,7 +240,10 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         focusedBorderColor = Color(0xFFFF7900),
                         unfocusedBorderColor = Color(0xFFE0E0E0),
                         cursorColor = Color(0xFFFF7900)
@@ -264,23 +271,11 @@ fun LoginScreen(
 
                             when (result) {
                                 is AuthResult.Success -> {
-                                    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-                                    try {
-                                        val userDoc = firestore.collection("users")
-                                            .document(userId)
-                                            .get()
-                                            .await()
-
-                                        val isVendor = userDoc.getBoolean("isVendor") ?: false
-
-                                        Toast.makeText(context, "Welcome back! 👋", Toast.LENGTH_SHORT).show()
-                                        onLoginSuccess()
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                                    }
+                                    Toast.makeText(context, "Welcome back! 👋", Toast.LENGTH_SHORT).show()
+                                    onLoginSuccess()
                                 }
                                 is AuthResult.Error -> {
-                                    Toast.makeText(context, result.message ?: "Login Failed", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
                                 }
                                 else -> {}
                             }

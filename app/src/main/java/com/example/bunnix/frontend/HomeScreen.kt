@@ -58,6 +58,8 @@ private val TextSecondary = Color(0xFF6B7280)
 private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
 
+
+
 // ===== CATEGORY DATA =====
 data class Category(
     val name: String,
@@ -92,7 +94,7 @@ val specialOffers = listOf(
         title = "Weekend Special!",
         subtitle = "Get 30% off all spa services",
         discount = "-30%",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
         actionText = "Book Now"
     ),
     SpecialOffer(
@@ -100,7 +102,7 @@ val specialOffers = listOf(
         title = "New Vendors!",
         subtitle = "Discover 50+ new businesses",
         discount = "NEW",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
         actionText = "Explore"
     ),
     SpecialOffer(
@@ -108,7 +110,7 @@ val specialOffers = listOf(
         title = "Flash Sale",
         subtitle = "Limited time deals on electronics",
         discount = "-50%",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
         actionText = "Grab Deal"
     ),
     SpecialOffer(
@@ -116,7 +118,7 @@ val specialOffers = listOf(
         title = "Free Delivery",
         subtitle = "On all orders above ₦10,000",
         discount = "FREE",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
         actionText = "Order Now"
     )
 )
@@ -227,14 +229,14 @@ fun HomeScreen(
                 )
             }
         },
-//        bottomBar = bottomBar,
         containerColor = SurfaceLight
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(scrollState)
+                .statusBarsPadding()
+//                .verticalScroll(scrollState)
         ) {
             HeroSection(
                 searchQuery = searchQuery,
@@ -538,7 +540,7 @@ private fun QuickActionSection(
             title = "Book Service",
             subtitle = "Find experts",
             icon = Icons.Default.CalendarToday,
-            gradient = listOf(OrangePrimary, OrangeLight),
+            gradient = listOf(OrangePrimary, OrangeDark),
             onClick = onBookService,
             modifier = Modifier.weight(1f)
         )
@@ -547,7 +549,7 @@ private fun QuickActionSection(
             title = "Shop Products",
             subtitle = "Buy & sell",
             icon = Icons.Default.ShoppingBag,
-            gradient = listOf(OrangePrimary, OrangeLight),
+            gradient = listOf(OrangePrimary, OrangeDark),
             onClick = onShopProducts,
             modifier = Modifier.weight(1f)
         )
