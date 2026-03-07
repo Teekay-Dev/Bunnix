@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.example.bunnix",
+    "sha256_cert_fingerprints": [
+      "8a:62:a9:6c:55:85:08:af:db:d8:b2:5d:93:3f:18:94:65:3f:08:c7:5e:29:6d:9f:08:ed:ed:d7:e3:7a:4b:40"
+    ]
+  }
+}]

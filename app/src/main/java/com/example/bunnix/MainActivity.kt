@@ -76,1149 +76,1079 @@ class MainActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            BunnixTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AppNavigation()
+
+        // Handle deep link
+        intent?.data?.let { uri ->
+            if (uri.toString().contains("verify")) {
+                val email = uri.getQueryParameter("email") ?: return@let
+                val link = uri.toString()
+
+                // Handle verification
+                authViewModel.handleEmailVerificationLink(email, link)
+            }
+
+            enableEdgeToEdge()
+            setContent {
+                BunnixTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        AppNavigation()
+                    }
                 }
             }
         }
     }
-}
 
-// ===== MAIN APP NAVIGATION WITH SPLASH & ONBOARDING =====
-@Composable
-fun AppNavigation() {
-    val context = LocalContext.current
-    val prefs = UserPreferences(context)
-    val navController = rememberNavController()
+    // ===== MAIN APP NAVIGATION WITH SPLASH & ONBOARDING =====
+    @Composable
+    fun AppNavigation() {
+        val context = LocalContext.current
+        val prefs = UserPreferences(context)
+        val navController = rememberNavController()
 
-    val authViewModel: AuthViewModel = hiltViewModel()
-    val verificationState by authViewModel.verificationState.collectAsState()
-    val verificationId by authViewModel.phoneVerificationId.collectAsState()
-    val activity = LocalContext.current as Activity
+        val authViewModel: AuthViewModel = hiltViewModel()
+        val verificationState by authViewModel.verificationState.collectAsState()
+        val activity = LocalContext.current as Activity
 
-    // Check app state
-    val isFirstLaunch by prefs.isFirstLaunch.collectAsState(initial = true)
-    val isLoggedIn by prefs.isLoggedIn.collectAsState(initial = false)
-    val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
+        // Check app state
+        val isFirstLaunch by prefs.isFirstLaunch.collectAsState(initial = true)
+        val isLoggedIn by prefs.isLoggedIn.collectAsState(initial = false)
+        val currentMode by prefs.getMode().collectAsState(initial = "CUSTOMER")
 
-    // Determine start destination
-    val startDestination = remember(isFirstLaunch, isLoggedIn, currentMode) {
-        when {
-            isFirstLaunch -> "splash"
-            !isLoggedIn -> "login"
-            currentMode == "VENDOR" -> "vendor_mode"
-            else -> "customer_mode"
-        }
-    }
-
-    NavHost(
-        navController = navController, startDestination = "splash"
-    ) {
-        // ===== SPLASH SCREEN =====
-        composable("splash") {
-            AnimatedSplashScreen(onComplete = {
-                val route = when {
-                    isFirstLaunch -> "onboarding"
-                    !isLoggedIn -> "login"
-                    else -> {
-                        if (currentMode == "VENDOR") "vendor_mode" else "customer_mode"
-                    }
-                }
-
-                navController.navigate(route) {
-                    popUpTo("splash") { inclusive = true }
-                }
-            })
+        // Determine start destination
+        val startDestination = remember(isFirstLaunch, isLoggedIn, currentMode) {
+            when {
+                isFirstLaunch -> "splash"
+                !isLoggedIn -> "login"
+                currentMode == "VENDOR" -> "vendor_mode"
+                else -> "customer_mode"
+            }
         }
 
-        // ===== ONBOARDING SCREEN =====
-        composable("onboarding") {
-            val scope = rememberCoroutineScope()
-
-            OnboardingScreen(
-                onGetStarted = {
-                    scope.launch {
-                        prefs.setFirstLaunch(false)
-                        navController.navigate("signup") {
-                            popUpTo("onboarding") { inclusive = true }
+        NavHost(
+            navController = navController, startDestination = "splash"
+        ) {
+            // ===== SPLASH SCREEN =====
+            composable("splash") {
+                AnimatedSplashScreen(onComplete = {
+                    val route = when {
+                        isFirstLaunch -> "onboarding"
+                        !isLoggedIn -> "login"
+                        else -> {
+                            if (currentMode == "VENDOR") "vendor_mode" else "customer_mode"
                         }
                     }
-                }
-            )
-        }
 
-        // ===== SIGNUP SCREEN =====
-        composable("signup") {
-            val scope = rememberCoroutineScope()
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val verificationState by authViewModel.verificationState.collectAsState()
-            val uiState by authViewModel.uiState.collectAsState()
-            val lifecycleOwner = LocalLifecycleOwner.current
-
-            // DEBUG: Log current state
-            LaunchedEffect(verificationState.currentStep, verificationId, uiState) {
-                android.util.Log.d("MainActivity", "Step: ${verificationState.currentStep}, " +
-                        "verificationId: ${verificationId != null}, " +
-                        "uiState: $uiState")
-            }
-
-            // Auto-check verification when returning to app
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME) {
-                        if (verificationState.currentStep == VerificationStep.EMAIL_INSTRUCTIONS) {
-                            authViewModel.checkEmailVerification()
-                        }
+                    navController.navigate(route) {
+                        popUpTo("splash") { inclusive = true }
                     }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose {
-                    lifecycleOwner.lifecycle.removeObserver(observer)
-                }
+                })
             }
 
-            // Handle successful signup completion
-            LaunchedEffect(uiState) {
-                if (uiState is AuthUiState.Success) {
-                    val user = (uiState as AuthUiState.Success).user
+            // ===== ONBOARDING SCREEN =====
+            composable("onboarding") {
+                val scope = rememberCoroutineScope()
 
-                    prefs.setLoggedIn(true)
-
-                    if (user.isVendor) {
-                        prefs.setMode("VENDOR")
-                        if (verificationState.isPendingApproval) {
-                            // Stay on pending approval screen
-                        } else {
-                            navController.navigate("vendor_mode") {
-                                popUpTo(0) { inclusive = true }
+                OnboardingScreen(
+                    onGetStarted = {
+                        scope.launch {
+                            prefs.setFirstLaunch(false)
+                            navController.navigate("signup") {
+                                popUpTo("onboarding") { inclusive = true }
                             }
-                        }
-                    } else {
-                        prefs.setMode("CUSTOMER")
-                        navController.navigate("customer_mode") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                }
-            }
-
-            // Show pending approval screen if vendor is pending
-            if (verificationState.isPendingApproval) {
-                PendingApprovalScreen(
-                    isApproved = false,
-                    onProceed = {
-                        navController.navigate("vendor_mode") {
-                            popUpTo("signup") { inclusive = true }
                         }
                     }
                 )
-            } else {
-                // Handle the verification flow steps
-                when (verificationState.currentStep) {
-                    VerificationStep.IDLE -> {
-                        // Check if we just came back from verification
-                        val isReturningFromVerification = authViewModel.isVerificationComplete() &&
-                                authViewModel.tempUserData != null
+            }
 
-                        if (isReturningFromVerification) {
-                            // Show loading while creating account
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = OrangePrimaryModern)
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text("Creating your account...", color = TextSecondary)
-                                }
-                            }
+            // ===== SIGNUP SCREEN =====
+            composable("signup") {
+                val scope = rememberCoroutineScope()
+                val authViewModel: AuthViewModel = hiltViewModel()
+                val verificationState by authViewModel.verificationState.collectAsState()
+                val uiState by authViewModel.uiState.collectAsState()
+                val lifecycleOwner = LocalLifecycleOwner.current
 
-                            // Trigger account creation
-                            LaunchedEffect(Unit) {
-                                authViewModel.finalizeUserCreation()
-                            }
-                        } else {
-                            // Show normal SignupScreen
-                            SignupScreen(
-                                isSwitchingMode = false,
-                                currentMode = "customer",
-                                verificationStep = verificationState.currentStep,
-                                onLoginClick = {
-                                    navController.navigate("login") {
-                                        popUpTo("signup") { inclusive = true }
-                                    }
-                                },
-                                onSignupSuccess = { user, password ->
-                                    // Pass vendor data if business mode
-                                    val vendorData = if (!user.isVendor) null else VendorProfile(
-                                        vendorId = "",
-                                        businessName = user.name,
-                                        category = "",
-                                        address = user.address,
-                                        phone = user.phone,
-                                        email = user.email
-                                    )
-                                    authViewModel.initiateSignup(user, password, vendorData)
-                                }
-                            )
-                        }
-                    }
-                    VerificationStep.SELECT_METHOD -> {
-                        MethodSelectionScreen(
-                            onPhoneSelected = {
-                                // Show billing warning
-                                Toast.makeText(context, "Phone verification requires billing. Please use email.", Toast.LENGTH_LONG).show()
-                            },
-                            onEmailSelected = { authViewModel.setMethod(VerificationMethod.EMAIL) }
-                        )
-                    }
-                    VerificationStep.PHONE_OTP -> {
-                        // Skip or show error - phone disabled
-                        LaunchedEffect(Unit) {
-                            authViewModel.resetStep()
-                        }
-                    }
-                    VerificationStep.EMAIL_INSTRUCTIONS -> {
-                        // Poll for verification status every 3 seconds as backup
-                        LaunchedEffect(Unit) {
-                            while (true) {
-                                delay(3000)
+                // Auto-check verification when returning to app
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            if (verificationState.currentStep == VerificationStep.EMAIL_INSTRUCTIONS) {
                                 authViewModel.checkEmailVerification()
                             }
                         }
-
-                        EmailInstructionScreen(
-                            onOpenEmailApp = {
-                                val intent = Intent(Intent.ACTION_MAIN).apply {
-                                    addCategory(Intent.CATEGORY_APP_EMAIL)
-                                }
-                                context.startActivity(intent)
-                            },
-                            onCheckVerification = {
-                                authViewModel.checkEmailVerification()
-                            },
-                            onBackClick = { authViewModel.resetStep() }
-                        )
                     }
-                    VerificationStep.COMPLETED -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
                     }
                 }
-            }
-        }
 
-        // ===== VENDOR SIGNUP =====
-        composable("vendor_signup") {
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val verificationState by authViewModel.verificationState.collectAsState()
-            val uiState by authViewModel.uiState.collectAsState()
-            val lifecycleOwner = LocalLifecycleOwner.current
-
-            // Auto-check verification when returning to app
-            DisposableEffect(lifecycleOwner) {
-                val observer = LifecycleEventObserver { _, event ->
-                    if (event == Lifecycle.Event.ON_RESUME) {
-                        if (verificationState.currentStep == VerificationStep.EMAIL_INSTRUCTIONS) {
-                            authViewModel.checkEmailVerification()
-                        }
-                    }
-                }
-                lifecycleOwner.lifecycle.addObserver(observer)
-                onDispose {
-                    lifecycleOwner.lifecycle.removeObserver(observer)
-                }
-            }
-
-            LaunchedEffect(uiState) {
-                if (uiState is AuthUiState.Success) {
-                    val user = (uiState as AuthUiState.Success).user
-                    prefs.setLoggedIn(true)
-                    prefs.setMode("VENDOR")
-
-                    if (verificationState.isPendingApproval) {
-                        // Stay on pending approval
-                    } else {
-                        navController.navigate("vendor_mode") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                }
-            }
-
-            if (verificationState.isPendingApproval) {
-                PendingApprovalScreen(
-                    isApproved = false,
-                    onProceed = {
-                        navController.navigate("vendor_mode") {
-                            popUpTo("vendor_signup") { inclusive = true }
-                        }
-                    }
-                )
-            } else {
-                when (verificationState.currentStep) {
-                    VerificationStep.IDLE -> {
-                        val isReturningFromVerification = authViewModel.isVerificationComplete() &&
-                                authViewModel.tempUserData != null
-
-                        if (isReturningFromVerification) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = OrangePrimaryModern)
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text("Creating your business account...", color = TextSecondary)
-                                }
-                            }
-
-                            LaunchedEffect(Unit) {
-                                authViewModel.finalizeUserCreation()
-                            }
-                        } else {
-                            SignupScreen(
-                                isSwitchingMode = true,
-                                currentMode = "customer",
-                                verificationStep = verificationState.currentStep,
-                                onLoginClick = { navController.popBackStack() },
-                                onSignupSuccess = { user, password ->
-                                    // For vendor signup, create vendor data
-                                    val vendorUser = user.copy(isVendor = true)
-                                    val vendorData = VendorProfile(
-                                        vendorId = "",
-                                        businessName = user.name,
-                                        category = "",
-                                        address = user.address,
-                                        phone = user.phone,
-                                        email = user.email
-                                    )
-                                    authViewModel.initiateSignup(vendorUser, password, vendorData)
-                                }
-                            )
-                        }
-                    }
-                    VerificationStep.SELECT_METHOD -> {
-                        MethodSelectionScreen(
-                            onPhoneSelected = {
-                                Toast.makeText(context, "Phone verification requires billing. Please use email.", Toast.LENGTH_LONG).show()
-                            },
-                            onEmailSelected = { authViewModel.setMethod(VerificationMethod.EMAIL) }
-                        )
-                    }
-                    VerificationStep.PHONE_OTP -> {
-                        LaunchedEffect(Unit) {
-                            authViewModel.resetStep()
-                        }
-                    }
-                    VerificationStep.EMAIL_INSTRUCTIONS -> {
-                        // Poll for verification status every 3 seconds as backup
-                        LaunchedEffect(Unit) {
-                            while (true) {
-                                delay(3000)
-                                authViewModel.checkEmailVerification()
-                            }
-                        }
-
-                        EmailInstructionScreen(
-                            onOpenEmailApp = {
-                                val intent = Intent(Intent.ACTION_MAIN).apply {
-                                    addCategory(Intent.CATEGORY_APP_EMAIL)
-                                }
-                                context.startActivity(intent)
-                            },
-                            onCheckVerification = {
-                                authViewModel.checkEmailVerification()
-                            },
-                            onBackClick = { authViewModel.resetStep() }
-                        )
-                    }
-                    VerificationStep.COMPLETED -> {
-                        LaunchedEffect(Unit) {
-                            authViewModel.finalizeUserCreation()
-                        }
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                }
-            }
-        }
-
-        // ===== LOGIN SCREEN =====
-        composable("login") {
-            val scope = rememberCoroutineScope()
-
-            LoginScreen(
-                authViewModel = hiltViewModel(),
-                onSignupClick = {
-                    navController.navigate("signup")
-                },
-                onLoginSuccess = {
-                    scope.launch {
+                // Handle successful signup
+                LaunchedEffect(uiState) {
+                    if (uiState is AuthUiState.Success) {
+                        val user = (uiState as AuthUiState.Success).user
                         prefs.setLoggedIn(true)
-                        val mode = currentMode
 
-                        if (mode == "VENDOR") {
+                        if (user.isVendor) {
+                            prefs.setMode("VENDOR")
                             navController.navigate("vendor_mode") {
                                 popUpTo(0) { inclusive = true }
                             }
                         } else {
+                            prefs.setMode("CUSTOMER")
                             navController.navigate("customer_mode") {
                                 popUpTo(0) { inclusive = true }
                             }
                         }
                     }
                 }
-            )
-        }
 
-        // ===== CUSTOMER MODE =====
-        composable("customer_mode") {
-            val scope = rememberCoroutineScope()
+                when (verificationState.currentStep) {
+                    VerificationStep.IDLE -> {
+                        SignupScreen(
+                            isSwitchingMode = false,
+                            currentMode = "customer",
+                            verificationStep = verificationState.currentStep,
+                            onLoginClick = {
+                                navController.navigate("login") {
+                                    popUpTo("signup") { inclusive = true }
+                                }
+                            },
+                            onSignupSuccess = { user, password ->
+                                val vendorData = if (!user.isVendor) null else VendorProfile(
+                                    vendorId = "",
+                                    businessName = user.name,
+                                    category = "",
+                                    address = user.address,
+                                    phone = user.phone,
+                                    email = user.email
+                                )
+                                authViewModel.initiateSignup(user, password, vendorData)
+                            }
+                        )
+                    }
 
-            CustomerApp(
-                onSwitchToVendor = {
-                    navController.navigate("vendor_signup")
-                },
-                onLogout = {
-                    scope.launch {
-                        prefs.logout()
-                        FirebaseAuth.getInstance().signOut()
-                        authViewModel.signOut()
-                        navController.navigate("login") {
+                    VerificationStep.SELECT_METHOD -> {
+                        // Email only - no phone option
+                        MethodSelectionScreen(
+                            onEmailSelected = { authViewModel.startEmailVerification() }
+                        )
+                    }
+
+                    VerificationStep.EMAIL_INSTRUCTIONS -> {
+                        // Poll for verification
+                        LaunchedEffect(Unit) {
+                            while (true) {
+                                delay(3000)
+                                authViewModel.checkEmailVerification()
+                            }
+                        }
+
+                        EmailInstructionScreen(
+                            onCheckVerification = {
+                                authViewModel.checkEmailVerification()
+                            },
+                            onBackClick = { authViewModel.resetStep() }
+                        )
+                    }
+
+                    VerificationStep.COMPLETED -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+
+                    else -> {
+                        // Handle any other steps
+                        LaunchedEffect(Unit) {
+                            authViewModel.resetStep()
+                        }
+                    }
+                }
+            }
+
+            // ===== VENDOR SIGNUP =====
+            composable("vendor_signup") {
+                val authViewModel: AuthViewModel = hiltViewModel()
+                val verificationState by authViewModel.verificationState.collectAsState()
+                val uiState by authViewModel.uiState.collectAsState()
+                val lifecycleOwner = LocalLifecycleOwner.current
+
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            if (verificationState.currentStep == VerificationStep.EMAIL_INSTRUCTIONS) {
+                                authViewModel.checkEmailVerification()
+                            }
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
+                }
+
+                LaunchedEffect(uiState) {
+                    if (uiState is AuthUiState.Success) {
+                        val user = (uiState as AuthUiState.Success).user
+                        prefs.setLoggedIn(true)
+                        prefs.setMode("VENDOR")
+                        navController.navigate("vendor_mode") {
                             popUpTo(0) { inclusive = true }
                         }
                     }
                 }
-            )
-        }
 
-        // ===== VENDOR MODE =====
-        composable("vendor_mode") {
-            val scope = rememberCoroutineScope()
-
-            VendorApp(
-                onSwitchToCustomerMode = {
-                    scope.launch {
-                        prefs.setMode("CUSTOMER")
-                        navController.navigate("customer_mode") {
-                            popUpTo("vendor_mode") { inclusive = true }
-                        }
-                    }
-                }
-            )
-        }
-    }
-}
-// ===== SPLASH SCREEN =====
-@Composable
-fun SplashScreen(onComplete: () -> Unit) {
-    LaunchedEffect(Unit) {
-        delay(9000) // 2.5 seconds
-        onComplete()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFFF9D5C),
-                        Color(0xFFFF7900)
-                    )
-                )
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // You can replace this with your logo
-            Image(
-                painter = painterResource(R.drawable.bunnix_2),
-                contentDescription = null,
-                modifier = Modifier.size(300.dp)
-            )
-            Spacer(Modifier.height(24.dp))
-            Text(
-                "Bunnix",
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Shop & Book Services",
-                fontSize = 18.sp,
-                color = Color.White.copy(alpha = 0.9f)
-            )
-        }
-    }
-}
-
-// ===== ONBOARDING SCREEN =====
-@Composable
-fun OnboardingScreen(onGetStarted: () -> Unit) {
-    var currentPage by remember { mutableStateOf(0) }
-
-    val onboardingPages = listOf(
-        OnboardingPage(
-            title = "Shop Products",
-            description = "Browse and purchase products from local vendors",
-            emoji = "🛍️"
-        ),
-        OnboardingPage(
-            title = "Book Services",
-            description = "Schedule appointments for services you need",
-            emoji = "📅"
-        ),
-        OnboardingPage(
-            title = "Become a Vendor",
-            description = "Start selling your products and services",
-            emoji = "💼"
-        )
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(Modifier.height(60.dp))
-
-        // Page Indicator
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            repeat(3) { index ->
-                Box(
-                    modifier = Modifier
-                        .width(if (index == currentPage) 24.dp else 8.dp)
-                        .height(8.dp)
-                        .background(
-                            if (index == currentPage) OrangePrimaryModern else Color(0xFFE0E0E0),
-                            androidx.compose.foundation.shape.CircleShape
-                        )
-                )
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        // Emoji
-        Text(
-            onboardingPages[currentPage].emoji,
-            fontSize = 120.sp
-        )
-
-        Spacer(Modifier.height(48.dp))
-
-        // Title
-        Text(
-            onboardingPages[currentPage].title,
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = TextPrimary
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        // Description
-        Text(
-            onboardingPages[currentPage].description,
-            fontSize = 16.sp,
-            color = TextSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
-        )
-
-        Spacer(Modifier.weight(1f))
-
-        // Buttons
-        if (currentPage < 2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TextButton(onClick = onGetStarted) {
-                    Text("Skip", color = TextSecondary, fontSize = 16.sp)
-                }
-
-                Button(
-                    onClick = { currentPage++ },
-                    colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern),
-                    modifier = Modifier
-                        .width(120.dp)
-                        .height(48.dp)
-                ) {
-                    Text("Next", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        } else {
-            Button(
-                onClick = onGetStarted,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern)
-            ) {
-                Text("Get Started", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        Spacer(Modifier.height(40.dp))
-    }
-}
-
-data class OnboardingPage(
-    val title: String,
-    val description: String,
-    val emoji: String
-)
-
-// ===== CUSTOMER APP =====
-@Composable
-fun CustomerApp(
-    onSwitchToVendor: () -> Unit,
-    onLogout: () -> Unit
-) {
-    val navController = rememberNavController()
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-
-    val bottomBarScreens = listOf(
-        Routes.Home,
-        Routes.Cart,
-        Routes.Chat,
-        Routes.Notifications,
-        Routes.Profile
-    )
-
-    Scaffold(
-        bottomBar = {
-            AnimatedVisibility(
-                visible = currentRoute in bottomBarScreens,
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it }
-            ) {
-                ModernBottomNavBar(navController, currentRoute)
-            }
-        }
-    ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = Routes.Home,
-            modifier = Modifier.padding(padding)
-        ) {
-            composable(Routes.Home) {
-                HomeScreen(
-                    onVendorClick = { id -> navController.navigate("vendor_detail/$id") },
-                    onBookServiceClick = { navController.navigate(Routes.ServiceList) },
-                    onShopProductClick = { navController.navigate(Routes.ProductList) },
-                    onSearchClick = { query -> navController.navigate("search/${Uri.encode(query)}") },
-                    bottomBar = { ModernBottomNavBar(navController, Routes.Home) }
-                )
-            }
-
-            composable(
-                route = "vendor_detail/{vendorId}",
-                arguments = listOf(navArgument("vendorId") { type = NavType.StringType })
-            ) { entry ->
-                val vendorId = entry.arguments?.getString("vendorId") ?: ""
-                val vendor = vendorList.find { it.vendorId == vendorId } ?: vendorList.first()
-
-                VendorDetailScreen(
-                    vendor = vendor,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(
-                route = "search/{query}",
-                arguments = listOf(navArgument("query") { type = NavType.StringType })
-            ) { entry ->
-                val query = entry.arguments?.getString("query") ?: ""
-                val productViewModel: ProductViewModel = hiltViewModel()
-                val products by productViewModel.products.collectAsState()
-
-                SearchScreen(
-                    query = query,
-                    products = products,
-                    services = emptyList(),
-                    onProductClick = { id -> navController.navigate("product_detail/$id") },
-                    onServiceClick = { _, _ -> }
-                )
-            }
-
-            composable(Routes.ServiceList) {
-                ServiceListScreen(
-                    onBack = { navController.popBackStack() },
-                    onServiceClick = { service ->
-                        navController.navigate("booking/${Uri.encode(service.serviceId)}")
-                    }
-                )
-            }
-
-            composable(
-                route = "booking/{serviceId}",
-                arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
-            ) { entry ->
-                val serviceId = entry.arguments?.getString("serviceId") ?: ""
-
-                val service = remember(serviceId) {
-                    Service(
-                        serviceId = serviceId,
-                        vendorId = "v1",
-                        vendorName = "Sample Vendor",
-                        name = "Sample Service",
-                        description = "Service description",
-                        price = 5000.0,
-                        duration = 60,
-                        category = "General",
-                        imageUrl = "",
-                        availability = emptyList(),
-                        totalBookings = 0,
-                        rating = 4.5,
-                        isActive = true
-                    )
-                }
-
-                BookingScreen(
-                    service = service,
-                    onBack = { navController.popBackStack() },
-                    onContinue = { details ->
-                        navController.navigate("checkout/service/${Uri.encode(serviceId)}/${details.time}")
-                    }
-                )
-            }
-
-            composable(Routes.ProductList) {
-                val productViewModel: ProductViewModel = hiltViewModel()
-                val products by productViewModel.products.collectAsState()
-
-                ProductListScreen(
-                    products = products,
-                    onBack = { navController.popBackStack() },
-                    onProductClick = { product ->
-                        navController.navigate("product_detail/${product.productId}")
-                    }
-                )
-            }
-
-            composable(
-                route = "product_detail/{productId}",
-                arguments = listOf(navArgument("productId") { type = NavType.StringType })
-            ) { entry ->
-                val productId = entry.arguments?.getString("productId") ?: ""
-                val productViewModel: ProductViewModel = hiltViewModel()
-                val allProducts by productViewModel.products.collectAsState()
-                val product = allProducts.find { it.productId == productId }
-
-                if (product != null) {
-                    ProductDetailsScreen(
-                        product = product,
-                        allProducts = allProducts,
-                        onAddToCart = { product, quantity -> CartData.addToCart(product, quantity) },
-                        onBuyNow = { product, qty ->
-                            navController.navigate("checkout/product/${product.productId}/$qty")
-                        },
-                        onBack = { navController.popBackStack() },
-                        onChatWithVendor = { id -> navController.navigate("chat_detail/vendor_$id") }
-                    )
-                } else {
-                    ProductNotFoundScreen { navController.popBackStack() }
-                }
-            }
-
-            composable(
-                route = "checkout/{type}/{id}/{quantity}",
-                arguments = listOf(
-                    navArgument("type") { type = NavType.StringType },
-                    navArgument("id") { type = NavType.StringType },
-                    navArgument("quantity") { type = NavType.IntType }
-                )
-            ) { entry ->
-                val type = entry.arguments?.getString("type") ?: ""
-                val id = entry.arguments?.getString("id") ?: ""
-                val quantity = entry.arguments?.getInt("quantity") ?: 1
-
-                val items = when (type) {
-                    "product" -> {
-                        val vm: ProductViewModel = hiltViewModel()
-                        val products by vm.products.collectAsState()
-                        val product = products.find { it.productId == id }
-
-                        product?.let {
-                            listOf(
-                                CheckoutItem(
-                                    id = it.productId,
-                                    name = it.name,
-                                    imageUrl = it.imageUrls.firstOrNull() ?: "",
-                                    price = it.price,
-                                    quantity = quantity,
-                                    variant = null
+                when (verificationState.currentStep) {
+                    VerificationStep.IDLE -> {
+                        SignupScreen(
+                            isSwitchingMode = true,
+                            currentMode = "customer",
+                            verificationStep = verificationState.currentStep,
+                            onLoginClick = { navController.popBackStack() },
+                            onSignupSuccess = { user, password ->
+                                val vendorUser = user.copy(isVendor = true)
+                                val vendorData = VendorProfile(
+                                    vendorId = "",
+                                    businessName = user.name,
+                                    category = "",
+                                    address = user.address,
+                                    phone = user.phone,
+                                    email = user.email
                                 )
-                            )
-                        } ?: emptyList()
-                    }
-                    "service" -> listOf(
-                        CheckoutItem(
-                            id = id,
-                            name = "Service Booking",
-                            imageUrl = "",
-                            price = 0.0,
-                            quantity = 1,
-                            variant = null
-                        )
-                    )
-                    "cart" -> CartData.cartItems.map {
-                        CheckoutItem(
-                            id = it.productId,
-                            name = it.name,
-                            imageUrl = it.imageUrls.firstOrNull() ?: "",
-                            price = it.price,
-                            quantity = 1,
-                            variant = null
+                                authViewModel.initiateSignup(vendorUser, password, vendorData)
+                            }
                         )
                     }
-                    else -> emptyList()
+
+                    VerificationStep.SELECT_METHOD -> {
+                        MethodSelectionScreen(
+                            onEmailSelected = { authViewModel.startEmailVerification() }
+                        )
+                    }
+
+                    VerificationStep.EMAIL_INSTRUCTIONS -> {
+                        LaunchedEffect(Unit) {
+                            while (true) {
+                                delay(3000)
+                                authViewModel.checkEmailVerification()
+                            }
+                        }
+
+                        EmailInstructionScreen(
+                            onCheckVerification = {
+                                authViewModel.checkEmailVerification()
+                            },
+                            onBackClick = { authViewModel.resetStep() }
+                        )
+                    }
+
+                    VerificationStep.COMPLETED -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+
+                    else -> {
+                        LaunchedEffect(Unit) {
+                            authViewModel.resetStep()
+                        }
+                    }
                 }
-
-                val total = items.sumOf { it.price * it.quantity }
-                val orderId = "ORD-${System.currentTimeMillis() % 100000}"
-
-                CheckoutScreen(
-                    items = items,
-                    total = total,
-                    isServiceBooking = type == "service",
-                    onBack = { navController.popBackStack() },
-                    onPaymentMethodSelect = { navController.navigate("payment/$total/$orderId") },
-                    onApplyPromo = { it.uppercase() in setOf("WELCOME10", "SAVE20", "BUNNIX50") },
-                    onPlaceOrder = { navController.navigate(Routes.OrderSuccess) }
-                )
             }
 
-            composable(
-                route = "payment/{total}/{orderId}",
-                arguments = listOf(
-                    navArgument("total") { type = NavType.StringType },
-                    navArgument("orderId") { type = NavType.StringType }
-                )
-            ) { entry ->
-                val total = entry.arguments?.getString("total")?.toDoubleOrNull() ?: 0.0
-                val orderId = entry.arguments?.getString("orderId") ?: ""
+            // ===== LOGIN SCREEN =====
+            composable("login") {
+                val scope = rememberCoroutineScope()
 
-                PaymentMethodScreen(
-                    total = total,
-                    orderId = orderId,
-                    onBack = { navController.popBackStack() },
-                    onPaymentSuccess = {
-                        navController.navigate(Routes.OrderSuccess) {
-                            popUpTo(Routes.Home) { inclusive = false }
-                        }
-                    }
-                )
-            }
-
-            composable(Routes.OrderSuccess) {
-                OrderPlacedScreen(
-                    orderId = "ORD-${System.currentTimeMillis() % 10000}",
-                    onTrackOrder = { id ->
-                        navController.navigate("track_order/$id") {
-                            popUpTo(Routes.Home) { inclusive = false }
-                        }
+                LoginScreen(
+                    authViewModel = hiltViewModel(),
+                    onSignupClick = {
+                        navController.navigate("signup")
                     },
-                    onContinueShopping = {
-                        navController.navigate(Routes.Home) {
-                            popUpTo(Routes.Home) { inclusive = true }
-                        }
-                    }
-                )
-            }
+                    onLoginSuccess = {
+                        scope.launch {
+                            prefs.setLoggedIn(true)
+                            val mode = currentMode
 
-            composable(
-                route = "track_order/{orderId}",
-                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-            ) { entry ->
-                val orderId = entry.arguments?.getString("orderId") ?: ""
-                TrackOrderScreen(
-                    orderId = orderId,
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(Routes.Chat) {
-                ChatListScreen(navController, "current_user_id")
-            }
-
-            composable(
-                route = "chat_detail/{chatId}",
-                arguments = listOf(navArgument("chatId") { type = NavType.StringType })
-            ) { entry ->
-                val chatId = entry.arguments?.getString("chatId") ?: ""
-                ChatDetailScreen(navController, chatId, "current_user_id")
-            }
-
-            composable(Routes.Notifications) {
-                NotificationScreen(navController, "current_user_id")
-            }
-
-            composable(Routes.Profile) {
-                val context = LocalContext.current
-                val prefs = UserPreferences(context)
-
-                var showEditDialog by remember { mutableStateOf(false) }
-                var currentUserName by remember { mutableStateOf("John Doe") }
-                var currentUserEmail by remember { mutableStateOf("john@example.com") }
-                var currentUserPhone by remember { mutableStateOf("+234 801 234 5678") }
-
-                ProfileScreen(
-                    userName = currentUserName,
-                    userEmail = currentUserEmail,
-                    userPhone = currentUserPhone,
-                    isVendor = false,
-                    vendorBusinessName = null,
-                    onBack = { navController.popBackStack() },
-                    onEditProfile = { showEditDialog = true },
-                    onViewOrders = { navController.navigate("order_history") },
-                    onViewNotifications = { navController.navigate(Routes.Notifications) },
-                    onSwitchMode = onSwitchToVendor,
-                    onBecomeVendor = onSwitchToVendor,
-                    onLogout = onLogout
-                )
-
-                EditProfileDialog(
-                    showDialog = showEditDialog,
-                    onDismiss = { showEditDialog = false },
-                    isVendor = false,
-                    currentName = currentUserName,
-                    currentEmail = currentUserEmail,
-                    currentPhone = currentUserPhone,
-                    currentBusinessName = null,
-                    currentBusinessAddress = null,
-                    currentBusinessDescription = null,
-                    onSaveProfile = { name, email, phone, _, _, _ ->
-                        currentUserName = name
-                        currentUserEmail = email
-                        currentUserPhone = phone
-                        showEditDialog = false
-                    },
-                    onChangeProfilePicture = {}
-                )
-            }
-
-            composable(Routes.Cart) {
-                CartScreen(
-                    onBack = { navController.popBackStack() },
-                    onCheckout = { navController.navigate("checkout/cart/0/1") },
-                    onContinueShopping = { navController.navigate(Routes.Home) }
-                )
-            }
-        }
-    }
-}
-
-// Vendor sample data
-val vendorList = listOf(
-    VendorProfile(
-        vendorId = "1",
-        businessName = "TechHub Store",
-        category = "Tech",
-        description = "Your one-stop electronics shop",
-        coverPhotoUrl = "",
-        rating = 4.8,
-        totalReviews = 128,
-        address = "2.3 km away",
-        phone = "+234 123 456 7890",
-        isAvailable = true
-    ),
-    VendorProfile(
-        vendorId = "2",
-        businessName = "Fashion Hub",
-        category = "Fashion",
-        description = "Latest trends and styles",
-        coverPhotoUrl = "",
-        rating = 4.5,
-        totalReviews = 85,
-        address = "1.5 km away",
-        phone = "+234 987 654 3210",
-        isAvailable = true
-    ),
-    VendorProfile(
-        vendorId = "3",
-        businessName = "Spa & Wellness",
-        category = "Beauty",
-        description = "Relax and rejuvenate",
-        coverPhotoUrl = "",
-        rating = 4.9,
-        totalReviews = 200,
-        address = "3.0 km away",
-        phone = "+234 456 789 0123",
-        isAvailable = true
-    )
-)
-
-// ===== VENDOR APP =====
-@Composable
-fun VendorApp(onSwitchToCustomerMode: () -> Unit = {}) {
-    val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    val bottomNavRoutes = listOf(
-        "dashboard", "orders_bookings", "messages", "analytics", "profile"
-    )
-    val showBottomNav = currentRoute in bottomNavRoutes
-
-    Scaffold(
-        bottomBar = {
-            if (showBottomNav) {
-                BunnixBottomNav(
-                    navController = navController,
-                    items = listOf(
-                        VendorBottomNavItem.Dashboard,
-                        VendorBottomNavItem.Orders,
-                        VendorBottomNavItem.Messages,
-                        VendorBottomNavItem.Analytics,
-                        VendorBottomNavItem.Profile
-                    )
-                )
-            }
-        }
-    ) { innerPadding ->
-        VendorNavHost(
-            navController = navController,
-            onSwitchToCustomerMode = onSwitchToCustomerMode,
-            modifier = Modifier.padding(innerPadding)
-        )
-    }
-}
-
-// ===== MODERN BOTTOM NAVIGATION =====
-@Composable
-fun ModernBottomNavBar(
-    navController: NavController,
-    currentRoute: String?
-) {
-    val items = listOf(
-        BottomNavItem("Home", Icons.Default.Home, Routes.Home),
-        BottomNavItem("Cart", Icons.Default.ShoppingCart, Routes.Cart),
-        BottomNavItem("Chat", Icons.Default.ChatBubble, Routes.Chat),
-        BottomNavItem("Alerts", Icons.Default.Notifications, Routes.Notifications),
-        BottomNavItem("Profile", Icons.Default.Person, Routes.Profile)
-    )
-
-    NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
-    ) {
-        items.forEach { item ->
-            val selected = currentRoute == item.route
-            val iconColor by animateColorAsState(
-                targetValue = if (selected) OrangePrimaryModern else TextSecondary,
-                animationSpec = tween(300),
-                label = "iconColor"
-            )
-
-            NavigationBarItem(
-                icon = {
-                    BadgedBox(
-                        badge = {
-                            if (item.route == Routes.Chat || item.route == Routes.Notifications) {
-                                Badge(containerColor = Color(0xFFEF4444)) {
-                                    Text("2", color = Color.White, fontSize = 10.sp)
+                            if (mode == "VENDOR") {
+                                navController.navigate("vendor_mode") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            } else {
+                                navController.navigate("customer_mode") {
+                                    popUpTo(0) { inclusive = true }
                                 }
                             }
                         }
+                    }
+                )
+            }
+
+            // ===== CUSTOMER MODE =====
+            composable("customer_mode") {
+                val scope = rememberCoroutineScope()
+
+                CustomerApp(
+                    onSwitchToVendor = {
+                        navController.navigate("vendor_signup")
+                    },
+                    onLogout = {
+                        scope.launch {
+                            prefs.logout()
+                            FirebaseAuth.getInstance().signOut()
+                            authViewModel.signOut()
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+
+            // ===== VENDOR MODE =====
+            composable("vendor_mode") {
+                val scope = rememberCoroutineScope()
+
+                VendorApp(
+                    onSwitchToCustomerMode = {
+                        scope.launch {
+                            prefs.setMode("CUSTOMER")
+                            navController.navigate("customer_mode") {
+                                popUpTo("vendor_mode") { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    // ===== SPLASH SCREEN =====
+    @Composable
+    fun SplashScreen(onComplete: () -> Unit) {
+        LaunchedEffect(Unit) {
+            delay(9000) // 2.5 seconds
+            onComplete()
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFFF9D5C),
+                            Color(0xFFFF7900)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // You can replace this with your logo
+                Image(
+                    painter = painterResource(R.drawable.bunnix_2),
+                    contentDescription = null,
+                    modifier = Modifier.size(300.dp)
+                )
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    "Bunnix",
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Shop & Book Services",
+                    fontSize = 18.sp,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+        }
+    }
+
+    // ===== ONBOARDING SCREEN =====
+    @Composable
+    fun OnboardingScreen(onGetStarted: () -> Unit) {
+        var currentPage by remember { mutableStateOf(0) }
+
+        val onboardingPages = listOf(
+            OnboardingPage(
+                title = "Shop Products",
+                description = "Browse and purchase products from local vendors",
+                emoji = "🛍️"
+            ),
+            OnboardingPage(
+                title = "Book Services",
+                description = "Schedule appointments for services you need",
+                emoji = "📅"
+            ),
+            OnboardingPage(
+                title = "Become a Vendor",
+                description = "Start selling your products and services",
+                emoji = "💼"
+            )
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(60.dp))
+
+            // Page Indicator
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(3) { index ->
+                    Box(
+                        modifier = Modifier
+                            .width(if (index == currentPage) 24.dp else 8.dp)
+                            .height(8.dp)
+                            .background(
+                                if (index == currentPage) OrangePrimaryModern else Color(0xFFE0E0E0),
+                                androidx.compose.foundation.shape.CircleShape
+                            )
+                    )
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // Emoji
+            Text(
+                onboardingPages[currentPage].emoji,
+                fontSize = 120.sp
+            )
+
+            Spacer(Modifier.height(48.dp))
+
+            // Title
+            Text(
+                onboardingPages[currentPage].title,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = TextPrimary
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Description
+            Text(
+                onboardingPages[currentPage].description,
+                fontSize = 16.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            // Buttons
+            if (currentPage < 2) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TextButton(onClick = onGetStarted) {
+                        Text("Skip", color = TextSecondary, fontSize = 16.sp)
+                    }
+
+                    Button(
+                        onClick = { currentPage++ },
+                        colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern),
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(48.dp)
                     ) {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = item.label,
-                            tint = iconColor
+                        Text("Next", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onGetStarted,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern)
+                ) {
+                    Text("Get Started", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(Modifier.height(40.dp))
+        }
+    }
+
+    data class OnboardingPage(
+        val title: String,
+        val description: String,
+        val emoji: String
+    )
+
+    // ===== CUSTOMER APP =====
+    @Composable
+    fun CustomerApp(
+        onSwitchToVendor: () -> Unit,
+        onLogout: () -> Unit
+    ) {
+        val navController = rememberNavController()
+        val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+        val bottomBarScreens = listOf(
+            Routes.Home,
+            Routes.Cart,
+            Routes.Chat,
+            Routes.Notifications,
+            Routes.Profile
+        )
+
+        Scaffold(
+            bottomBar = {
+                AnimatedVisibility(
+                    visible = currentRoute in bottomBarScreens,
+                    enter = slideInVertically { it },
+                    exit = slideOutVertically { it }
+                ) {
+                    ModernBottomNavBar(navController, currentRoute)
+                }
+            }
+        ) { padding ->
+            NavHost(
+                navController = navController,
+                startDestination = Routes.Home,
+                modifier = Modifier.padding(padding)
+            ) {
+                composable(Routes.Home) {
+                    HomeScreen(
+                        onVendorClick = { id -> navController.navigate("vendor_detail/$id") },
+                        onBookServiceClick = { navController.navigate(Routes.ServiceList) },
+                        onShopProductClick = { navController.navigate(Routes.ProductList) },
+                        onSearchClick = { query -> navController.navigate("search/${Uri.encode(query)}") },
+                        bottomBar = { ModernBottomNavBar(navController, Routes.Home) }
+                    )
+                }
+
+                composable(
+                    route = "vendor_detail/{vendorId}",
+                    arguments = listOf(navArgument("vendorId") { type = NavType.StringType })
+                ) { entry ->
+                    val vendorId = entry.arguments?.getString("vendorId") ?: ""
+                    val vendor = vendorList.find { it.vendorId == vendorId } ?: vendorList.first()
+
+                    VendorDetailScreen(
+                        vendor = vendor,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(
+                    route = "search/{query}",
+                    arguments = listOf(navArgument("query") { type = NavType.StringType })
+                ) { entry ->
+                    val query = entry.arguments?.getString("query") ?: ""
+                    val productViewModel: ProductViewModel = hiltViewModel()
+                    val products by productViewModel.products.collectAsState()
+
+                    SearchScreen(
+                        query = query,
+                        products = products,
+                        services = emptyList(),
+                        onProductClick = { id -> navController.navigate("product_detail/$id") },
+                        onServiceClick = { _, _ -> }
+                    )
+                }
+
+                composable(Routes.ServiceList) {
+                    ServiceListScreen(
+                        onBack = { navController.popBackStack() },
+                        onServiceClick = { service ->
+                            navController.navigate("booking/${Uri.encode(service.serviceId)}")
+                        }
+                    )
+                }
+
+                composable(
+                    route = "booking/{serviceId}",
+                    arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
+                ) { entry ->
+                    val serviceId = entry.arguments?.getString("serviceId") ?: ""
+
+                    val service = remember(serviceId) {
+                        Service(
+                            serviceId = serviceId,
+                            vendorId = "v1",
+                            vendorName = "Sample Vendor",
+                            name = "Sample Service",
+                            description = "Service description",
+                            price = 5000.0,
+                            duration = 60,
+                            category = "General",
+                            imageUrl = "",
+                            availability = emptyList(),
+                            totalBookings = 0,
+                            rating = 4.5,
+                            isActive = true
                         )
                     }
-                },
-                label = {
-                    Text(
-                        item.label,
-                        color = iconColor,
-                        fontSize = 12.sp
-                    )
-                },
-                selected = selected,
-                onClick = {
-                    navController.navigate(item.route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
+
+                    BookingScreen(
+                        service = service,
+                        onBack = { navController.popBackStack() },
+                        onContinue = { details ->
+                            navController.navigate("checkout/service/${Uri.encode(serviceId)}/${details.time}")
                         }
-                        launchSingleTop = true
-                        restoreState = true
+                    )
+                }
+
+                composable(Routes.ProductList) {
+                    val productViewModel: ProductViewModel = hiltViewModel()
+                    val products by productViewModel.products.collectAsState()
+
+                    ProductListScreen(
+                        products = products,
+                        onBack = { navController.popBackStack() },
+                        onProductClick = { product ->
+                            navController.navigate("product_detail/${product.productId}")
+                        }
+                    )
+                }
+
+                composable(
+                    route = "product_detail/{productId}",
+                    arguments = listOf(navArgument("productId") { type = NavType.StringType })
+                ) { entry ->
+                    val productId = entry.arguments?.getString("productId") ?: ""
+                    val productViewModel: ProductViewModel = hiltViewModel()
+                    val allProducts by productViewModel.products.collectAsState()
+                    val product = allProducts.find { it.productId == productId }
+
+                    if (product != null) {
+                        ProductDetailsScreen(
+                            product = product,
+                            allProducts = allProducts,
+                            onAddToCart = { product, quantity ->
+                                CartData.addToCart(
+                                    product,
+                                    quantity
+                                )
+                            },
+                            onBuyNow = { product, qty ->
+                                navController.navigate("checkout/product/${product.productId}/$qty")
+                            },
+                            onBack = { navController.popBackStack() },
+                            onChatWithVendor = { id -> navController.navigate("chat_detail/vendor_$id") }
+                        )
+                    } else {
+                        ProductNotFoundScreen { navController.popBackStack() }
                     }
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = OrangePrimaryModern,
-                    selectedTextColor = OrangePrimaryModern,
-                    indicatorColor = OrangeSoft,
-                    unselectedIconColor = TextSecondary,
-                    unselectedTextColor = TextSecondary
-                )
+                }
+
+                composable(
+                    route = "checkout/{type}/{id}/{quantity}",
+                    arguments = listOf(
+                        navArgument("type") { type = NavType.StringType },
+                        navArgument("id") { type = NavType.StringType },
+                        navArgument("quantity") { type = NavType.IntType }
+                    )
+                ) { entry ->
+                    val type = entry.arguments?.getString("type") ?: ""
+                    val id = entry.arguments?.getString("id") ?: ""
+                    val quantity = entry.arguments?.getInt("quantity") ?: 1
+
+                    val items = when (type) {
+                        "product" -> {
+                            val vm: ProductViewModel = hiltViewModel()
+                            val products by vm.products.collectAsState()
+                            val product = products.find { it.productId == id }
+
+                            product?.let {
+                                listOf(
+                                    CheckoutItem(
+                                        id = it.productId,
+                                        name = it.name,
+                                        imageUrl = it.imageUrls.firstOrNull() ?: "",
+                                        price = it.price,
+                                        quantity = quantity,
+                                        variant = null
+                                    )
+                                )
+                            } ?: emptyList()
+                        }
+
+                        "service" -> listOf(
+                            CheckoutItem(
+                                id = id,
+                                name = "Service Booking",
+                                imageUrl = "",
+                                price = 0.0,
+                                quantity = 1,
+                                variant = null
+                            )
+                        )
+
+                        "cart" -> CartData.cartItems.map {
+                            CheckoutItem(
+                                id = it.productId,
+                                name = it.name,
+                                imageUrl = it.imageUrls.firstOrNull() ?: "",
+                                price = it.price,
+                                quantity = 1,
+                                variant = null
+                            )
+                        }
+
+                        else -> emptyList()
+                    }
+
+                    val total = items.sumOf { it.price * it.quantity }
+                    val orderId = "ORD-${System.currentTimeMillis() % 100000}"
+
+                    CheckoutScreen(
+                        items = items,
+                        total = total,
+                        isServiceBooking = type == "service",
+                        onBack = { navController.popBackStack() },
+                        onPaymentMethodSelect = { navController.navigate("payment/$total/$orderId") },
+                        onApplyPromo = {
+                            it.uppercase() in setOf(
+                                "WELCOME10",
+                                "SAVE20",
+                                "BUNNIX50"
+                            )
+                        },
+                        onPlaceOrder = { navController.navigate(Routes.OrderSuccess) }
+                    )
+                }
+
+                composable(
+                    route = "payment/{total}/{orderId}",
+                    arguments = listOf(
+                        navArgument("total") { type = NavType.StringType },
+                        navArgument("orderId") { type = NavType.StringType }
+                    )
+                ) { entry ->
+                    val total = entry.arguments?.getString("total")?.toDoubleOrNull() ?: 0.0
+                    val orderId = entry.arguments?.getString("orderId") ?: ""
+
+                    PaymentMethodScreen(
+                        total = total,
+                        orderId = orderId,
+                        onBack = { navController.popBackStack() },
+                        onPaymentSuccess = {
+                            navController.navigate(Routes.OrderSuccess) {
+                                popUpTo(Routes.Home) { inclusive = false }
+                            }
+                        }
+                    )
+                }
+
+                composable(Routes.OrderSuccess) {
+                    OrderPlacedScreen(
+                        orderId = "ORD-${System.currentTimeMillis() % 10000}",
+                        onTrackOrder = { id ->
+                            navController.navigate("track_order/$id") {
+                                popUpTo(Routes.Home) { inclusive = false }
+                            }
+                        },
+                        onContinueShopping = {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Home) { inclusive = true }
+                            }
+                        }
+                    )
+                }
+
+                composable(
+                    route = "track_order/{orderId}",
+                    arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+                ) { entry ->
+                    val orderId = entry.arguments?.getString("orderId") ?: ""
+                    TrackOrderScreen(
+                        orderId = orderId,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Routes.Chat) {
+                    ChatListScreen(navController, "current_user_id")
+                }
+
+                composable(
+                    route = "chat_detail/{chatId}",
+                    arguments = listOf(navArgument("chatId") { type = NavType.StringType })
+                ) { entry ->
+                    val chatId = entry.arguments?.getString("chatId") ?: ""
+                    ChatDetailScreen(navController, chatId, "current_user_id")
+                }
+
+                composable(Routes.Notifications) {
+                    NotificationScreen(navController, "current_user_id")
+                }
+
+                composable(Routes.Profile) {
+                    val context = LocalContext.current
+                    val prefs = UserPreferences(context)
+
+                    var showEditDialog by remember { mutableStateOf(false) }
+                    var currentUserName by remember { mutableStateOf("John Doe") }
+                    var currentUserEmail by remember { mutableStateOf("john@example.com") }
+                    var currentUserPhone by remember { mutableStateOf("+234 801 234 5678") }
+
+                    ProfileScreen(
+                        userName = currentUserName,
+                        userEmail = currentUserEmail,
+                        userPhone = currentUserPhone,
+                        isVendor = false,
+                        vendorBusinessName = null,
+                        onBack = { navController.popBackStack() },
+                        onEditProfile = { showEditDialog = true },
+                        onViewOrders = { navController.navigate("order_history") },
+                        onViewNotifications = { navController.navigate(Routes.Notifications) },
+                        onSwitchMode = onSwitchToVendor,
+                        onBecomeVendor = onSwitchToVendor,
+                        onLogout = onLogout
+                    )
+
+                    EditProfileDialog(
+                        showDialog = showEditDialog,
+                        onDismiss = { showEditDialog = false },
+                        isVendor = false,
+                        currentName = currentUserName,
+                        currentEmail = currentUserEmail,
+                        currentPhone = currentUserPhone,
+                        currentBusinessName = null,
+                        currentBusinessAddress = null,
+                        currentBusinessDescription = null,
+                        onSaveProfile = { name, email, phone, _, _, _ ->
+                            currentUserName = name
+                            currentUserEmail = email
+                            currentUserPhone = phone
+                            showEditDialog = false
+                        },
+                        onChangeProfilePicture = {}
+                    )
+                }
+
+                composable(Routes.Cart) {
+                    CartScreen(
+                        onBack = { navController.popBackStack() },
+                        onCheckout = { navController.navigate("checkout/cart/0/1") },
+                        onContinueShopping = { navController.navigate(Routes.Home) }
+                    )
+                }
+            }
+        }
+    }
+
+    // Vendor sample data
+    val vendorList = listOf(
+        VendorProfile(
+            vendorId = "1",
+            businessName = "TechHub Store",
+            category = "Tech",
+            description = "Your one-stop electronics shop",
+            coverPhotoUrl = "",
+            rating = 4.8,
+            totalReviews = 128,
+            address = "2.3 km away",
+            phone = "+234 123 456 7890",
+            isAvailable = true
+        ),
+        VendorProfile(
+            vendorId = "2",
+            businessName = "Fashion Hub",
+            category = "Fashion",
+            description = "Latest trends and styles",
+            coverPhotoUrl = "",
+            rating = 4.5,
+            totalReviews = 85,
+            address = "1.5 km away",
+            phone = "+234 987 654 3210",
+            isAvailable = true
+        ),
+        VendorProfile(
+            vendorId = "3",
+            businessName = "Spa & Wellness",
+            category = "Beauty",
+            description = "Relax and rejuvenate",
+            coverPhotoUrl = "",
+            rating = 4.9,
+            totalReviews = 200,
+            address = "3.0 km away",
+            phone = "+234 456 789 0123",
+            isAvailable = true
+        )
+    )
+
+    // ===== VENDOR APP =====
+    @Composable
+    fun VendorApp(onSwitchToCustomerMode: () -> Unit = {}) {
+        val navController = rememberNavController()
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
+
+        val bottomNavRoutes = listOf(
+            "dashboard", "orders_bookings", "messages", "analytics", "profile"
+        )
+        val showBottomNav = currentRoute in bottomNavRoutes
+
+        Scaffold(
+            bottomBar = {
+                if (showBottomNav) {
+                    BunnixBottomNav(
+                        navController = navController,
+                        items = listOf(
+                            VendorBottomNavItem.Dashboard,
+                            VendorBottomNavItem.Orders,
+                            VendorBottomNavItem.Messages,
+                            VendorBottomNavItem.Analytics,
+                            VendorBottomNavItem.Profile
+                        )
+                    )
+                }
+            }
+        ) { innerPadding ->
+            VendorNavHost(
+                navController = navController,
+                onSwitchToCustomerMode = onSwitchToCustomerMode,
+                modifier = Modifier.padding(innerPadding)
             )
         }
     }
-}
 
-data class BottomNavItem(
-    val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val route: String
-)
-
-// ===== PRODUCT NOT FOUND SCREEN =====
-@Composable
-fun ProductNotFoundScreen(onBack: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    // ===== MODERN BOTTOM NAVIGATION =====
+    @Composable
+    fun ModernBottomNavBar(
+        navController: NavController,
+        currentRoute: String?
     ) {
-        Icon(
-            imageVector = Icons.Default.SearchOff,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = TextSecondary
+        val items = listOf(
+            BottomNavItem("Home", Icons.Default.Home, Routes.Home),
+            BottomNavItem("Cart", Icons.Default.ShoppingCart, Routes.Cart),
+            BottomNavItem("Chat", Icons.Default.ChatBubble, Routes.Chat),
+            BottomNavItem("Alerts", Icons.Default.Notifications, Routes.Notifications),
+            BottomNavItem("Profile", Icons.Default.Person, Routes.Profile)
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            "Product Not Found",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "The product you're looking for doesn't exist or has been removed.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = onBack,
-            colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern)
+
+        NavigationBar(
+            containerColor = Color.White,
+            tonalElevation = 8.dp
         ) {
-            Text("Go Back")
+            items.forEach { item ->
+                val selected = currentRoute == item.route
+                val iconColor by animateColorAsState(
+                    targetValue = if (selected) OrangePrimaryModern else TextSecondary,
+                    animationSpec = tween(300),
+                    label = "iconColor"
+                )
+
+                NavigationBarItem(
+                    icon = {
+                        BadgedBox(
+                            badge = {
+                                if (item.route == Routes.Chat || item.route == Routes.Notifications) {
+                                    Badge(containerColor = Color(0xFFEF4444)) {
+                                        Text("2", color = Color.White, fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = item.label,
+                                tint = iconColor
+                            )
+                        }
+                    },
+                    label = {
+                        Text(
+                            item.label,
+                            color = iconColor,
+                            fontSize = 12.sp
+                        )
+                    },
+                    selected = selected,
+                    onClick = {
+                        navController.navigate(item.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = OrangePrimaryModern,
+                        selectedTextColor = OrangePrimaryModern,
+                        indicatorColor = OrangeSoft,
+                        unselectedIconColor = TextSecondary,
+                        unselectedTextColor = TextSecondary
+                    )
+                )
+            }
+        }
+    }
+
+    data class BottomNavItem(
+        val label: String,
+        val icon: androidx.compose.ui.graphics.vector.ImageVector,
+        val route: String
+    )
+
+    // ===== PRODUCT NOT FOUND SCREEN =====
+    @Composable
+    fun ProductNotFoundScreen(onBack: () -> Unit) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.SearchOff,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = TextSecondary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "Product Not Found",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "The product you're looking for doesn't exist or has been removed.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onBack,
+                colors = ButtonDefaults.buttonColors(containerColor = OrangePrimaryModern)
+            ) {
+                Text("Go Back")
+            }
         }
     }
 }
