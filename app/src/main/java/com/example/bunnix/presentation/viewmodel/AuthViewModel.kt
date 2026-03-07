@@ -71,17 +71,22 @@ class AuthViewModel @Inject constructor(
      * Initiate signup - stores user data and moves to verification
      */
     fun initiateSignup(userData: User, password: String, vendorData: VendorProfile? = null) {
+        Log.d("AuthViewModel", "initiateSignup called for ${userData.email}")
         this.tempUserData = userData
         this.tempPassword = password
         this.tempVendorData = vendorData
 
-        _verificationState.update { it.copy(currentStep = VerificationStep.SELECT_METHOD) }
+        _verificationState.update {
+            Log.d("AuthViewModel", "Moving to SELECT_METHOD")
+            it.copy(currentStep = VerificationStep.SELECT_METHOD)
+        }
     }
 
     /**
      * Start email verification process
      */
     fun startEmailVerification() {
+        Log.d("AuthViewModel", "startEmailVerification called")
         _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
             createAccountAndSendEmailVerification()
@@ -89,11 +94,21 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Create account and send email verification
+     * Create account and send standard Firebase email verification
      */
     private suspend fun createAccountAndSendEmailVerification() {
-        val user = tempUserData ?: return
-        val password = tempPassword ?: return
+        val user = tempUserData ?: run {
+            Log.e("AuthViewModel", "tempUserData is null!")
+            _uiState.value = AuthUiState.Error("User data not found")
+            return
+        }
+        val password = tempPassword ?: run {
+            Log.e("AuthViewModel", "tempPassword is null!")
+            _uiState.value = AuthUiState.Error("Password not found")
+            return
+        }
+
+        Log.d("AuthViewModel", "Creating account for ${user.email}")
 
         try {
             val authResult = FirebaseAuth.getInstance()
@@ -101,16 +116,14 @@ class AuthViewModel @Inject constructor(
                 .await()
 
             val firebaseUser = authResult.user
-                ?: throw Exception("Account creation failed")
+                ?: throw Exception("Account creation failed - no user returned")
 
-            // Use Firebase Hosting custom domain or your own domain
-            val actionCodeSettings = com.google.firebase.auth.ActionCodeSettings.newBuilder()
-                .setUrl("https://yourapp.web.app/verify?uid=${firebaseUser.uid}&mode=verifyEmail")
-                .setAndroidPackageName("com.example.bunnix", true, "12") // 12 = minimum version
-                .setHandleCodeInApp(true)
-                .build()
+            Log.d("AuthViewModel", "Account created, sending verification email")
 
-            firebaseUser.sendEmailVerification(actionCodeSettings).await()
+            // STANDARD FIREBASE EMAIL VERIFICATION
+            firebaseUser.sendEmailVerification().await()
+
+            Log.d("AuthViewModel", "Verification email sent, moving to EMAIL_INSTRUCTIONS")
 
             _verificationState.update {
                 it.copy(currentStep = VerificationStep.EMAIL_INSTRUCTIONS)
@@ -140,14 +153,19 @@ class AuthViewModel @Inject constructor(
             try {
                 val firebaseUser = FirebaseAuth.getInstance().currentUser
                 if (firebaseUser == null) {
+                    Log.e("AuthViewModel", "No current user found")
                     _uiState.value = AuthUiState.Error("User not found. Please try again.")
                     return@launch
                 }
 
+                Log.d("AuthViewModel", "Checking verification status for ${firebaseUser.email}")
                 firebaseUser.reload().await()
 
                 if (firebaseUser.isEmailVerified) {
+                    Log.d("AuthViewModel", "Email is verified, completing signup")
                     completeSignup(firebaseUser.uid)
+                } else {
+                    Log.d("AuthViewModel", "Email not yet verified")
                 }
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "checkEmailVerification failed", e)
@@ -156,7 +174,7 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Complete signup after email verification - NO PENDING APPROVAL FOR VENDORS
+     * Complete signup after email verification
      */
     private fun completeSignup(uid: String) {
         viewModelScope.launch {
@@ -167,11 +185,11 @@ class AuthViewModel @Inject constructor(
 
             try {
                 if (vendorData != null || user.isVendor) {
-                    // ===== VENDOR SIGNUP - DIRECT TO DASHBOARD =====
+                    // VENDOR SIGNUP
                     val finalVendorData = vendorData?.copy(
                         vendorId = uid,
                         userId = uid,
-                        status = "approved" // Auto-approve, no pending
+                        status = "approved"
                     ) ?: VendorProfile(
                         vendorId = uid,
                         userId = uid,
@@ -180,7 +198,7 @@ class AuthViewModel @Inject constructor(
                         address = user.address,
                         phone = user.phone,
                         email = user.email,
-                        status = "approved" // Auto-approve
+                        status = "approved"
                     )
 
                     FirebaseFirestore.getInstance()
@@ -196,7 +214,7 @@ class AuthViewModel @Inject constructor(
                         .await()
 
                 } else {
-                    // ===== CUSTOMER SIGNUP =====
+                    // CUSTOMER SIGNUP
                     FirebaseFirestore.getInstance()
                         .collection("users")
                         .document(uid)
@@ -220,28 +238,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Handle deep link verification
-     */
-    fun handleEmailVerificationLink(email: String, link: String) {
-        viewModelScope.launch {
-            try {
-                val auth = FirebaseAuth.getInstance()
-                val result = auth.signInWithEmailLink(email, link).await()
-
-                result.user?.let { firebaseUser ->
-                    if (firebaseUser.isEmailVerified) {
-                        completeSignup(firebaseUser.uid)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("AuthViewModel", "handleEmailVerificationLink failed", e)
-                _uiState.value = AuthUiState.Error("Failed to verify email link")
-            }
-        }
-    }
-
-    // ===== LEGACY METHODS (kept for compatibility) =====
+    // ===== LEGACY METHODS =====
 
     fun isVerificationComplete(): Boolean {
         return _verificationState.value.isEmailVerified

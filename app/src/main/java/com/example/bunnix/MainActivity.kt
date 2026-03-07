@@ -76,17 +76,6 @@ class MainActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Handle deep link
-        intent?.data?.let { uri ->
-            if (uri.toString().contains("verify")) {
-                val email = uri.getQueryParameter("email") ?: return@let
-                val link = uri.toString()
-
-                // Handle verification
-                authViewModel.handleEmailVerificationLink(email, link)
-            }
-
             enableEdgeToEdge()
             setContent {
                 BunnixTheme {
@@ -98,7 +87,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-        }
     }
 
     // ===== MAIN APP NAVIGATION WITH SPLASH & ONBOARDING =====
@@ -1006,7 +994,7 @@ class MainActivity : ComponentActivity() {
         val currentRoute = navBackStackEntry?.destination?.route
 
         val bottomNavRoutes = listOf(
-            "dashboard", "orders_bookings", "messages", "analytics", "profile"
+            "vendor_dashboard", "vendor_orders", "vendor_messages", "vendor_profile"
         )
         val showBottomNav = currentRoute in bottomNavRoutes
 
@@ -1014,21 +1002,15 @@ class MainActivity : ComponentActivity() {
             bottomBar = {
                 if (showBottomNav) {
                     BunnixBottomNav(
-                        navController = navController,
-                        items = listOf(
-                            VendorBottomNavItem.Dashboard,
-                            VendorBottomNavItem.Orders,
-                            VendorBottomNavItem.Messages,
-                            VendorBottomNavItem.Analytics,
-                            VendorBottomNavItem.Profile
-                        )
+                        navController = navController
+                        // items is hardcoded in BunnixBottomNav, don't pass it here
                     )
                 }
             }
         ) { innerPadding ->
             VendorNavHost(
                 navController = navController,
-                onSwitchToCustomerMode = onSwitchToCustomerMode,
+                onNavigateToLogin = onSwitchToCustomerMode, // changed from onSwitchToCustomerMode
                 modifier = Modifier.padding(innerPadding)
             )
         }
