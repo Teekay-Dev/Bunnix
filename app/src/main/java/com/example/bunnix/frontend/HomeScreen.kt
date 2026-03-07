@@ -41,8 +41,6 @@ import com.example.bunnix.database.models.Product
 import com.example.bunnix.database.models.Service
 import com.example.bunnix.database.models.VendorProfile // FIXED: Use VendorProfile
 import com.example.bunnix.ui.theme.BunnixTheme
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
 // ===== MODERN COLOR SYSTEM =====
@@ -57,8 +55,6 @@ private val TextPrimary = Color(0xFF1A1A2E)
 private val TextSecondary = Color(0xFF6B7280)
 private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
-
-
 
 // ===== CATEGORY DATA =====
 data class Category(
@@ -94,7 +90,7 @@ val specialOffers = listOf(
         title = "Weekend Special!",
         subtitle = "Get 30% off all spa services",
         discount = "-30%",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
         actionText = "Book Now"
     ),
     SpecialOffer(
@@ -102,7 +98,7 @@ val specialOffers = listOf(
         title = "New Vendors!",
         subtitle = "Discover 50+ new businesses",
         discount = "NEW",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
         actionText = "Explore"
     ),
     SpecialOffer(
@@ -110,7 +106,7 @@ val specialOffers = listOf(
         title = "Flash Sale",
         subtitle = "Limited time deals on electronics",
         discount = "-50%",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
         actionText = "Grab Deal"
     ),
     SpecialOffer(
@@ -118,7 +114,7 @@ val specialOffers = listOf(
         title = "Free Delivery",
         subtitle = "On all orders above ₦10,000",
         discount = "FREE",
-        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFE85A24)),
+        backgroundColor = listOf(Color(0xFFFF6B35), Color(0xFFFF8C61)),
         actionText = "Order Now"
     )
 )
@@ -229,7 +225,8 @@ fun HomeScreen(
                 )
             }
         },
-        containerColor = SurfaceLight
+//        bottomBar = bottomBar,
+//        containerColor = SurfaceLight
     ) { padding ->
         Column(
             modifier = Modifier
@@ -539,7 +536,7 @@ private fun QuickActionSection(
             title = "Book Service",
             subtitle = "Find experts",
             icon = Icons.Default.CalendarToday,
-            gradient = listOf(OrangePrimary, OrangeDark),
+            gradient = listOf(OrangePrimary, OrangeLight),
             onClick = onBookService,
             modifier = Modifier.weight(1f)
         )
@@ -548,7 +545,7 @@ private fun QuickActionSection(
             title = "Shop Products",
             subtitle = "Buy & sell",
             icon = Icons.Default.ShoppingBag,
-            gradient = listOf(OrangePrimary, OrangeDark),
+            gradient = listOf(OrangePrimary, OrangeLight),
             onClick = onShopProducts,
             modifier = Modifier.weight(1f)
         )
