@@ -37,7 +37,8 @@ interface AuthRepository {
         phone: String = "",
         isBusinessAccount: Boolean = false,
         businessName: String = "",
-        businessAddress: String = ""
+        businessAddress: String = "",
+        category: String = ""
     ): AuthResult<User>
 
     /**
@@ -77,7 +78,7 @@ interface AuthRepository {
     suspend fun verifyPhoneOtp(
         verificationId: String,
         code: String
-    ): AuthResult<User>
+    ): AuthResult<String>
 
     /**
      * Sign in with Google (OAuth)
@@ -86,32 +87,6 @@ interface AuthRepository {
      * @return AuthResult with User data or error
      */
     suspend fun signInWithGoogle(idToken: String): AuthResult<User>
-
-//    // ==================== APPLE SIGN-IN (NEW) ====================
-//
-//    /**
-//     * Sign in with Apple (OAuth)
-//     * Uses Apple's ID token and nonce for authentication
-//     *
-//     * @param idToken Apple ID token from Apple Sign-In
-//     * @param rawNonce Raw nonce used for verification
-//     * @return AuthResult with User data or error
-//     */
-//    suspend fun signInWithApple(
-//        idToken: String,
-//        rawNonce: String
-//    ): AuthResult<User>
-//
-//    /**
-//     * Start Apple Sign-In flow (Alternative method)
-//     * Handles the entire Apple sign-in process automatically
-//     *
-//     * @param activity Current activity context
-//     * @return AuthResult with User data or error
-//     */
-//    suspend fun startAppleSignIn(activity: Activity): AuthResult<User>
-//
-//    // ==================== END APPLE SIGN-IN ====================
 
     /**
      * Sign out current user
@@ -128,6 +103,8 @@ interface AuthRepository {
      * @return AuthResult with User data or null
      */
     suspend fun getCurrentUser(): AuthResult<User?>
+
+    suspend fun createFinalUser(user: User): AuthResult<User>
 
     /**
      * Observe authentication state changes
@@ -166,4 +143,32 @@ interface AuthRepository {
      * @return AuthResult<Unit> indicating success or failure
      */
     suspend fun deleteAccount(): AuthResult<Unit>
+
+
+
+        /**
+         * Checks if an email exists and returns the account type
+         * Used for the "Email already exists as Customer/Business" error
+         */
+        suspend fun checkEmailAvailability(email: String): AuthResult<String?>
+
+        /**
+         * Sends a 6-digit OTP code to the provided email
+         */
+        suspend fun sendEmailOtp(email: String): AuthResult<Unit>
+
+        /**
+         * Verifies the 6-digit email OTP
+         */
+        suspend fun verifyEmailOtp(email: String, otp: String): AuthResult<Unit>
+
+        /**
+         * Sends Phone OTP (Standard Firebase)
+         */
+        suspend fun sendPhoneOtp(phoneNumber: String, activity: Activity): AuthResult<String>
+
+        /**
+         * Checks if a Vendor's business has been approved by Admin
+         */
+        suspend fun checkBusinessApprovalStatus(uid: String): Flow<String> // Returns "pending" or "approved"
 }

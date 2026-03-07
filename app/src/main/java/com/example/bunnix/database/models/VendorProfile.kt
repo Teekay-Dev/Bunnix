@@ -32,6 +32,7 @@ data class VendorProfile(
     val address: String = "",
     val phone: String = "",
     val email: String = "",
+    val status: String = "pending",
     val createdAt: Timestamp? = null,
     val updatedAt: Timestamp? = null
 )
