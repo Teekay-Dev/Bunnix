@@ -360,22 +360,16 @@ class MainActivity : ComponentActivity() {
 
                 LoginScreen(
                     authViewModel = hiltViewModel(),
-                    onSignupClick = {
-                        navController.navigate("signup")
-                    },
-                    onLoginSuccess = {
+                    onSignupClick = { navController.navigate("signup") },
+                    onLoginSuccess = { isVendor ->
                         scope.launch {
                             prefs.setLoggedIn(true)
-                            val mode = currentMode
-
-                            if (mode == "VENDOR") {
-                                navController.navigate("vendor_mode") {
-                                    popUpTo(0) { inclusive = true }
-                                }
+                            if (isVendor) {
+                                prefs.setMode("VENDOR")
+                                navController.navigate("vendor_mode") { popUpTo(0) { inclusive = true } }
                             } else {
-                                navController.navigate("customer_mode") {
-                                    popUpTo(0) { inclusive = true }
-                                }
+                                prefs.setMode("CUSTOMER")
+                                navController.navigate("customer_mode") { popUpTo(0) { inclusive = true } }
                             }
                         }
                     }
