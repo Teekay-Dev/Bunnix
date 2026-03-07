@@ -56,6 +56,12 @@
             android:name="com.example.bunnix.frontend.OnboardingActivity"
             android:exported="false" />
 
+        <!-- ✅ ADD THIS - VENDOR MODE ENTRY -->
+        <activity
+            android:name="com.example.bunnix.vendorUI.VendorMainActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
     </application>
 
 </manifest>

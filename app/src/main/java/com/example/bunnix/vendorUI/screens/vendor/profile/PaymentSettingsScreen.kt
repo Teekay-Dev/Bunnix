@@ -1,155 +1,225 @@
 package com.example.bunnix.vendorUI.screens.vendor.profile
 
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.example.bunnix.ui.theme.*
+import com.example.bunnix.vendorUI.components.BunnixTopBar
+import com.example.bunnix.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Suppress("unused")
 fun PaymentSettingsScreen(
-    onBack: () -> Unit
+    navController: NavController,
+    viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    var bankName by remember { mutableStateOf("GTBank") }
-    var accountNumber by remember { mutableStateOf("0123456789") }
-    var accountName by remember { mutableStateOf("John's Electronics Ltd") }
+    val bankDetails by viewModel.bankDetails.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val successMessage by viewModel.successMessage.collectAsState()
+
+    var bankName by remember { mutableStateOf("") }
+    var accountNumber by remember { mutableStateOf("") }
+    var accountName by remember { mutableStateOf("") }
+    var alternativePayment by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadBankDetails()
+    }
+
+    LaunchedEffect(bankDetails) {
+        bankDetails?.let {
+            bankName = it.bankName
+            accountNumber = it.accountNumber
+            accountName = it.accountName
+            alternativePayment = it.alternativePayment
+        }
+    }
+
+    // Show success message
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            // Show snackbar or toast
+            viewModel.clearMessages()
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Payment Settings") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            BunnixTopBar(
+                title = "Payment Settings",
+                onBackClick = { navController.navigateUp() }
             )
         },
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 3.dp
-            ) {
-                Button(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text("Save Bank Details")
-                }
-            }
-        }
+        containerColor = LightGrayBg
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Info Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = Color(0xFFFFF3E0)
                 )
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        "These are the bank details customers will see when making manual transfers. Ensure they are correct.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        text = "ℹ️",
+                        fontSize = 20.sp
+                    )
+                    Text(
+                        text = "Add your bank details to receive payments from customers. Your account information is kept secure and private.",
+                        fontSize = 13.sp,
+                        color = Color(0xFF8D6E63)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Bank Details Form
+            // Bank Details Section
             Text(
-                "Bank Account Details",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                text = "Bank Details",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
             )
 
+            // Bank Name
             OutlinedTextField(
                 value = bankName,
                 onValueChange = { bankName = it },
                 label = { Text("Bank Name") },
+                placeholder = { Text("e.g., Access Bank, GTBank, etc.") },
                 modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.AccountBalance, contentDescription = null)
-                }
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedBorderColor = OrangePrimaryModern,
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White
+                )
             )
 
+            // Account Number
             OutlinedTextField(
                 value = accountNumber,
                 onValueChange = { accountNumber = it },
                 label = { Text("Account Number") },
+                placeholder = { Text("10-digit account number") },
                 modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.Numbers, contentDescription = null)
-                }
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedBorderColor = OrangePrimaryModern,
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White
+                )
             )
 
+            // Account Name
             OutlinedTextField(
                 value = accountName,
                 onValueChange = { accountName = it },
                 label = { Text("Account Name") },
+                placeholder = { Text("Full name on account") },
                 modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null)
-                }
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedBorderColor = OrangePrimaryModern,
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Withdrawal Section
-            Card(
-                modifier = Modifier.fillMaxWidth()
+            // Alternative Payment Section
+            Text(
+                text = "Alternative Payment (Optional)",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+
+            Text(
+                text = "E.g., Mobile Money, PayPal, or other payment instructions",
+                fontSize = 13.sp,
+                color = TextSecondary
+            )
+
+            OutlinedTextField(
+                value = alternativePayment,
+                onValueChange = { alternativePayment = it },
+                label = { Text("Alternative Payment Details") },
+                placeholder = { Text("e.g., MTN MoMo: 0244123456") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                shape = RoundedCornerShape(12.dp),
+                maxLines = 3,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedBorderColor = OrangePrimaryModern,
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White
+                )
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Save Button
+            Button(
+                onClick = {
+                    viewModel.updateBankDetails(
+                        bankName = bankName,
+                        accountNumber = accountNumber,
+                        accountName = accountName,
+                        alternativePayment = alternativePayment
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = OrangePrimaryModern
+                ),
+                enabled = !isLoading && bankName.isNotBlank() &&
+                        accountNumber.isNotBlank() && accountName.isNotBlank()
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        "Available for Withdrawal",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                } else {
                     Text(
-                        "₦245,000.00",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        text = "Save Payment Details",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = { /* Request withdrawal */ },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Payments, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Request Withdrawal")
-                    }
                 }
             }
         }

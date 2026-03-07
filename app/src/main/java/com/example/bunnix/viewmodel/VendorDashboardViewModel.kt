@@ -2,80 +2,166 @@ package com.example.bunnix.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.bunnix.vendorUI.screens.vendor.dashboard.DashboardOrder
+import com.example.bunnix.vendorUI.screens.vendor.dashboard.DashboardStats
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
-data class DashboardStats(
-    val totalSales: Double = 12450.0,
-    val totalOrders: Int = 156,
-    val totalBookings: Int = 24,
-    val totalCustomers: Int = 89
-) {
-    fun isEmpty() {
-        TODO("Not yet implemented")
-    }
-}
-
-data class RecentOrder(
-    val orderNumber: String,
-    val customerName: String,
-    val status: String,
-    val price: String,
-    val itemCount: String
-)
-
-data class DashboardUiState(
-    val isLoading: Boolean = false,
-    val balance: Double = 2450.0,
-    val stats: DashboardStats = DashboardStats(),
-    val recentOrders: List<RecentOrder> = emptyList(),
-    val weeklyPerformance: List<Double> = emptyList(),
-    val error: String? = null
-)
-
 @HiltViewModel
-class VendorDashboardViewModel @Inject constructor() : ViewModel() {
+class VendorDashboardViewModel @Inject constructor(
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(DashboardUiState())
-    val uiState: StateFlow<DashboardUiState> = _uiState
+    private val _dashboardStats = MutableStateFlow<DashboardStats?>(null)
+    val dashboardStats: StateFlow<DashboardStats?> = _dashboardStats.asStateFlow()
+
+    private val _recentOrders = MutableStateFlow<List<DashboardOrder>>(emptyList())
+    val recentOrders: StateFlow<List<DashboardOrder>> = _recentOrders.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
     init {
-        loadData()
+        loadDashboardData()
     }
 
-    fun loadData() {
+    fun loadDashboardData() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
             try {
-                // Simulate network delay
-                delay(1000)
+                _isLoading.value = true
+                _error.value = null
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        balance = 2450.0,
-                        stats = DashboardStats(),
-                        recentOrders = listOf(
-                            RecentOrder("#AB12C", "John Doe", "pending", "$45.99", "2 items"),
-                            RecentOrder("#AB12D", "Jane Smith", "processing", "$129.99", "1 items"),
-                            RecentOrder("#AB12E", "Mike Chen", "completed", "$78.50", "3 items")
-                        ),
-                        weeklyPerformance = listOf(12000.0, 19000.0, 15000.0, 25000.0, 22000.0, 30000.0, 28000.0)
-                    )
-                }
+                val userId = auth.currentUser?.uid ?: return@launch
+
+                // Load vendor stats
+                loadVendorStats(userId)
+
+                // Load recent orders
+                loadRecentOrders(userId)
+
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _error.value = e.message ?: "Failed to load dashboard data"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
 
-    fun refreshData() {
-        loadData()
+    private suspend fun loadVendorStats(vendorId: String) {
+        try {
+            // Get vendor profile
+            val vendorProfile = firestore.collection("vendorProfiles")
+                .document(vendorId)
+                .get()
+                .await()
+
+            val availableBalance = vendorProfile.getDouble("totalRevenue") ?: 0.0
+
+            // Get all completed orders
+            val completedOrders = firestore.collection("orders")
+                .whereEqualTo("vendorId", vendorId)
+                .whereEqualTo("status", "completed")
+                .get()
+                .await()
+
+            var totalSales = 0.0
+            completedOrders.documents.forEach { doc ->
+                totalSales += doc.getDouble("totalAmount") ?: 0.0
+            }
+
+            // Get all orders count
+            val allOrders = firestore.collection("orders")
+                .whereEqualTo("vendorId", vendorId)
+                .get()
+                .await()
+
+            val uniqueCustomers = mutableSetOf<String>()
+            allOrders.documents.forEach { doc ->
+                doc.getString("userId")?.let { uniqueCustomers.add(it) }
+            }
+
+            // Get bookings
+            val bookings = firestore.collection("bookings")
+                .whereEqualTo("vendorId", vendorId)
+                .get()
+                .await()
+
+            _dashboardStats.value = DashboardStats(
+                availableBalance = availableBalance,
+                totalSales = totalSales,
+                totalOrders = allOrders.size(),
+                bookings = bookings.size(),
+                customers = uniqueCustomers.size
+            )
+
+        } catch (e: Exception) {
+            _dashboardStats.value = DashboardStats()
+        }
+    }
+
+    private suspend fun loadRecentOrders(vendorId: String) {
+        try {
+            val ordersSnapshot = firestore.collection("orders")
+                .whereEqualTo("vendorId", vendorId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(3)
+                .get()
+                .await()
+
+            val orders = mutableListOf<DashboardOrder>()
+
+            for (doc in ordersSnapshot.documents) {
+                try {
+                    val userId = doc.getString("userId") ?: continue
+
+                    // Get customer name
+                    val userDoc = firestore.collection("users")
+                        .document(userId)
+                        .get()
+                        .await()
+
+                    val customerName = userDoc.getString("name") ?: "Unknown Customer"
+
+                    // Get items count
+                    val items = doc.get("items") as? List<*>
+                    val itemCount = items?.size ?: 0
+
+                    orders.add(
+                        DashboardOrder(
+                            orderId = doc.id,
+                            orderNumber = doc.getString("orderNumber") ?: "#${doc.id.take(6).uppercase()}",
+                            customerName = customerName,
+                            amount = doc.getDouble("totalAmount") ?: 0.0,
+                            itemCount = itemCount,
+                            status = doc.getString("status") ?: "pending"
+                        )
+                    )
+                } catch (e: Exception) {
+                    // Skip this order on error
+                    continue
+                }
+            }
+
+            _recentOrders.value = orders
+
+        } catch (e: Exception) {
+            _recentOrders.value = emptyList()
+        }
+    }
+
+    fun refresh() {
+        loadDashboardData()
     }
 }
