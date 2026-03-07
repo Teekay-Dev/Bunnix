@@ -12,12 +12,10 @@ data class VerificationState(
 enum class VerificationStep {
     IDLE,           // Show signup form
     SELECT_METHOD,  // Show MethodSelectionScreen
-    PHONE_OTP,      // Show PhoneVerificationScreen
     EMAIL_INSTRUCTIONS, // Show EmailInstructionScreen
     COMPLETED       // Finalize creation
 }
 
 enum class VerificationMethod {
-    PHONE,
     EMAIL
 }
