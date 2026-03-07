@@ -235,8 +235,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .statusBarsPadding()
-//                .verticalScroll(scrollState)
+                .verticalScroll(scrollState)
         ) {
             HeroSection(
                 searchQuery = searchQuery,
