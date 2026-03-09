@@ -27,6 +27,8 @@ import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.*
 import com.example.bunnix.vendorUI.navigation.VendorRoutes
 import com.example.bunnix.viewmodel.ChatViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,10 +38,21 @@ fun MessagesListScreen(
 ) {
     val conversations by viewModel.conversations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
+
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.loadConversations()
+    }
+
+    // Filter conversations based on search
+    val filteredConversations = if (searchQuery.isBlank()) {
+        conversations
+    } else {
+        conversations.filter {
+            it.customerName.contains(searchQuery, ignoreCase = true) ||
+                    it.lastMessage.contains(searchQuery, ignoreCase = true)
+        }
     }
 
     Scaffold(
@@ -73,7 +86,7 @@ fun MessagesListScreen(
                     // Search Bar
                     OutlinedTextField(
                         value = searchQuery,
-                        onValueChange = { viewModel.updateSearchQuery(it) },
+                        onValueChange = { searchQuery = it },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = {
                             Text(
@@ -109,11 +122,14 @@ fun MessagesListScreen(
                         ShimmerConversationCard()
                     }
                 }
-            } else if (conversations.isEmpty()) {
+            } else if (filteredConversations.isEmpty()) {
                 EmptyState(
                     icon = Icons.Default.ChatBubble,
-                    title = "No Messages",
-                    message = "When customers message you,\ntheir conversations will appear here"
+                    title = if (searchQuery.isBlank()) "No Messages" else "No Results",
+                    message = if (searchQuery.isBlank())
+                        "When customers message you,\ntheir conversations will appear here"
+                    else
+                        "No conversations match your search"
                 )
             } else {
                 LazyColumn(
@@ -121,7 +137,7 @@ fun MessagesListScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(conversations) { conversation ->
+                    items(filteredConversations) { conversation ->
                         ConversationCard(
                             conversation = conversation,
                             onClick = {
@@ -137,7 +153,7 @@ fun MessagesListScreen(
 
 @Composable
 fun ConversationCard(
-    conversation: Conversation,
+    conversation: com.example.bunnix.viewmodel.Conversation,
     onClick: () -> Unit
 ) {
     Card(
@@ -151,7 +167,7 @@ fun ConversationCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (conversation.hasUnread) Color.White else Color.White
+            containerColor = Color.White
         ),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
@@ -162,7 +178,7 @@ fun ConversationCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar with online indicator
+            // Avatar
             Box {
                 Box(
                     modifier = Modifier
@@ -170,9 +186,9 @@ fun ConversationCard(
                         .background(Color(0xFFF5F5F5), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (conversation.customerImageUrl.isNotBlank()) {
+                    if (conversation.customerAvatar.isNotBlank()) {
                         AsyncImage(
-                            model = conversation.customerImageUrl,
+                            model = conversation.customerAvatar,
                             contentDescription = "Customer",
                             modifier = Modifier
                                 .size(56.dp)
@@ -189,7 +205,7 @@ fun ConversationCard(
                     }
                 }
 
-                // Online indicator (optional)
+                // Online indicator
                 if (conversation.isOnline) {
                     Box(
                         modifier = Modifier
@@ -220,7 +236,7 @@ fun ConversationCard(
                     )
 
                     Text(
-                        text = conversation.timeAgo,
+                        text = formatTimeAgo(conversation.lastMessageTime),
                         fontSize = 12.sp,
                         color = TextSecondary
                     )
@@ -234,8 +250,8 @@ fun ConversationCard(
                     Text(
                         text = conversation.lastMessage,
                         fontSize = 14.sp,
-                        color = if (conversation.hasUnread) TextPrimary else TextSecondary,
-                        fontWeight = if (conversation.hasUnread) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (conversation.unreadCount > 0) TextPrimary else TextSecondary,
+                        fontWeight = if (conversation.unreadCount > 0) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -259,6 +275,27 @@ fun ConversationCard(
                 }
             }
         }
+    }
+}
+
+fun formatTimeAgo(timestamp: Long): String {
+    val now = System.currentTimeMillis()
+    val diff = now - timestamp
+
+    val seconds = diff / 1000
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    val days = hours / 24
+
+    return when {
+        days > 7 -> {
+            val sdf = SimpleDateFormat("MMM dd", Locale.getDefault())
+            sdf.format(Date(timestamp))
+        }
+        days > 0 -> "${days}d ago"
+        hours > 0 -> "${hours}h ago"
+        minutes > 0 -> "${minutes}m ago"
+        else -> "Just now"
     }
 }
 
@@ -297,15 +334,3 @@ fun ShimmerConversationCard() {
         }
     }
 }
-
-// Data Class
-data class Conversation(
-    val chatId: String,
-    val customerName: String,
-    val customerImageUrl: String,
-    val lastMessage: String,
-    val timeAgo: String,
-    val hasUnread: Boolean,
-    val unreadCount: Int,
-    val isOnline: Boolean = false
-)

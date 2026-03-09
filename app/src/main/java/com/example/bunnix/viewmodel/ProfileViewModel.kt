@@ -1,11 +1,11 @@
 package com.example.bunnix.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.bunnix.vendorUI.screens.vendor.profile.VendorProfileData
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,10 +14,30 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+data class VendorProfileData(
+    val name: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val businessName: String = "",
+    val description: String = "",
+    val category: String = "",
+    val address: String = "",
+    val imageUrl: String = "",
+    val isVerified: Boolean = false
+)
+
+data class BankDetails(
+    val bankName: String = "",
+    val accountNumber: String = "",
+    val accountName: String = "",
+    val alternativePayment: String = ""
+)
+
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage
 ) : ViewModel() {
 
     private val _vendorProfile = MutableStateFlow<VendorProfileData?>(null)
@@ -35,6 +55,9 @@ class ProfileViewModel @Inject constructor(
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
+    private val _uploadProgress = MutableStateFlow(0f)
+    val uploadProgress: StateFlow<Float> = _uploadProgress.asStateFlow()
+
     fun loadVendorProfile() {
         viewModelScope.launch {
             try {
@@ -43,13 +66,13 @@ class ProfileViewModel @Inject constructor(
 
                 val userId = auth.currentUser?.uid ?: return@launch
 
-                // Get user basic info
+                // Load user data
                 val userDoc = firestore.collection("users")
                     .document(userId)
                     .get()
                     .await()
 
-                // Get vendor profile
+                // Load vendor profile data
                 val vendorDoc = firestore.collection("vendorProfiles")
                     .document(userId)
                     .get()
@@ -58,9 +81,13 @@ class ProfileViewModel @Inject constructor(
                 _vendorProfile.value = VendorProfileData(
                     name = userDoc.getString("name") ?: "",
                     email = userDoc.getString("email") ?: "",
+                    phone = userDoc.getString("phone") ?: "",
                     imageUrl = userDoc.getString("profilePicUrl") ?: "",
                     businessName = vendorDoc.getString("businessName") ?: "",
-                    phone = userDoc.getString("phone") ?: ""
+                    description = vendorDoc.getString("description") ?: "",
+                    category = vendorDoc.getString("category") ?: "",
+                    address = vendorDoc.getString("address") ?: "",
+                    isVerified = vendorDoc.getBoolean("isVerified") ?: false
                 )
 
             } catch (e: Exception) {
@@ -74,9 +101,6 @@ class ProfileViewModel @Inject constructor(
     fun loadBankDetails() {
         viewModelScope.launch {
             try {
-                _isLoading.value = true
-                _error.value = null
-
                 val userId = auth.currentUser?.uid ?: return@launch
 
                 val vendorDoc = firestore.collection("vendorProfiles")
@@ -92,9 +116,7 @@ class ProfileViewModel @Inject constructor(
                 )
 
             } catch (e: Exception) {
-                _error.value = "Failed to load bank details"
-            } finally {
-                _isLoading.value = false
+                _error.value = e.message
             }
         }
     }
@@ -102,9 +124,9 @@ class ProfileViewModel @Inject constructor(
     fun updateBusinessProfile(
         businessName: String,
         description: String,
+        category: String,
         address: String,
-        phone: String,
-        category: String
+        phone: String
     ) {
         viewModelScope.launch {
             try {
@@ -114,17 +136,17 @@ class ProfileViewModel @Inject constructor(
                 val userId = auth.currentUser?.uid ?: return@launch
 
                 // Update vendor profile
+                val vendorUpdate = hashMapOf(
+                    "businessName" to businessName,
+                    "description" to description,
+                    "category" to category,
+                    "address" to address,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+
                 firestore.collection("vendorProfiles")
                     .document(userId)
-                    .update(
-                        mapOf(
-                            "businessName" to businessName,
-                            "description" to description,
-                            "address" to address,
-                            "category" to category,
-                            "updatedAt" to FieldValue.serverTimestamp()
-                        )
-                    )
+                    .update(vendorUpdate as Map<String, Any>)
                     .await()
 
                 // Update user phone
@@ -134,7 +156,7 @@ class ProfileViewModel @Inject constructor(
                     .await()
 
                 _successMessage.value = "Profile updated successfully"
-                loadVendorProfile() // Reload
+                loadVendorProfile()
 
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to update profile"
@@ -157,50 +179,70 @@ class ProfileViewModel @Inject constructor(
 
                 val userId = auth.currentUser?.uid ?: return@launch
 
+                val bankUpdate = hashMapOf(
+                    "bankName" to bankName,
+                    "accountNumber" to accountNumber,
+                    "accountName" to accountName,
+                    "alternativePayment" to alternativePayment,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+
                 firestore.collection("vendorProfiles")
                     .document(userId)
-                    .update(
-                        mapOf(
-                            "bankName" to bankName,
-                            "accountNumber" to accountNumber,
-                            "accountName" to accountName,
-                            "alternativePayment" to alternativePayment,
-                            "updatedAt" to FieldValue.serverTimestamp()
-                        )
-                    )
+                    .update(bankUpdate as Map<String, Any>)
                     .await()
 
-                _successMessage.value = "Payment details updated successfully"
-                loadBankDetails() // Reload
+                _successMessage.value = "Bank details updated successfully"
+                loadBankDetails()
 
             } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to update payment details"
+                _error.value = e.message ?: "Failed to update bank details"
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    fun updateProfilePhoto(imageUrl: String) {
+    fun uploadProfilePhoto(imageUri: Uri) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
+                _uploadProgress.value = 0f
                 _error.value = null
 
                 val userId = auth.currentUser?.uid ?: return@launch
 
+                // Create storage reference
+                val storageRef = storage.reference
+                    .child("profiles/$userId/profile_${System.currentTimeMillis()}.jpg")
+
+                // Upload image
+                val uploadTask = storageRef.putFile(imageUri)
+
+                uploadTask.addOnProgressListener { taskSnapshot ->
+                    val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toFloat()
+                    _uploadProgress.value = progress / 100f
+                }
+
+                uploadTask.await()
+
+                // Get download URL
+                val downloadUrl = storageRef.downloadUrl.await().toString()
+
+                // Update Firestore
                 firestore.collection("users")
                     .document(userId)
-                    .update("profilePicUrl", imageUrl)
+                    .update("profilePicUrl", downloadUrl)
                     .await()
 
-                _successMessage.value = "Profile photo updated"
+                _successMessage.value = "Profile photo updated successfully"
                 loadVendorProfile()
 
             } catch (e: Exception) {
-                _error.value = "Failed to update photo"
+                _error.value = e.message ?: "Failed to upload photo"
             } finally {
                 _isLoading.value = false
+                _uploadProgress.value = 0f
             }
         }
     }
@@ -214,11 +256,3 @@ class ProfileViewModel @Inject constructor(
         _successMessage.value = null
     }
 }
-
-// Data Class
-data class BankDetails(
-    val bankName: String,
-    val accountNumber: String,
-    val accountName: String,
-    val alternativePayment: String
-)
