@@ -1,65 +1,61 @@
 package com.example.bunnix.data
 
-
 import androidx.compose.runtime.mutableStateListOf
-import com.example.bunnix.database.models.Product  // ✅ BACKEND MODEL
+import com.example.bunnix.database.models.CartItem
 
 /**
- * CartData - BACKEND INTEGRATED
- * Manages cart items using backend Product model
+ * CartData - UI CART STATE
+ * Stores CartItem objects used by CartScreen
  */
 object CartData {
 
-    // ✅ BACKEND: Use backend Product type
-    private val _cartItems = mutableStateListOf<Product>()
-    val cartItems: List<Product> get() = _cartItems
+    private val _cartItems = mutableStateListOf<CartItem>()
+    val cartItems: List<CartItem> get() = _cartItems
 
-    /**
-     * Add product to cart
-     */
-    fun addToCart(product: Product, quantity: Int) {
-        _cartItems.add(product)
+    fun addToCart(item: CartItem) {
+
+        val existing = _cartItems.find {
+            it.id == item.id && it.variant == item.variant
+        }
+
+        if (existing != null) {
+
+            val index = _cartItems.indexOf(existing)
+
+            _cartItems[index] = existing.copy(
+                quantity = existing.quantity + item.quantity
+            )
+
+        } else {
+            _cartItems.add(item)
+        }
     }
 
-    /**
-     * Remove product from cart
-     */
-    fun removeFromCart(product: Product) {
-        _cartItems.remove(product)
+    fun removeFromCart(id: String) {
+        _cartItems.removeAll { it.id == id }
     }
 
-    /**
-     * Remove product by ID
-     */
-    fun removeFromCartById(productId: String) {
-        _cartItems.removeAll { it.productId == productId }
+    fun updateQuantity(id: String, quantity: Int) {
+
+        val index = _cartItems.indexOfFirst { it.id == id }
+
+        if (index != -1) {
+            _cartItems[index] = _cartItems[index].copy(
+                quantity = quantity
+            )
+        }
     }
 
-    /**
-     * Clear entire cart
-     */
     fun clearCart() {
         _cartItems.clear()
     }
 
-    /**
-     * Get total price
-     */
     fun getTotalPrice(): Double {
-        return _cartItems.sumOf { it.price }
+        return _cartItems.sumOf { it.price * it.quantity }
     }
 
-    /**
-     * Get cart item count
-     */
     fun getItemCount(): Int {
-        return _cartItems.size
+        return _cartItems.sumOf { it.quantity }
     }
 
-    /**
-     * Check if product is in cart
-     */
-    fun isInCart(productId: String): Boolean {
-        return _cartItems.any { it.productId == productId }
-    }
 }

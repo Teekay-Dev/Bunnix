@@ -454,6 +454,8 @@ private fun ModernSearchBar(
         colors = TextFieldDefaults.outlinedTextFieldColors(
             containerColor = Color.White,
             unfocusedBorderColor = Color.Transparent,
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black,
             focusedBorderColor = OrangePrimary,
             focusedLabelColor = OrangePrimary
         ),
@@ -496,6 +498,8 @@ private fun StickySearchBar(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(12.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     containerColor = SurfaceLight,
                     unfocusedBorderColor = Color.Transparent
                 ),
