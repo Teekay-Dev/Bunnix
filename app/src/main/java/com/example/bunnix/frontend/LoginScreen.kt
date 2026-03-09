@@ -352,7 +352,7 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Social Buttons
+                // Social Button
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(
                         modifier = Modifier
@@ -378,23 +378,7 @@ fun LoginScreen(
                         )
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(65.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFFF0F0F0))
-                            .clickable(enabled = false) {
-                                Toast.makeText(context, "Apple Sign-In coming soon!", Toast.LENGTH_SHORT).show()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.apple_logo),
-                            contentDescription = "Apple",
-                            modifier = Modifier.size(28.dp),
-                            alpha = 0.5f
-                        )
-                    }
+
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -544,7 +528,7 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(20.dp))
 
-                // Social Buttons
+                // Social Button
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(
                         modifier = Modifier
@@ -554,14 +538,7 @@ fun LoginScreenPreview() {
                                 shape = RoundedCornerShape(16.dp)
                             )
                     )
-                    Box(
-                        modifier = Modifier
-                            .size(65.dp)
-                            .background(
-                                Color(0xFFF0F0F0),
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                    )
+
                 }
 
                 Spacer(Modifier.height(24.dp))
