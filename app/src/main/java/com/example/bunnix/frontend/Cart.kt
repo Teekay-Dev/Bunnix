@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bunnix.database.models.CartItem
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
 
@@ -38,21 +39,12 @@ private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
 private val ErrorRed = Color(0xFFEF4444)
 
-data class CartItem(
-    val id: String,
-    val name: String,
-    val vendorName: String,
-    val price: Double,
-    val originalPrice: Double?,
-    val quantity: Int,
-    val imageUrl: String?,
-    val variant: String?
-)
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CartScreen(
-    cartItems: List<CartItem> = sampleCartItems(),
+    cartItems: List<CartItem>,
     onBack: () -> Unit = {},
     onCheckout: () -> Unit = {},
     onContinueShopping: () -> Unit = {},
@@ -601,38 +593,7 @@ private fun CartBottomBar(
     }
 }
 
-private fun sampleCartItems(): List<CartItem> = listOf(
-    CartItem(
-        id = "1",
-        name = "iPhone 15 Pro Max Silicone Case",
-        vendorName = "TechHub Store",
-        price = 15000.0,
-        originalPrice = 20000.0,
-        quantity = 1,
-        imageUrl = null,
-        variant = "Midnight Black"
-    ),
-    CartItem(
-        id = "2",
-        name = "Anker 737 Power Bank 24000mAh",
-        vendorName = "Gadget World",
-        price = 85000.0,
-        originalPrice = null,
-        quantity = 1,
-        imageUrl = null,
-        variant = null
-    ),
-    CartItem(
-        id = "3",
-        name = "AirPods Pro 2nd Generation",
-        vendorName = "Apple Reseller NG",
-        price = 180000.0,
-        originalPrice = 220000.0,
-        quantity = 2,
-        imageUrl = null,
-        variant = "USB-C"
-    )
-)
+
 
 private fun formatCurrency(amount: Double): String {
     val formatter = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "NG"))
@@ -643,8 +604,22 @@ private fun formatCurrency(amount: Double): String {
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun CartScreenPreview() {
+
+    val previewItems = listOf(
+        CartItem(
+            id = "1",
+            name = "Preview Product",
+            vendorName = "Preview Vendor",
+            price = 10000.0,
+            originalPrice = null,
+            quantity = 1,
+            imageUrl = null,
+            variant = null
+        )
+    )
+
     BunnixTheme {
-        CartScreen()
+        CartScreen(cartItems = previewItems)
     }
 }
 

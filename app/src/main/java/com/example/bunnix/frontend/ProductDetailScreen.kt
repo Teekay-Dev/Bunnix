@@ -1090,10 +1090,10 @@ private fun RelatedProductsSection(
             .padding(vertical = 24.dp)
     ) {
         Text(
-            "You May Also Like",
+            text = "You May Also Like",
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
-//            modifier = Modifier.padding(horizontal = 16.dp, bottom = 16.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
         )
 
         Row(

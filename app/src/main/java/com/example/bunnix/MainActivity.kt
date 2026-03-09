@@ -1,7 +1,6 @@
 package com.example.bunnix
 
 import android.app.Activity
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -33,26 +32,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import android.util.Log
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.bunnix.backend.Routes
-import com.example.bunnix.data.CartData
 import com.example.bunnix.database.models.Service
 import com.example.bunnix.database.models.VendorProfile
-import com.example.bunnix.database.models.VerificationMethod
 import com.example.bunnix.database.models.VerificationStep
 import com.example.bunnix.frontend.*
 import com.example.bunnix.presentation.viewmodel.AuthUiState
 import com.example.bunnix.presentation.viewmodel.AuthViewModel
-import com.example.bunnix.vendorUI.navigation.VendorBottomNavItem
 import com.example.bunnix.vendorUI.navigation.VendorNavHost
 import com.example.bunnix.presentation.viewmodel.ProductViewModel
 import com.example.bunnix.vendorUI.components.BunnixBottomNav
 import com.example.bunnix.ui.theme.BunnixTheme
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -60,7 +54,10 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import android.widget.Toast
+import com.example.bunnix.database.models.CartItem
+import com.example.bunnix.presentation.viewmodel.CartViewModel
+import com.example.bunnix.presentation.viewmodel.ServiceViewModel
+import com.example.bunnix.presentation.viewmodel.UserViewModel
 
 // Color system
 val OrangePrimaryModern = Color(0xFFFF6B35)
@@ -591,6 +588,8 @@ class MainActivity : ComponentActivity() {
         onSwitchToVendor: () -> Unit,
         onLogout: () -> Unit
     ) {
+        val cartViewModel: CartViewModel = hiltViewModel()
+        val cartItems by cartViewModel.cartItems.collectAsState()
         val navController = rememberNavController()
         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
@@ -659,7 +658,12 @@ class MainActivity : ComponentActivity() {
                 }
 
                 composable(Routes.ServiceList) {
+
+                    val serviceViewModel: ServiceViewModel = hiltViewModel()
+                    val services by serviceViewModel.services.collectAsState()
+
                     ServiceListScreen(
+                        services = services,
                         onBack = { navController.popBackStack() },
                         onServiceClick = { service ->
                             navController.navigate("booking/${Uri.encode(service.serviceId)}")
@@ -727,10 +731,19 @@ class MainActivity : ComponentActivity() {
                             product = product,
                             allProducts = allProducts,
                             onAddToCart = { product, quantity ->
-                                CartData.addToCart(
-                                    product,
-                                    quantity
+
+                                val item = CartItem(
+                                    id = product.productId,
+                                    name = product.name,
+                                    vendorName = product.vendorName,
+                                    price = product.discountPrice ?: product.price,
+                                    originalPrice = product.discountPrice?.let { product.price },
+                                    quantity = quantity,
+                                    imageUrl = product.imageUrls.firstOrNull(),
+                                    variant = null
                                 )
+
+                                cartViewModel.addToCart(item)
                             },
                             onBuyNow = { product, qty ->
                                 navController.navigate("checkout/product/${product.productId}/$qty")
@@ -786,14 +799,14 @@ class MainActivity : ComponentActivity() {
                             )
                         )
 
-                        "cart" -> CartData.cartItems.map {
+                        "cart" -> cartItems.map {
                             CheckoutItem(
-                                id = it.productId,
+                                id = it.id,
                                 name = it.name,
-                                imageUrl = it.imageUrls.firstOrNull() ?: "",
+                                imageUrl = it.imageUrl ?: "",
                                 price = it.price,
-                                quantity = 1,
-                                variant = null
+                                quantity = it.quantity,
+                                variant = it.variant
                             )
                         }
 
@@ -835,6 +848,7 @@ class MainActivity : ComponentActivity() {
                         orderId = orderId,
                         onBack = { navController.popBackStack() },
                         onPaymentSuccess = {
+                            cartViewModel.clearCart()
                             navController.navigate(Routes.OrderSuccess) {
                                 popUpTo(Routes.Home) { inclusive = false }
                             }
@@ -886,54 +900,71 @@ class MainActivity : ComponentActivity() {
                 }
 
                 composable(Routes.Profile) {
-                    val context = LocalContext.current
-                    val prefs = UserPreferences(context)
+
+                    val userViewModel: UserViewModel = hiltViewModel()
+                    val user by userViewModel.user.collectAsState()
 
                     var showEditDialog by remember { mutableStateOf(false) }
-                    var currentUserName by remember { mutableStateOf("John Doe") }
-                    var currentUserEmail by remember { mutableStateOf("john@example.com") }
-                    var currentUserPhone by remember { mutableStateOf("+234 801 234 5678") }
 
-                    ProfileScreen(
-                        userName = currentUserName,
-                        userEmail = currentUserEmail,
-                        userPhone = currentUserPhone,
-                        isVendor = false,
-                        vendorBusinessName = null,
-                        onBack = { navController.popBackStack() },
-                        onEditProfile = { showEditDialog = true },
-                        onViewOrders = { navController.navigate("order_history") },
-                        onViewNotifications = { navController.navigate(Routes.Notifications) },
-                        onSwitchMode = onSwitchToVendor,
-                        onBecomeVendor = onSwitchToVendor,
-                        onLogout = onLogout
-                    )
+                    user?.let { currentUser ->
 
-                    EditProfileDialog(
-                        showDialog = showEditDialog,
-                        onDismiss = { showEditDialog = false },
-                        isVendor = false,
-                        currentName = currentUserName,
-                        currentEmail = currentUserEmail,
-                        currentPhone = currentUserPhone,
-                        currentBusinessName = null,
-                        currentBusinessAddress = null,
-                        currentBusinessDescription = null,
-                        onSaveProfile = { name, email, phone, _, _, _ ->
-                            currentUserName = name
-                            currentUserEmail = email
-                            currentUserPhone = phone
-                            showEditDialog = false
-                        },
-                        onChangeProfilePicture = {}
-                    )
+                        ProfileScreen(
+                            userName = currentUser.name,
+                            userEmail = currentUser.email,
+                            userPhone = currentUser.phone,
+                            isVendor = currentUser.isVendor,
+                            vendorBusinessName = null,
+                            onBack = { navController.popBackStack() },
+                            onEditProfile = { showEditDialog = true },
+                            onViewOrders = { navController.navigate("order_history") },
+                            onViewNotifications = { navController.navigate(Routes.Notifications) },
+                            onSwitchMode = onSwitchToVendor,
+                            onBecomeVendor = onSwitchToVendor,
+                            onLogout = onLogout
+                        )
+
+                        EditProfileDialog(
+                            showDialog = showEditDialog,
+                            onDismiss = { showEditDialog = false },
+                            isVendor = currentUser.isVendor,
+                            currentName = currentUser.name,
+                            currentEmail = currentUser.email,
+                            currentPhone = currentUser.phone,
+                            currentBusinessName = null,
+                            currentBusinessAddress = null,
+                            currentBusinessDescription = null,
+                            onSaveProfile = { _, _, _, _, _, _ ->
+                                showEditDialog = false
+                            },
+                            onChangeProfilePicture = {}
+                        )
+                    }
                 }
 
                 composable(Routes.Cart) {
                     CartScreen(
+                        cartItems = cartItems,
                         onBack = { navController.popBackStack() },
-                        onCheckout = { navController.navigate("checkout/cart/0/1") },
-                        onContinueShopping = { navController.navigate(Routes.Home) }
+                        onRemoveItem = { id ->
+                            cartViewModel.removeFromCart(id)
+                        },
+                        onUpdateQuantity = { id, qty ->
+                            cartViewModel.updateQuantity(id, qty)
+                        }
+                    )
+                }
+
+                // In your NavHost
+                composable(
+                    route = "receipt/{orderId}",
+                    arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val orderId = backStackEntry.arguments?.getString("orderId")
+                    ViewReceiptScreen(
+                        orderId = orderId,
+                        onBackClick = { navController.popBackStack() },
+                        onShareClick = { receipt -> /* Share logic */ },
+                        onDownloadClick = { receipt -> /* Download PDF logic */ }
                     )
                 }
             }

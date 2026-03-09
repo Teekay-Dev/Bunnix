@@ -71,15 +71,15 @@ fun AnimatedSplashScreen(onComplete: () -> Unit) {
     )
 
     // Glow alpha animation
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
-    )
+//    val glowAlpha by infiniteTransition.animateFloat(
+//        initialValue = 0.2f,
+//        targetValue = 0.6f,
+//        animationSpec = infiniteRepeatable(
+//            animation = tween(1500, easing = LinearEasing),
+//            repeatMode = RepeatMode.Reverse
+//        ),
+//        label = "glowAlpha"
+//    )
 
     // Start animations and navigate after delay
     LaunchedEffect(Unit) {
@@ -111,7 +111,7 @@ fun AnimatedSplashScreen(onComplete: () -> Unit) {
                 modifier = Modifier
                     .size(300.dp)
                     .scale(pulseScale)
-                    .alpha(glowAlpha)
+//                    .alpha(glowAlpha)
                     .background(
                         Color.White.copy(alpha = 0.15f),
                         shape = CircleShape

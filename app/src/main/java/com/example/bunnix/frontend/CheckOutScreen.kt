@@ -214,7 +214,7 @@ private fun CheckoutTopBar(
                     Text(
                         "$itemCount ${if (itemCount == 1) "item" else "items"}",
                         fontSize = 13.sp,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant //For TextSecondary
                     )
                 }
             },
@@ -435,7 +435,7 @@ private fun CheckoutItemRow(item: CheckoutItem) {
             Text(
                 "Qty: ${item.quantity}",
                 fontSize = 12.sp,
-                color = TextTertiary
+                color = MaterialTheme.colorScheme.outline //For TextTertiary
             )
         }
 

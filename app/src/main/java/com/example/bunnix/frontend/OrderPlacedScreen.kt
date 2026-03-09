@@ -24,9 +24,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.bunnix.presentation.viewmodel.ReceiptViewModel
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
 import kotlin.random.Random
+import com.example.bunnix.database.models.PaymentMethod
+import com.example.bunnix.database.models.PaymentStatus
 
 // Reuse colors from PaymentMethodScreen
 private val OrangePrimary = Color(0xFFFF6B35)
@@ -61,6 +65,7 @@ fun OrderPlacedScreen(
     // FIXED: Changed from () -> Unit to (String) -> Unit to accept orderId
     onTrackOrder: (String) -> Unit = {},
     onContinueShopping: () -> Unit = {},
+    viewModel: ReceiptViewModel = hiltViewModel(),
     onViewReceipt: () -> Unit = {}
 ) {
     var isVisible by remember { mutableStateOf(false) }
@@ -71,6 +76,14 @@ fun OrderPlacedScreen(
         isVisible = true
         delay(3000)
         showConfetti = false
+        // Generate receipt after successful payment
+        viewModel.generateReceipt(
+            orderId = orderId,
+            paymentMethod = PaymentMethod.CASH, // or actual method used
+            status = PaymentStatus.COMPLETED,
+            transactionId = "TXN_${System.currentTimeMillis()}",
+            reference = "REF_${orderId}"
+        )
     }
 
     // Confetti particles
