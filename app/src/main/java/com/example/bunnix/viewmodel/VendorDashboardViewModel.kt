@@ -6,19 +6,23 @@ import com.example.bunnix.vendorUI.screens.vendor.dashboard.DashboardOrder
 import com.example.bunnix.vendorUI.screens.vendor.dashboard.DashboardStats
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import android.content.Context
+import com.google.firebase.firestore.Query
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import androidx.core.content.edit
 
 @HiltViewModel
 class VendorDashboardViewModel @Inject constructor(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _dashboardStats = MutableStateFlow<DashboardStats?>(null)
@@ -27,15 +31,17 @@ class VendorDashboardViewModel @Inject constructor(
     private val _recentOrders = MutableStateFlow<List<DashboardOrder>>(emptyList())
     val recentOrders: StateFlow<List<DashboardOrder>> = _recentOrders.asStateFlow()
 
+    private val _businessName = MutableStateFlow<String?>(null)
+    val businessName: StateFlow<String?> = _businessName.asStateFlow()
+
+    private val _isVerified = MutableStateFlow(false)
+    val isVerified: StateFlow<Boolean> = _isVerified.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
-
-    init {
-        loadDashboardData()
-    }
 
     fun loadDashboardData() {
         viewModelScope.launch {
@@ -44,6 +50,9 @@ class VendorDashboardViewModel @Inject constructor(
                 _error.value = null
 
                 val userId = auth.currentUser?.uid ?: return@launch
+
+                // Load business name and verification status
+                loadBusinessInfo(userId)
 
                 // Load vendor stats
                 loadVendorStats(userId)
@@ -59,16 +68,24 @@ class VendorDashboardViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadVendorStats(vendorId: String) {
+    private suspend fun loadBusinessInfo(vendorId: String) {
         try {
-            // Get vendor profile
             val vendorProfile = firestore.collection("vendorProfiles")
                 .document(vendorId)
                 .get()
                 .await()
 
-            val availableBalance = vendorProfile.getDouble("totalRevenue") ?: 0.0
+            _businessName.value = vendorProfile.getString("businessName") ?: "My Business"
+            _isVerified.value = vendorProfile.getBoolean("isVerified") ?: false
 
+        } catch (e: Exception) {
+            _businessName.value = "My Business"
+            _isVerified.value = false
+        }
+    }
+
+    private suspend fun loadVendorStats(vendorId: String) {
+        try {
             // Get all completed orders
             val completedOrders = firestore.collection("orders")
                 .whereEqualTo("vendorId", vendorId)
@@ -99,7 +116,6 @@ class VendorDashboardViewModel @Inject constructor(
                 .await()
 
             _dashboardStats.value = DashboardStats(
-                availableBalance = availableBalance,
                 totalSales = totalSales,
                 totalOrders = allOrders.size(),
                 bookings = bookings.size(),
@@ -126,7 +142,6 @@ class VendorDashboardViewModel @Inject constructor(
                 try {
                     val userId = doc.getString("userId") ?: continue
 
-                    // Get customer name
                     val userDoc = firestore.collection("users")
                         .document(userId)
                         .get()
@@ -134,7 +149,6 @@ class VendorDashboardViewModel @Inject constructor(
 
                     val customerName = userDoc.getString("name") ?: "Unknown Customer"
 
-                    // Get items count
                     val items = doc.get("items") as? List<*>
                     val itemCount = items?.size ?: 0
 
@@ -149,7 +163,6 @@ class VendorDashboardViewModel @Inject constructor(
                         )
                     )
                 } catch (e: Exception) {
-                    // Skip this order on error
                     continue
                 }
             }
@@ -159,6 +172,18 @@ class VendorDashboardViewModel @Inject constructor(
         } catch (e: Exception) {
             _recentOrders.value = emptyList()
         }
+    }
+
+    // Update this function:
+
+    fun shouldShowVerificationPrompt(): Boolean {
+        // Always returns true if not verified
+        // The screen handles showing it only once per session
+        return !_isVerified.value
+    }
+
+    fun markVerificationPromptSeen() {
+        // Do nothing - handled by global flag in screen
     }
 
     fun refresh() {
