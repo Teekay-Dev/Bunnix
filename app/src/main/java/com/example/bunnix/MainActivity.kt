@@ -900,40 +900,74 @@ class MainActivity : ComponentActivity() {
                 }
 
                 composable(Routes.Profile) {
-
                     val userViewModel: UserViewModel = hiltViewModel()
                     val user by userViewModel.user.collectAsState()
+                    val vendorProfile by userViewModel.vendorProfile.collectAsState()
+                    val isVendor by userViewModel.isVendor.collectAsState()
 
                     var showEditDialog by remember { mutableStateOf(false) }
 
-                    user?.let { currentUser ->
+                    // Use vendor data if available, otherwise user data
+                    val displayName = vendorProfile?.businessName ?: user?.name ?: ""
+                    val displayEmail = vendorProfile?.email ?: user?.email ?: ""
+                    val displayPhone = vendorProfile?.phone ?: user?.phone ?: ""
+                    val displayAddress = vendorProfile?.address ?: user?.address ?: ""
 
-                        ProfileScreen(
-                            userName = currentUser.name,
-                            userEmail = currentUser.email,
-                            userPhone = currentUser.phone,
-                            isVendor = currentUser.isVendor,
-                            vendorBusinessName = null,
-                            onBack = { navController.popBackStack() },
-                            onEditProfile = { showEditDialog = true },
-                            onViewOrders = { navController.navigate("order_history") },
-                            onViewNotifications = { navController.navigate(Routes.Notifications) },
-                            onSwitchMode = onSwitchToVendor,
-                            onBecomeVendor = onSwitchToVendor,
-                            onLogout = onLogout
-                        )
+                    ProfileScreen(
+                        userName = displayName,
+                        userEmail = displayEmail,
+                        userPhone = displayPhone,
+                        isVendor = isVendor,
+                        vendorBusinessName = vendorProfile?.businessName,
+                        onBack = { navController.popBackStack() },
+                        onEditProfile = { showEditDialog = true },
+                        onViewOrders = { navController.navigate("order_history") },
+                        onViewNotifications = { navController.navigate(Routes.Notifications) },
+                        onSwitchMode = onSwitchToVendor,
+                        onBecomeVendor = onSwitchToVendor,
+                        onLogout = onLogout
+                    )
 
+                    if (isVendor && vendorProfile != null) {
+                        // Vendor edit dialog
                         EditProfileDialog(
                             showDialog = showEditDialog,
                             onDismiss = { showEditDialog = false },
-                            isVendor = currentUser.isVendor,
-                            currentName = currentUser.name,
-                            currentEmail = currentUser.email,
-                            currentPhone = currentUser.phone,
+                            isVendor = true,
+                            currentName = vendorProfile?.businessName ?: "",
+                            currentEmail = vendorProfile?.email ?: "",
+                            currentPhone = vendorProfile?.phone ?: "",
+                            currentBusinessName = vendorProfile?.businessName,
+                            currentBusinessAddress = vendorProfile?.address,
+                            currentBusinessDescription = vendorProfile?.description,
+                            onSaveProfile = { name, email, phone, businessName, address, description ->
+                                // Update vendor profile in Firestore
+                                userViewModel.updateVendorProfile(
+                                    businessName = businessName ?: name,
+                                    email = email,
+                                    phone = phone,
+                                    address = address ?: "",
+                                    description = description ?: ""
+                                )
+                                showEditDialog = false
+                            },
+                            onChangeProfilePicture = {}
+                        )
+                    } else {
+                        // Customer edit dialog
+                        EditProfileDialog(
+                            showDialog = showEditDialog,
+                            onDismiss = { showEditDialog = false },
+                            isVendor = false,
+                            currentName = user?.name ?: "",
+                            currentEmail = user?.email ?: "",
+                            currentPhone = user?.phone ?: "",
                             currentBusinessName = null,
                             currentBusinessAddress = null,
                             currentBusinessDescription = null,
-                            onSaveProfile = { _, _, _, _, _, _ ->
+                            onSaveProfile = { name, email, phone, _, _, _ ->
+                                // Update user profile in Firestore
+                                userViewModel.updateUserProfile(name, email, phone)
                                 showEditDialog = false
                             },
                             onChangeProfilePicture = {}
