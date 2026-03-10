@@ -1,46 +1,53 @@
 package com.example.bunnix.vendorUI.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.bunnix.ui.theme.OrangePrimaryModern
 import com.example.bunnix.vendorUI.navigation.VendorBottomNavItem
+import com.example.bunnix.vendorUI.navigation.VendorRoutes
+import com.example.bunnix.viewmodel.ChatViewModel
 
 @Composable
 fun BunnixBottomNav(
     navController: NavController,
-    modifier: Modifier = Modifier
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
-    val items = listOf(
-        VendorBottomNavItem.Dashboard,
-        VendorBottomNavItem.Orders,
-        VendorBottomNavItem.Messages,
-        VendorBottomNavItem.Profile
-    )
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
 
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    // Get unread message count
+    val unreadCount by chatViewModel.totalUnreadCount.collectAsState()
+
+    LaunchedEffect(Unit) {
+        chatViewModel.loadUnreadCount()
+    }
 
     NavigationBar(
-        modifier = modifier,
         containerColor = Color.White,
+        contentColor = Color.Gray,
         tonalElevation = 8.dp
     ) {
-        items.forEach { item ->
-            val isSelected = currentRoute == item.route
+        VendorBottomNavItem.items.forEach { item ->
+            val selected = currentRoute == item.route
 
             NavigationBarItem(
-                selected = isSelected,
+                selected = selected,
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
-                            popUpTo(navController.graph.startDestinationId) {
+                            popUpTo(VendorRoutes.DASHBOARD) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -49,17 +56,38 @@ fun BunnixBottomNav(
                     }
                 },
                 icon = {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.title,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Box {
+                        Icon(
+                            imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                            contentDescription = item.label,
+                            modifier = Modifier.size(24.dp)
+                        )
+
+                        // Show badge ONLY for Messages and ONLY if unreadCount > 0
+                        if (item.route == VendorRoutes.MESSAGES && unreadCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 8.dp, y = (-4).dp)
+                                    .size(18.dp)
+                                    .background(Color(0xFFF44336), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadCount > 9) "9+" else "$unreadCount",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 },
                 label = {
                     Text(
-                        text = item.title,
+                        text = item.label,
                         fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -67,7 +95,7 @@ fun BunnixBottomNav(
                     selectedTextColor = OrangePrimaryModern,
                     unselectedIconColor = Color.Gray,
                     unselectedTextColor = Color.Gray,
-                    indicatorColor = Color.Transparent
+                    indicatorColor = OrangePrimaryModern.copy(alpha = 0.1f)
                 )
             )
         }
