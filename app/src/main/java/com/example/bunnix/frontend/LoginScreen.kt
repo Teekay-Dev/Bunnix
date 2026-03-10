@@ -75,7 +75,7 @@ class LoginActivity : ComponentActivity() {
 fun LoginScreen(
     authViewModel: AuthViewModel,
     onSignupClick: () -> Unit,
-    onLoginSuccess: (isVendor: Boolean) -> Unit
+    onLoginSuccess: (Boolean) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -86,7 +86,6 @@ fun LoginScreen(
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
 
-    // Google Sign-In Launcher - UNCHANGED
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -101,39 +100,82 @@ fun LoginScreen(
 
                     when (authResult) {
                         is AuthResult.Success -> {
-                            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                            val firebaseUser = FirebaseAuth.getInstance().currentUser
+                            val userId = firebaseUser?.uid ?: return@launch
+                            val googleEmail = account.email ?: return@launch
+
                             try {
-                                val userDoc = firestore.collection("users")
-                                    .document(userId)
+                                // CHECK BY EMAIL - Search both collections
+                                val userQuery = firestore.collection("users")
+                                    .whereEqualTo("email", googleEmail)
                                     .get()
                                     .await()
 
-                                val isVendor = userDoc.getBoolean("isVendor") ?: false
+                                val vendorQuery = firestore.collection("vendorProfiles")
+                                    .whereEqualTo("email", googleEmail)
+                                    .get()
+                                    .await()
 
-                                Toast.makeText(context, "Welcome! 👋", Toast.LENGTH_SHORT).show()
-                                onLoginSuccess(isVendor)
+                                when {
+                                    // Email found in users collection = Customer
+                                    !userQuery.isEmpty -> {
+                                        val userDoc = userQuery.documents.first()
+                                        val displayName = userDoc.getString("name") ?: "User"
+
+                                        Toast.makeText(context, "Welcome back, $displayName! 👋", Toast.LENGTH_SHORT).show()
+                                        isLoading = false
+                                        onLoginSuccess(false) // Customer
+                                    }
+
+                                    // Email found in vendorProfiles collection = Vendor
+                                    !vendorQuery.isEmpty -> {
+                                        val vendorDoc = vendorQuery.documents.first()
+                                        val displayName = vendorDoc.getString("businessName") ?: "Vendor"
+
+                                        Toast.makeText(context, "Welcome back, $displayName! 👋", Toast.LENGTH_SHORT).show()
+                                        isLoading = false
+                                        onLoginSuccess(true) // Vendor
+                                    }
+
+                                    // Email NOT FOUND - REJECT
+                                    else -> {
+                                        FirebaseAuth.getInstance().signOut()
+                                        Toast.makeText(
+                                            context,
+                                            "No account found for $googleEmail. Please sign up first.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        isLoading = false
+                                    }
+                                }
+
                             } catch (e: Exception) {
+                                FirebaseAuth.getInstance().signOut()
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                isLoading = false
                             }
                         }
+
                         is AuthResult.Error -> {
                             Toast.makeText(
                                 context,
                                 authResult.message ?: "Google Sign-In failed",
                                 Toast.LENGTH_LONG
                             ).show()
+                            isLoading = false
                         }
-                        else -> {}
+
+                        else -> { isLoading = false }
                     }
-                    isLoading = false
                 }
             }
         } catch (e: ApiException) {
             Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_LONG).show()
+            isLoading = false
         }
     }
 
-    // ========== UI STARTS HERE - MATCHING YOUR IMAGE ==========
+    // ========== UI STARTS HERE ==========
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -164,13 +206,11 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(top = 40.dp)
                 ) {
-
                     Image(
                         painter = painterResource(R.drawable.bunnix_2),
                         contentDescription = "Logo",
                         modifier = Modifier.size(200.dp)
-                        )
-
+                    )
                 }
             }
 
@@ -274,42 +314,60 @@ fun LoginScreen(
 
                             when (result) {
                                 is AuthResult.Success -> {
-                                    // Check email verification first
+                                    // Check email verification
                                     val firebaseUser = FirebaseAuth.getInstance().currentUser
                                     if (firebaseUser != null && !firebaseUser.isEmailVerified) {
                                         FirebaseAuth.getInstance().signOut()
                                         isLoading = false
                                         Toast.makeText(
                                             context,
-                                            "Please verify your email before logging in. Check your inbox.",
+                                            "Please verify your email before logging in.",
                                             Toast.LENGTH_LONG
                                         ).show()
                                         return@launch
                                     }
 
-                                    // Fetch user role from Firestore
+                                    // FETCH BY EMAIL - Check both collections
                                     try {
-                                        val uid = firebaseUser?.uid ?: result.data.userId
-                                        val userDoc = firestore.collection("users")
-                                            .document(uid)
+                                        val userQuery = firestore.collection("users")
+                                            .whereEqualTo("email", email.trim())
                                             .get()
                                             .await()
 
-                                        if (!userDoc.exists()) {
-                                            Toast.makeText(context, "Account not found. Please sign up.", Toast.LENGTH_LONG).show()
-                                            FirebaseAuth.getInstance().signOut()
-                                            isLoading = false
-                                            return@launch
+                                        val vendorQuery = firestore.collection("vendorProfiles")
+                                            .whereEqualTo("email", email.trim())
+                                            .get()
+                                            .await()
+
+                                        when {
+                                            // Found in users = Customer
+                                            !userQuery.isEmpty -> {
+                                                val userDoc = userQuery.documents.first()
+                                                val userName = userDoc.getString("name") ?: "User"
+                                                Toast.makeText(context, "Welcome back, $userName! 👋", Toast.LENGTH_SHORT).show()
+                                                isLoading = false
+                                                onLoginSuccess(false) // Customer
+                                            }
+
+                                            // Found in vendorProfiles = Vendor
+                                            !vendorQuery.isEmpty -> {
+                                                val vendorDoc = vendorQuery.documents.first()
+                                                val userName = vendorDoc.getString("businessName") ?: "Vendor"
+                                                Toast.makeText(context, "Welcome back, $userName! 👋", Toast.LENGTH_SHORT).show()
+                                                isLoading = false
+                                                onLoginSuccess(true) // Vendor
+                                            }
+
+                                            // Not found in either
+                                            else -> {
+                                                FirebaseAuth.getInstance().signOut()
+                                                Toast.makeText(context, "Account not found. Please sign up.", Toast.LENGTH_LONG).show()
+                                                isLoading = false
+                                            }
                                         }
 
-                                        val isVendor = userDoc.getBoolean("isVendor") ?: false
-                                        val userName = userDoc.getString("name") ?: "User"
-
-                                        Toast.makeText(context, "Welcome back, $userName! 👋", Toast.LENGTH_SHORT).show()
-                                        isLoading = false
-                                        onLoginSuccess(isVendor)
-
                                     } catch (e: Exception) {
+                                        FirebaseAuth.getInstance().signOut()
                                         Toast.makeText(context, "Failed to load account: ${e.message}", Toast.LENGTH_LONG).show()
                                         isLoading = false
                                     }
@@ -319,10 +377,9 @@ fun LoginScreen(
                                     val friendlyMessage = when {
                                         result.message?.contains("no user record") == true -> "No account found with this email."
                                         result.message?.contains("password is invalid") == true -> "Incorrect password."
-                                        result.message?.contains("badly formatted") == true -> "Please enter a valid email address."
-                                        result.message?.contains("network") == true -> "Network error. Check your connection."
-                                        result.message?.contains("too many requests") == true -> "Too many attempts. Try again later."
-                                        else -> result.message ?: "Login failed. Please try again."
+                                        result.message?.contains("badly formatted") == true -> "Please enter a valid email."
+                                        result.message?.contains("network") == true -> "Network error."
+                                        else -> result.message ?: "Login failed."
                                     }
                                     Toast.makeText(context, friendlyMessage, Toast.LENGTH_LONG).show()
                                     isLoading = false
@@ -427,7 +484,6 @@ fun LoginScreenPreview() {
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Orange Gradient Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -446,16 +502,14 @@ fun LoginScreenPreview() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(top = 10.dp)
                 ) {
-                        Image(
-                            painter = painterResource(R.drawable.bunnix_2),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(200.dp)
-                        )
-
+                    Image(
+                        painter = painterResource(R.drawable.bunnix_2),
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(200.dp)
+                    )
                 }
             }
 
-            // White Card
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -485,15 +539,11 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(32.dp))
 
-                // Email Field Preview
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .background(
-                            Color.White,
-                            shape = RoundedCornerShape(16.dp)
-                        )
+                        .background(Color.White, shape = RoundedCornerShape(16.dp))
                         .padding(16.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -502,15 +552,11 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(16.dp))
 
-                // Password Field Preview
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .background(
-                            Color.White,
-                            shape = RoundedCornerShape(16.dp)
-                        )
+                        .background(Color.White, shape = RoundedCornerShape(16.dp))
                         .padding(16.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -519,15 +565,11 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(28.dp))
 
-                // Login Button
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .background(
-                            Color(0xFFFF7900),
-                            shape = RoundedCornerShape(28.dp)
-                        ),
+                        .background(Color(0xFFFF7900), shape = RoundedCornerShape(28.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -544,23 +586,16 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(20.dp))
 
-                // Social Buttons
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(
                         modifier = Modifier
                             .size(65.dp)
-                            .background(
-                                Color(0xFFF0F0F0),
-                                shape = RoundedCornerShape(16.dp)
-                            )
+                            .background(Color(0xFFF0F0F0), shape = RoundedCornerShape(16.dp))
                     )
                     Box(
                         modifier = Modifier
                             .size(65.dp)
-                            .background(
-                                Color(0xFFF0F0F0),
-                                shape = RoundedCornerShape(16.dp)
-                            )
+                            .background(Color(0xFFF0F0F0), shape = RoundedCornerShape(16.dp))
                     )
                 }
 

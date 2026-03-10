@@ -98,17 +98,13 @@ class AuthViewModel @Inject constructor(
      */
     private suspend fun createAccountAndSendEmailVerification() {
         val user = tempUserData ?: run {
-            Log.e("AuthViewModel", "tempUserData is null!")
             _uiState.value = AuthUiState.Error("User data not found")
             return
         }
         val password = tempPassword ?: run {
-            Log.e("AuthViewModel", "tempPassword is null!")
             _uiState.value = AuthUiState.Error("Password not found")
             return
         }
-
-        Log.d("AuthViewModel", "Creating account for ${user.email}")
 
         try {
             val authResult = FirebaseAuth.getInstance()
@@ -118,12 +114,11 @@ class AuthViewModel @Inject constructor(
             val firebaseUser = authResult.user
                 ?: throw Exception("Account creation failed - no user returned")
 
-            Log.d("AuthViewModel", "Account created, sending verification email")
-
-            // STANDARD FIREBASE EMAIL VERIFICATION
+            // Send verification email FIRST
             firebaseUser.sendEmailVerification().await()
 
-            Log.d("AuthViewModel", "Verification email sent, moving to EMAIL_INSTRUCTIONS")
+            // ✅ SIGN OUT immediately so the verification link works correctly
+            FirebaseAuth.getInstance().signOut()
 
             _verificationState.update {
                 it.copy(currentStep = VerificationStep.EMAIL_INSTRUCTIONS)
@@ -131,7 +126,6 @@ class AuthViewModel @Inject constructor(
             _uiState.value = AuthUiState.Idle
 
         } catch (e: Exception) {
-            Log.e("AuthViewModel", "Email verification setup failed", e)
             _uiState.value = AuthUiState.Error(e.message ?: "Failed to send verification email")
         }
     }
@@ -151,18 +145,18 @@ class AuthViewModel @Inject constructor(
     fun checkEmailVerification() {
         viewModelScope.launch {
             try {
-                val firebaseUser = FirebaseAuth.getInstance().currentUser
-                if (firebaseUser == null) {
-                    Log.e("AuthViewModel", "No current user found")
-                    _uiState.value = AuthUiState.Error("User not found. Please try again.")
-                    return@launch
-                }
+                val email = tempUserData?.email ?: return@launch
+                val password = tempPassword ?: return@launch
 
-                Log.d("AuthViewModel", "Checking verification status for ${firebaseUser.email}")
+                // Sign back in to check verification status
+                val authResult = FirebaseAuth.getInstance()
+                    .signInWithEmailAndPassword(email, password)
+                    .await()
+
+                val firebaseUser = authResult.user ?: return@launch
                 firebaseUser.reload().await()
 
                 if (firebaseUser.isEmailVerified) {
-                    Log.d("AuthViewModel", "Email is verified, completing signup")
                     completeSignup(firebaseUser.uid)
                 } else {
                     Log.d("AuthViewModel", "Email not yet verified")
@@ -201,11 +195,6 @@ class AuthViewModel @Inject constructor(
                         status = "approved"
                     )
 
-                    FirebaseFirestore.getInstance()
-                        .collection("users")
-                        .document(uid)
-                        .set(user)
-                        .await()
 
                     FirebaseFirestore.getInstance()
                         .collection("vendorProfiles")

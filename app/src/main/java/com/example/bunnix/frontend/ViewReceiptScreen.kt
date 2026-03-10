@@ -34,6 +34,15 @@ import com.example.bunnix.presentation.viewmodel.ReceiptViewModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.bunnix.database.models.Receipt
+import com.example.bunnix.database.models.PaymentMethod
+import com.example.bunnix.database.models.PaymentStatus
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.tooling.preview.Preview
+import com.example.bunnix.database.models.*
+import com.example.bunnix.ui.theme.BunnixTheme
+import com.google.firebase.Timestamp
+import java.util.*
 
 // ==================== COLORS (Matching Your App) ====================
 
@@ -1160,14 +1169,432 @@ private fun ErrorState(message: String, onRetry: () -> Unit) {
     }
 }
 
-// ==================== PREVIEW ====================
 
-/*
-@Preview(showBackground = true, device = "id:pixel_5")
+
+
+
+
+
+
+
+// ==================== MAIN PREVIEWS ====================
+
+@Preview(showBackground = true, device = "id:pixel_5", name = "Receipt - Card Payment")
 @Composable
-fun ReceiptScreenPreview() {
-    MaterialTheme {
-        ReceiptScreen()
+fun ViewReceiptScreenCardPaymentPreview() {
+    BunnixTheme {
+        ViewReceiptScreen(
+            orderId = "ORD-2024-001",
+            receiptId = "RCT-2024-001",
+            onBackClick = {},
+            onShareClick = {},
+            onDownloadClick = {},
+            onPrintClick = {}
+        )
     }
 }
-*/
+
+@Preview(showBackground = true, device = "id:pixel_5", name = "Receipt - Online Payment (UPI)")
+@Composable
+fun ViewReceiptScreenOnlinePaymentPreview() {
+    BunnixTheme {
+        // You'll need to pass a mock receipt here
+        // For preview purposes, you can create a wrapper composable
+        ReceiptContentPreview(
+            receipt = createSampleReceipt(paymentMethod = PaymentMethod.UPI)
+        )
+    }
+}
+
+@Preview(showBackground = true, device = "id:pixel_5", name = "Receipt - Bank Transfer")
+@Composable
+fun ViewReceiptScreenBankTransferPreview() {
+    BunnixTheme {
+        ReceiptContentPreview(
+            receipt = createSampleReceipt(paymentMethod = PaymentMethod.BANK_TRANSFER)
+        )
+    }
+}
+
+@Preview(showBackground = true, device = "id:pixel_5", name = "Receipt - Pay on Delivery")
+@Composable
+fun ViewReceiptScreenPayOnDeliveryPreview() {
+    BunnixTheme {
+        ReceiptContentPreview(
+            receipt = createSampleReceipt(
+                paymentMethod = PaymentMethod.PAY_ON_DELIVERY,
+                paymentStatus = PaymentStatus.PENDING
+            )
+        )
+    }
+}
+
+@Preview(showBackground = true, device = "id:pixel_5", name = "Receipt - With Discounts")
+@Composable
+fun ViewReceiptScreenWithDiscountsPreview() {
+    BunnixTheme {
+        ReceiptContentPreview(
+            receipt = createReceiptWithDiscounts()
+        )
+    }
+}
+
+@Preview(showBackground = true, device = "id:pixel_5", name = "Receipt - Multiple Items")
+@Composable
+fun ViewReceiptScreenMultipleItemsPreview() {
+    BunnixTheme {
+        ReceiptContentPreview(
+            receipt = createReceiptWithMultipleItems()
+        )
+    }
+}
+
+@Preview(showBackground = true, device = "id:pixel_5", name = "Receipt - Empty State")
+@Composable
+fun ViewReceiptScreenEmptyStatePreview() {
+    BunnixTheme {
+        androidx.compose.foundation.layout.Box(
+            modifier = androidx.compose.ui.Modifier.fillMaxSize()
+        ) {
+            // Call the EmptyState composable directly
+            androidx.compose.foundation.layout.Column(
+                modifier = androidx.compose.ui.Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+            ) {
+                androidx.compose.material3.Text(
+                    text = "No Receipt Yet",
+                    fontSize = 24.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(12.dp))
+                androidx.compose.material3.Text(
+                    text = "Your receipt will appear here once payment is confirmed",
+                    fontSize = 16.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+// ==================== HELPER PREVIEW WRAPPER ====================
+
+@Composable
+private fun ReceiptContentPreview(receipt: Receipt) {
+    androidx.compose.foundation.layout.Box(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color(0xFFFAFAFA))
+    ) {
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)
+        ) {
+            item {
+                ReceiptCard(receipt = receipt)
+            }
+        }
+    }
+}
+
+// ==================== SAMPLE DATA CREATORS ====================
+
+private fun createSampleReceipt(
+    paymentMethod: PaymentMethod = PaymentMethod.CARD,
+    paymentStatus: PaymentStatus = PaymentStatus.COMPLETED
+): Receipt {
+    val paymentDetails = when (paymentMethod) {
+        PaymentMethod.CARD -> PaymentDetails(
+            method = PaymentMethod.CARD,
+            transactionId = "TXN${UUID.randomUUID().toString().take(12)}",
+            reference = "PSK-2024-001-ABC",
+            status = paymentStatus,
+            paidAt = Timestamp.now(),
+            cardLastFour = "4242",
+            cardBrand = "Visa"
+        )
+        PaymentMethod.UPI -> PaymentDetails(
+            method = PaymentMethod.UPI,
+            transactionId = "TXN${UUID.randomUUID().toString().take(12)}",
+            reference = "FLWREF-2024-001",
+            status = paymentStatus,
+            paidAt = Timestamp.now()
+        )
+        PaymentMethod.BANK_TRANSFER -> PaymentDetails(
+            method = PaymentMethod.BANK_TRANSFER,
+            transactionId = "BNKTRF-${UUID.randomUUID().toString().take(10)}",
+            reference = "TRANSFER-2024-001",
+            status = paymentStatus,
+            paidAt = Timestamp.now(),
+            bankName = "GTBank",
+            accountNumber = "****5678"
+        )
+        PaymentMethod.PAY_ON_DELIVERY -> PaymentDetails(
+            method = PaymentMethod.PAY_ON_DELIVERY,
+            transactionId = "COD-${UUID.randomUUID().toString().take(10)}",
+            status = PaymentStatus.PENDING
+        )
+        PaymentMethod.CASH -> PaymentDetails(
+            method = PaymentMethod.CASH,
+            transactionId = "CASH-${UUID.randomUUID().toString().take(10)}",
+            status = paymentStatus,
+            paidAt = Timestamp.now()
+        )
+    }
+
+    return Receipt(
+        id = "receipt_${UUID.randomUUID()}",
+        receiptNumber = "RCT-2024-${(10000..99999).random()}",
+        orderId = "ORD-2024-${(10000..99999).random()}",
+
+        // Vendor Info
+        vendorId = "vendor_001",
+        vendorName = "TechHub Electronics",
+        vendorAddress = "123 Market Street, Victoria Island, Lagos, Nigeria",
+        vendorPhone = "+234 801 234 5678",
+        vendorEmail = "contact@techhub.ng",
+        vendorTaxId = "TIN-12345678",
+        vendorLogoUrl = null,
+
+        // Customer Info
+        customerId = "customer_001",
+        customerName = "John Doe",
+        customerEmail = "john.doe@email.com",
+        customerPhone = "+234 802 345 6789",
+        customerAddress = "45 Allen Avenue, Ikeja",
+        customerCity = "Lagos",
+        customerState = "Lagos State",
+
+        // Items
+        items = listOf(
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_001",
+                name = "MacBook Pro 16\"",
+                description = "M3 Max, 36GB RAM, 1TB SSD, Space Black",
+                quantity = 1,
+                unitPrice = 2499999.0,
+                discount = 0.0,
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_002",
+                name = "Magic Mouse",
+                description = "USB-C, Black",
+                quantity = 1,
+                unitPrice = 49999.0,
+                discount = 0.0,
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_003",
+                name = "USB-C Cable",
+                description = "2m, MagSafe 3",
+                quantity = 2,
+                unitPrice = 19999.0,
+                discount = 0.0,
+                taxRate = 7.5
+            )
+        ),
+
+        // Payment Details
+        paymentDetails = paymentDetails,
+
+        // Timestamps
+        createdAt = Timestamp.now(),
+        updatedAt = null,
+
+        // Additional Info
+        notes = "Thank you for your purchase! We appreciate your business.",
+        deliveryNotes = "Handle with care - fragile electronics",
+        subtotal = 2589996.0,
+        totalDiscount = 0.0,
+        totalTax = 194249.70,
+        deliveryFee = 5000.0,
+        grandTotal = 2789245.70
+    )
+}
+
+private fun createReceiptWithDiscounts(): Receipt {
+    return Receipt(
+        id = "receipt_${UUID.randomUUID()}",
+        receiptNumber = "RCT-2024-${(10000..99999).random()}",
+        orderId = "ORD-2024-${(10000..99999).random()}",
+
+        vendorId = "vendor_002",
+        vendorName = "Premium Electronics Store",
+        vendorAddress = "456 Shopping Plaza, Lekki Phase 1, Lagos",
+        vendorPhone = "+234 803 456 7890",
+        vendorEmail = "sales@premium.ng",
+        vendorTaxId = "TIN-87654321",
+
+        customerId = "customer_002",
+        customerName = "Jane Smith",
+        customerEmail = "jane.smith@email.com",
+        customerPhone = "+234 804 567 8901",
+        customerAddress = "78 Admiralty Way, Lekki",
+        customerCity = "Lagos",
+        customerState = "Lagos State",
+
+        items = listOf(
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_004",
+                name = "iPhone 15 Pro Max",
+                description = "256GB, Natural Titanium",
+                quantity = 1,
+                unitPrice = 1299999.0,
+                discount = 10.0, // 10% discount
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_005",
+                name = "AirPods Pro (2nd Gen)",
+                description = "USB-C",
+                quantity = 2,
+                unitPrice = 89999.0,
+                discount = 15.0, // 15% discount
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_006",
+                name = "MagSafe Charger",
+                description = "15W Fast Charging",
+                quantity = 1,
+                unitPrice = 25999.0,
+                discount = 20.0, // 20% discount
+                taxRate = 7.5
+            )
+        ),
+
+        paymentDetails = PaymentDetails(
+            method = PaymentMethod.CARD,
+            transactionId = "TXN${UUID.randomUUID().toString().take(12)}",
+            reference = "PSK-DISC-2024-001",
+            status = PaymentStatus.COMPLETED,
+            paidAt = Timestamp.now(),
+            cardLastFour = "5555",
+            cardBrand = "Mastercard"
+        ),
+
+        createdAt = Timestamp.now(),
+        notes = "Special discount applied! Thanks for being a valued customer.",
+        deliveryNotes = "Free express delivery for orders above ₦1M",
+        subtotal = 1595996.0,
+        totalDiscount = 228099.40,
+        totalTax = 102592.25,
+        deliveryFee = 0.0, // Free delivery
+        grandTotal = 1470488.85
+    )
+}
+
+private fun createReceiptWithMultipleItems(): Receipt {
+    return Receipt(
+        id = "receipt_${UUID.randomUUID()}",
+        receiptNumber = "RCT-2024-${(10000..99999).random()}",
+        orderId = "ORD-2024-${(10000..99999).random()}",
+
+        vendorId = "vendor_003",
+        vendorName = "MegaTech SuperStore",
+        vendorAddress = "789 Tech Mall, Ikeja City Mall, Lagos",
+        vendorPhone = "+234 805 678 9012",
+        vendorEmail = "info@megatech.ng",
+        vendorTaxId = "TIN-11223344",
+
+        customerId = "customer_003",
+        customerName = "Michael Johnson",
+        customerEmail = "m.johnson@email.com",
+        customerPhone = "+234 806 789 0123",
+        customerAddress = "22 Opebi Road, Ikeja",
+        customerCity = "Lagos",
+        customerState = "Lagos State",
+
+        items = listOf(
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_007",
+                name = "Samsung Galaxy S24 Ultra",
+                description = "512GB, Titanium Black",
+                quantity = 1,
+                unitPrice = 1099999.0,
+                discount = 0.0,
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_008",
+                name = "Galaxy Buds 2 Pro",
+                description = "Graphite",
+                quantity = 1,
+                unitPrice = 79999.0,
+                discount = 0.0,
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_009",
+                name = "45W USB-C Charger",
+                description = "Fast Charging",
+                quantity = 2,
+                unitPrice = 15999.0,
+                discount = 0.0,
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_010",
+                name = "Screen Protector",
+                description = "Tempered Glass",
+                quantity = 3,
+                unitPrice = 2999.0,
+                discount = 5.0,
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_011",
+                name = "Phone Case",
+                description = "Clear Silicon",
+                quantity = 2,
+                unitPrice = 3999.0,
+                discount = 0.0,
+                taxRate = 7.5
+            ),
+            ReceiptItem(
+                id = UUID.randomUUID().toString(),
+                productId = "prod_012",
+                name = "USB-C Cable",
+                description = "1m, Data Transfer",
+                quantity = 3,
+                unitPrice = 4999.0,
+                discount = 10.0,
+                taxRate = 7.5
+            )
+        ),
+
+        paymentDetails = PaymentDetails(
+            method = PaymentMethod.UPI,
+            transactionId = "FLW${UUID.randomUUID().toString().take(15)}",
+            reference = "FLWREF-MULTI-2024",
+            status = PaymentStatus.COMPLETED,
+            paidAt = Timestamp.now()
+        ),
+
+        createdAt = Timestamp.now(),
+        notes = "Bulk purchase discount eligible for future orders!",
+        deliveryNotes = "All items packed securely with bubble wrap",
+        subtotal = 1247989.0,
+        totalDiscount = 1799.55,
+        totalTax = 93464.21,
+        deliveryFee = 3500.0,
+        grandTotal = 1343153.66
+    )
+}
