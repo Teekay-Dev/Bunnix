@@ -1,110 +1,231 @@
-import React from 'react';
-import { Link, useLocation, Outlet } from 'react-router';
-import { 
-  LayoutDashboard, 
-  Users as UsersIcon, 
-  Store, 
-  Receipt, 
-  Package, 
-  Settings as SettingsIcon,
-  Bell,
-  Search,
-  LogOut,
-  ChevronRight,
-  ShieldCheck
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router';
+import {
+  LayoutDashboard, Users as UsersIcon, Receipt, Package,
+  Settings as SettingsIcon, Bell, Search, LogOut, Sun, Moon,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import { clsx,  } from 'clsx';
+import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
+function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: UsersIcon, label: 'Users', path: '/users' },
-  { icon: Store, label: 'Vendors', path: '/vendors' },
-  { icon: Receipt, label: 'Transactions', path: '/transactions' },
-  { icon: Package, label: 'Content Control', path: '/inventory' },
-  { icon: SettingsIcon, label: 'Settings', path: '/settings' },
+  { icon: LayoutDashboard, label: 'Dashboard',      path: '/dashboard' },
+  { icon: UsersIcon,       label: 'Users',           path: '/dashboard/users' },
+  { icon: Receipt,         label: 'Transactions',    path: '/dashboard/transactions' },
+  { icon: Package,         label: 'Content Control', path: '/dashboard/inventory' },
+  { icon: SettingsIcon,    label: 'Settings',        path: '/dashboard/settings' },
 ];
+
+const SEARCH_MAP = [
+  { keywords: ['dashboard', 'home', 'overview'],                         path: '/dashboard' },
+  { keywords: ['user', 'users', 'customer'],                             path: '/dashboard/users' },
+  { keywords: ['transaction', 'transactions', 'payment', 'order'],       path: '/dashboard/transactions' },
+  { keywords: ['content', 'inventory', 'product', 'service', 'listing'], path: '/dashboard/inventory' },
+  { keywords: ['setting', 'settings', 'config'],                         path: '/dashboard/settings' },
+  { keywords: ['profile', 'account'],                                    path: '/dashboard/profile' },
+];
+
+function findRoute(q) {
+  const query = q.trim().toLowerCase();
+  if (!query) return null;
+  for (const { keywords, path } of SEARCH_MAP) {
+    if (keywords.some(k => query.includes(k) || k.includes(query))) return path;
+  }
+  return null;
+}
 
 export function AdminLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const [dark, setDark] = useState(() =>
+    localStorage.getItem('bunnix_theme') === 'dark' ||
+    document.documentElement.classList.contains('dark')
+  );
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('bunnix_theme', dark ? 'dark' : 'light');
+  }, [dark]);
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState('');
+  const [hint, setHint] = useState('');
+
+  const handleSearch = (val) => {
+    setQuery(val);
+    const route = findRoute(val);
+    if (route && val.trim()) {
+      const label = route.split('/').pop().replace('-', ' ') || 'dashboard';
+      setHint(`↵ Go to ${label.charAt(0).toUpperCase() + label.slice(1)}`);
+    } else {
+      setHint('');
+    }
+  };
+
+  const handleSearchKey = (e) => {
+    if (e.key === 'Enter') {
+      const route = findRoute(query);
+      if (route) { navigate(route); setQuery(''); setHint(''); }
+    }
+    if (e.key === 'Escape') { setQuery(''); setHint(''); }
+  };
 
   return (
-    <div className="flex h-screen bg-gray-50 text-slate-900 font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-200">
-            <img src="/bunnix.png" alt="Logo" className="w-12 h-auto" />
-          </div>
-          <span className="font-bold text-xl tracking-tight">BUNNIX <span className="text-orange-500">Admin</span></span>
+    <div className="flex h-screen bg-background text-foreground font-sans overflow-hidden">
+
+      {/* SIDEBAR */}
+      <aside className={cn(
+        "flex flex-col shrink-0 bg-sidebar border-r border-sidebar-border transition-all duration-200",
+        collapsed ? "w-16" : "w-64"
+      )}>
+
+        {/* Logo */}
+        <div className={cn(
+          "flex items-center gap-3 p-4 border-b border-sidebar-border",
+          collapsed && "justify-center px-2"
+        )}>
+          <img
+            src="/bunnix.png" alt="Logo"
+            style={{
+              width: 52, height: 52, flexShrink: 0,
+              objectFit: 'contain', display: 'block',
+              filter: 'drop-shadow(0 0 6px rgba(232,93,4,.8))',
+            }}
+          />
+          {!collapsed && (
+            <span className="font-bold text-lg tracking-tight whitespace-nowrap text-sidebar-foreground">
+              BUNNIX <span className="text-orange-500">Admin</span>
+            </span>
+          )}
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1">
+        {/* Collapse toggle */}
+        <div className={cn(
+          "flex items-center px-3 py-2 border-b border-sidebar-border",
+          collapsed ? "justify-center" : "justify-end"
+        )}>
+          <button
+            onClick={() => setCollapsed(c => !c)}
+            title={collapsed ? 'Expand' : 'Collapse'}
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-orange-500 transition-colors px-2 py-1"
+          >
+            {collapsed
+              ? <ChevronRight size={14} />
+              : <><ChevronLeft size={14} /><span>Collapse</span></>
+            }
+          </button>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-                  isActive 
-                    ? "bg-orange-50 text-orange-600 font-semibold" 
-                    : "text-slate-500 hover:bg-gray-100 hover:text-slate-900"
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group",
+                  collapsed && "justify-center px-2",
+                  isActive
+                    ? "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 font-semibold"
+                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                 )}
               >
-                <item.icon size={20} className={cn(isActive ? "text-orange-600" : "text-slate-400 group-hover:text-slate-600")} />
-                {item.label}
-                {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-600" />}
+                <item.icon size={20} className={cn(
+                  "shrink-0 transition-colors",
+                  isActive
+                    ? "text-orange-600 dark:text-orange-400"
+                    : "text-muted-foreground group-hover:text-sidebar-foreground"
+                )} />
+                {!collapsed && <span className="whitespace-nowrap text-sm">{item.label}</span>}
+                {!collapsed && isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-500" />}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-100">
-          <button className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors">
-            <LogOut size={20} />
-            <span className="font-medium">Sign Out</span>
+        {/* Footer */}
+        <div className="p-2 border-t border-sidebar-border space-y-0.5">
+          <button
+            onClick={() => setDark(d => !d)}
+            title={dark ? 'Light Mode' : 'Dark Mode'}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors",
+              collapsed && "justify-center px-2"
+            )}
+          >
+            {dark ? <Sun size={20} className="shrink-0" /> : <Moon size={20} className="shrink-0" />}
+            {!collapsed && <span className="text-sm font-medium">{dark ? 'Light Mode' : 'Dark Mode'}</span>}
+          </button>
+
+          <button
+            onClick={() => navigate('/')}
+            title={collapsed ? 'Sign Out' : undefined}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-sidebar-foreground/60 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors",
+              collapsed && "justify-center px-2"
+            )}
+          >
+            <LogOut size={20} className="shrink-0" />
+            {!collapsed && <span className="text-sm font-medium">Sign Out</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search users, orders, or vendors..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-orange-500/20 transition-all outline-none"
+      {/* MAIN */}
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 shrink-0">
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            <input
+              type="search" value={query}
+              onChange={e => handleSearch(e.target.value)}
+              onKeyDown={handleSearchKey}
+              placeholder="Search pages…"
+              autoComplete="off" name="admin-search"
+              className="w-full pl-9 pr-4 py-2 bg-input-background dark:bg-muted text-foreground placeholder:text-muted-foreground border border-border rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 transition-all"
             />
+            {hint && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-orange-500 font-semibold bg-orange-50 dark:bg-orange-500/10 px-2 py-0.5 rounded-full whitespace-nowrap pointer-events-none">
+                {hint}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-6">
-            <button className="relative text-slate-500 hover:text-orange-600 transition-colors">
+          <div className="flex items-center gap-5">
+            <button className="relative text-muted-foreground hover:text-orange-500 transition-colors">
               <Bell size={20} />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[10px] flex items-center justify-center rounded-full border-2 border-white font-bold">4</span>
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[10px] flex items-center justify-center rounded-full border-2 border-card font-bold">4</span>
             </button>
-            <div className="flex items-center gap-3 pl-6 border-l border-gray-100">
+
+            <div
+              className="flex items-center gap-3 pl-5 border-l border-border cursor-pointer group"
+              onClick={() => navigate('/dashboard/profile')}
+              title="My Profile"
+            >
               <div className="text-right">
-                <p className="text-sm font-semibold">Admin User</p>
-                <p className="text-[11px] text-slate-400 uppercase tracking-wider">Super Admin</p>
+                <p className="text-sm font-semibold text-foreground">Admin User</p>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Super Admin</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-gray-50 ring-offset-2 ring-offset-white">
-                <img src="https://images.unsplash.com/photo-1738750908048-14200459c3c9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMHBvcnRyYWl0JTIwYXZhdGFyfGVufDF8fHx8MTc3MTU2MjM5MXww&ixlib=rb-4.1.0&q=80&w=1080" alt="Admin" className="w-full h-full object-cover" />
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: '#E85D04', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontWeight: 700, fontSize: 13,
+                boxShadow: '0 0 0 2px rgba(232,93,4,.3)',
+              }}>
+                AU
               </div>
             </div>
           </div>
         </header>
 
-        {/* Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-8 bg-background">
           <Outlet />
         </div>
       </main>
