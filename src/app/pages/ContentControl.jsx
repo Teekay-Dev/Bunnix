@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Wrench,
@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { db } from '../../firebase'; // Import your Firebase config
+import { collection, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
@@ -65,26 +67,26 @@ function ItemRow({ item, onFlag, onRemove, onApprove }) {
       <td className="py-3.5 px-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center text-lg shrink-0">
-            {item.type === 'product' ? '🛍' : '✂️'}
+            {item.type === 'service' ? '✂️' : '🛍'}
           </div>
           <div>
             <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{item.name}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">{item.sku}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{item.category || 'Uncategorized'}</p>
           </div>
         </div>
       </td>
-      <td className="py-3.5 px-4 text-sm text-gray-600 dark:text-gray-300">{item.vendor}</td>
+      <td className="py-3.5 px-4 text-sm text-gray-600 dark:text-gray-300">{item.vendorName || 'Unknown Vendor'}</td>
       <td className="py-3.5 px-4">
         <span className={cn(
           "text-xs font-bold px-2.5 py-1 rounded-full",
-          item.type === 'product'
-            ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
-            : "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"
+          item.type === 'service'
+            ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"
+            : "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
         )}>
-          {item.type.toUpperCase()}
+          {item.type ? item.type.toUpperCase() : 'PRODUCT'}
         </span>
       </td>
-      <td className="py-3.5 px-4 text-sm font-semibold text-gray-900 dark:text-gray-100">{item.price}</td>
+      <td className="py-3.5 px-4 text-sm font-semibold text-gray-900 dark:text-gray-100">₦{item.price?.toLocaleString() || 0}</td>
       <td className="py-3.5 px-4">
         <span className={cn(
           "text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1 w-fit",
@@ -95,7 +97,7 @@ function ItemRow({ item, onFlag, onRemove, onApprove }) {
             : "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400"
         )}>
           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {item.status}
+          {item.status || 'Active'}
         </span>
       </td>
       <td className="py-3.5 px-4">
@@ -108,7 +110,7 @@ function ItemRow({ item, onFlag, onRemove, onApprove }) {
               <CheckCircle size={15} />
             </button>
           )}
-          <button onClick={() => onFlag(item.id)} title={item.status === 'Flagged' ? 'Unflag' : 'Flag'} className={cn("p-1.5 rounded-lg transition-colors", item.status === 'Flagged' ? "text-orange-500 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10" : "text-gray-400 dark:text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20")}>
+          <button onClick={() => onFlag(item.id, item.status)} title={item.status === 'Flagged' ? 'Unflag' : 'Flag'} className={cn("p-1.5 rounded-lg transition-colors", item.status === 'Flagged' ? "text-orange-500 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10" : "text-gray-400 dark:text-gray-500 hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20")}>
             <Flag size={15} />
           </button>
           <button onClick={() => onRemove(item.id)} title="Remove" className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
@@ -121,13 +123,23 @@ function ItemRow({ item, onFlag, onRemove, onApprove }) {
 }
 
 // ── Sub page: listing table ──────────────────────────
-function ListingPage({ title, icon: Icon, color, items, onFlag, onRemove, onApprove, onBack }) {
+function ListingPage({ title, icon: Icon, color, items, onFlag, onRemove, onApprove, onBack, filterType }) {
   const [q, setQ] = useState('');
-  const filtered = items.filter(i =>
-    i.name.toLowerCase().includes(q.toLowerCase()) ||
-    i.vendor.toLowerCase().includes(q.toLowerCase()) ||
-    i.sku.toLowerCase().includes(q.toLowerCase())
-  );
+  const [categoryFilter, setCategoryFilter] = useState('All');
+
+  // Extract unique categories from items
+  const categories = ['All', ...new Set(items.map(i => i.category).filter(Boolean))];
+
+  const filtered = items.filter(i => {
+    const matchesSearch = i.name?.toLowerCase().includes(q.toLowerCase()) ||
+                          i.vendorName?.toLowerCase().includes(q.toLowerCase());
+    const matchesCategory = categoryFilter === 'All' || i.category === categoryFilter;
+    
+    // If this is a specific view (Products/Services), filter by type as well
+    const matchesType = !filterType || i.type === filterType;
+
+    return matchesSearch && matchesCategory && matchesType;
+  });
 
   return (
     <div>
@@ -144,21 +156,38 @@ function ListingPage({ title, icon: Icon, color, items, onFlag, onRemove, onAppr
         </div>
         <div>
           <h2 className="text-xl font-black text-gray-900 dark:text-gray-100">{title}</h2>
-          <p className="text-xs text-gray-400 dark:text-gray-500">{items.length} item{items.length !== 1 ? 's' : ''} total</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative mb-4 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={15} />
-        <input
-          type="search"
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder={`Search ${title.toLowerCase()}…`}
-          autoComplete="off"
-          className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500/20 border border-transparent focus:border-orange-300 dark:focus:border-orange-600 transition-all"
-        />
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={15} />
+          <input
+            type="search"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder={`Search ${title.toLowerCase()}…`}
+            autoComplete="off"
+            className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-500/20 border border-transparent focus:border-orange-300 dark:focus:border-orange-600 transition-all"
+          />
+        </div>
+
+        {/* Category Filter */}
+        <div className="relative">
+          <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <select 
+            value={categoryFilter} 
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="pl-8 pr-4 py-2 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-orange-400 appearance-none cursor-pointer"
+          >
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -196,36 +225,69 @@ function ListingPage({ title, icon: Icon, color, items, onFlag, onRemove, onAppr
 // MAIN ContentControl PAGE
 // ════════════════════════════════════════════════════
 export default function ContentControl() {
-  // 'overview' | 'products' | 'services' | 'flagged'
   const [view, setView] = useState('overview');
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [items, setItems] = useState([
-    // Your backend will populate this. Shape:
-    // { id, name, sku, vendor, type:'product'|'service', price, status:'Active'|'Pending'|'Flagged' }
-  ]);
+  // --- REAL-TIME DATA FETCHING ---
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'products'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        // Defaults for missing fields to prevent crashes
+        name: doc.data().name || 'Unnamed Item',
+        vendorName: doc.data().vendorName || 'Unknown',
+        category: doc.data().category || 'General',
+        status: doc.data().status || 'Active',
+        type: doc.data().type || 'product'
+      }));
+      setItems(data);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching products:", error);
+      setLoading(false);
+    });
 
+    return () => unsubscribe(); // Cleanup listener on unmount
+  }, []);
+
+  // --- LOGIC: FILTERS ---
+  // Note: In the specific views, we pass a filterType prop to ListingPage
   const products = items.filter(i => i.type === 'product');
   const services = items.filter(i => i.type === 'service');
   const flagged  = items.filter(i => i.status === 'Flagged');
   const pending  = items.filter(i => i.status === 'Pending');
 
-  const handleFlag = (id) => {
-    setItems(prev => prev.map(i =>
-      i.id === id ? { ...i, status: i.status === 'Flagged' ? 'Active' : 'Flagged' } : i
-    ));
+  // --- LOGIC: ACTIONS ---
+  const handleFlag = async (id, currentStatus) => {
+    const newStatus = currentStatus === 'Flagged' ? 'Active' : 'Flagged';
+    try {
+      await updateDoc(doc(db, 'products', id), { status: newStatus });
+    } catch (err) {
+      console.error("Error updating status:", err);
+    }
   };
 
-  const handleRemove = (id) => {
-    setItems(prev => prev.filter(i => i.id !== id));
+  const handleRemove = async (id) => {
+    if(window.confirm("Are you sure you want to delete this item?")) {
+      try {
+        await deleteDoc(doc(db, 'products', id));
+      } catch (err) {
+        console.error("Error deleting item:", err);
+      }
+    }
   };
 
-  const handleApprove = (id) => {
-    setItems(prev => prev.map(i =>
-      i.id === id ? { ...i, status: 'Active' } : i
-    ));
+  const handleApprove = async (id) => {
+    try {
+      await updateDoc(doc(db, 'products', id), { status: 'Active' });
+    } catch (err) {
+      console.error("Error approving item:", err);
+    }
   };
 
-  // ── Sub-page views ──────────────────────────────
+  // ── SUB-VIEWS ROUTING ──────────────────────────────
   if (view === 'products') {
     return (
       <ListingPage
@@ -233,6 +295,7 @@ export default function ContentControl() {
         icon={ShoppingBag}
         color={{ bg: 'bg-blue-50 dark:bg-blue-500/10', icon: 'text-blue-600 dark:text-blue-400' }}
         items={products}
+        filterType="product" // Ensure only products show
         onFlag={handleFlag}
         onRemove={handleRemove}
         onApprove={handleApprove}
@@ -248,6 +311,7 @@ export default function ContentControl() {
         icon={Scissors}
         color={{ bg: 'bg-purple-50 dark:bg-purple-500/10', icon: 'text-purple-600 dark:text-purple-400' }}
         items={services}
+        filterType="service"
         onFlag={handleFlag}
         onRemove={handleRemove}
         onApprove={handleApprove}
@@ -271,7 +335,7 @@ export default function ContentControl() {
     );
   }
 
-  // ── OVERVIEW (default) ──────────────────────────
+  // ── OVERVIEW (DEFAULT) ──────────────────────────
   return (
     <div>
       {/* Header */}
@@ -282,7 +346,7 @@ export default function ContentControl() {
         </p>
       </div>
 
-      {/* ── STAT CARDS — click to drill into each section ── */}
+      {/* ── STAT CARDS ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={LayoutGrid}
@@ -318,13 +382,21 @@ export default function ContentControl() {
         />
       </div>
 
-      {/* ── PENDING APPROVALS (if any) ── */}
+      {/* ── PENDING ALERT ── */}
       {pending.length > 0 && (
-        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex items-center gap-3">
-          <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
-          <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-            {pending.length} listing{pending.length > 1 ? 's' : ''} pending approval
-          </span>
+        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+              {pending.length} listing{pending.length > 1 ? 's' : ''} pending approval
+            </span>
+          </div>
+          <button 
+            onClick={() => setView('products')} // Ideally go to a 'Pending' view, but products is close enough
+            className="text-xs font-bold text-amber-600 hover:text-amber-800"
+          >
+            Review Now →
+          </button>
         </div>
       )}
 
