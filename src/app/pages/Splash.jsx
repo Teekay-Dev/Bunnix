@@ -12,9 +12,9 @@ export default function Splash() {
     <div style={{
       position:'fixed', inset:0, zIndex:9999,
       display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      background:'linear-gradient(145deg,#0a0a0a 0%,#111111 50%,#0f0800 100%)',
+      background:'#ffffff', // Plain white background
     }}>
-      {/* Just the image — no wrapper, no circle, just glow */}
+      {/* Logo */}
       <div style={{ animation:'splashPop .85s cubic-bezier(.34,1.56,.64,1)' }}>
         <img
           src="/bunnix.png"
@@ -22,20 +22,22 @@ export default function Splash() {
           style={{
             width:180, height:180,
             objectFit:'contain', display:'block',
-            filter:'drop-shadow(0 0 20px rgba(232,93,4,.9)) drop-shadow(0 0 45px rgba(232,93,4,.5))',
+            filter:'drop-shadow(0 10px 15px rgba(0,0,0,.15))', // Soft realistic shadow
           }}
         />
       </div>
 
       <div style={{ animation:'fadeUp .5s .4s both', marginTop:28 }}>
-        <span style={{ fontSize:34, fontWeight:900, color:'#E85D04',
-          letterSpacing:7, textShadow:'0 0 24px rgba(232,93,4,.6)' }}>BUNNIX</span>
+        <span style={{ fontSize:34, fontWeight:900, color:'#E85D04', letterSpacing:7 }}>
+          BUNNIX
+        </span>
       </div>
-      <p style={{ animation:'fadeUp .5s .55s both', color:'rgba(255,255,255,.3)',
+      <p style={{ animation:'fadeUp .5s .55s both', color:'#000000', // Dark gray text
         fontSize:11, letterSpacing:4, marginTop:8, textTransform:'uppercase' }}>Admin Portal</p>
 
       <div style={{ marginTop:50, width:110, height:2,
-        background:'rgba(255,255,255,.07)', borderRadius:99,
+        background:'#e5e7eb', // Light gray track
+        borderRadius:99,
         overflow:'hidden', animation:'fadeUp .4s .7s both' }}>
         <div style={{ height:'100%', background:'linear-gradient(90deg,#E85D04,#ff8c00)',
           borderRadius:99, width:0, animation:'load 2.1s .85s ease forwards' }}/>
