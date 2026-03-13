@@ -86,6 +86,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
 
+    // 1. FOR GOOGLE SIGN-IN
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -100,78 +101,52 @@ fun LoginScreen(
 
                     when (authResult) {
                         is AuthResult.Success -> {
-                            val firebaseUser = FirebaseAuth.getInstance().currentUser
-                            val userId = firebaseUser?.uid ?: return@launch
-                            val googleEmail = account.email ?: return@launch
+                            val googleEmail = account.email ?: ""
 
                             try {
-                                // CHECK BY EMAIL - Search both collections
+                                // Parallel queries for performance
                                 val userQuery = firestore.collection("users")
-                                    .whereEqualTo("email", googleEmail)
-                                    .get()
-                                    .await()
-
+                                    .whereEqualTo("email", googleEmail).get().await()
                                 val vendorQuery = firestore.collection("vendorProfiles")
-                                    .whereEqualTo("email", googleEmail)
-                                    .get()
-                                    .await()
+                                    .whereEqualTo("email", googleEmail).get().await()
 
+                                // ==========================================================
+                                // UPDATED LOGIC: CHECK VENDOR FIRST
+                                // ==========================================================
                                 when {
-                                    // Email found in users collection = Customer
-                                    !userQuery.isEmpty -> {
-                                        val userDoc = userQuery.documents.first()
-                                        val displayName = userDoc.getString("name") ?: "User"
-
-                                        Toast.makeText(context, "Welcome back, $displayName! 👋", Toast.LENGTH_SHORT).show()
-                                        isLoading = false
-                                        onLoginSuccess(false) // Customer
-                                    }
-
-                                    // Email found in vendorProfiles collection = Vendor
                                     !vendorQuery.isEmpty -> {
-                                        val vendorDoc = vendorQuery.documents.first()
-                                        val displayName = vendorDoc.getString("businessName") ?: "Vendor"
-
-                                        Toast.makeText(context, "Welcome back, $displayName! 👋", Toast.LENGTH_SHORT).show()
-                                        isLoading = false
-                                        onLoginSuccess(true) // Vendor
+                                        // 1. Check Vendor First
+                                        // Don't set isLoading = false here, keep loading until navigation
+                                        onLoginSuccess(true) // Vendor Dashboard
                                     }
-
-                                    // Email NOT FOUND - REJECT
+                                    !userQuery.isEmpty -> {
+                                        // 2. Then Check User (Customer)
+                                        // Don't set isLoading = false here
+                                        onLoginSuccess(false) // Customer Dashboard
+                                    }
                                     else -> {
+                                        // 3. No profile found in either collection
                                         FirebaseAuth.getInstance().signOut()
-                                        Toast.makeText(
-                                            context,
-                                            "No account found for $googleEmail. Please sign up first.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        isLoading = false
+                                        Toast.makeText(context, "No account found. Please sign up first.", Toast.LENGTH_LONG).show()
+                                        isLoading = false // Stop loading only on error
                                     }
                                 }
-
                             } catch (e: Exception) {
                                 FirebaseAuth.getInstance().signOut()
-                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                                isLoading = false
+                                Toast.makeText(context, "Error checking profile: ${e.message}", Toast.LENGTH_SHORT).show()
+                                isLoading = false // Stop loading on error
                             }
                         }
-
                         is AuthResult.Error -> {
-                            Toast.makeText(
-                                context,
-                                authResult.message ?: "Google Sign-In failed",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            isLoading = false
+                            Toast.makeText(context, authResult.message ?: "Login failed", Toast.LENGTH_LONG).show()
+                            isLoading = false // Stop loading on error
                         }
-
-                        else -> { isLoading = false }
+                        else -> isLoading = false
                     }
                 }
             }
         } catch (e: ApiException) {
-            Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_LONG).show()
-            isLoading = false
+            isLoading = false // Stop loading on error
         }
     }
 
@@ -311,65 +286,28 @@ fun LoginScreen(
                             isLoading = true
 
                             val result = authViewModel.signInWithEmail(email.trim(), password)
-
                             when (result) {
                                 is AuthResult.Success -> {
-                                    // Check email verification
                                     val firebaseUser = FirebaseAuth.getInstance().currentUser
+
+                                    // Check Email Verification
                                     if (firebaseUser != null && !firebaseUser.isEmailVerified) {
                                         FirebaseAuth.getInstance().signOut()
-                                        isLoading = false
-                                        Toast.makeText(
-                                            context,
-                                            "Please verify your email before logging in.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
+                                        isLoading = false // Stop loading on verification error
+                                        Toast.makeText(context, "Please verify your email first.", Toast.LENGTH_LONG).show()
                                         return@launch
                                     }
 
-                                    // FETCH BY EMAIL - Check both collections
-                                    try {
-                                        val userQuery = firestore.collection("users")
-                                            .whereEqualTo("email", email.trim())
-                                            .get()
-                                            .await()
+                                    // Use the user data returned by the ViewModel
+                                    val loggedInUser = result.data
 
-                                        val vendorQuery = firestore.collection("vendorProfiles")
-                                            .whereEqualTo("email", email.trim())
-                                            .get()
-                                            .await()
+                                    // Do NOT set isLoading = false here.
+                                    // Keep loading visible while the next activity prepares to open.
 
-                                        when {
-                                            // Found in users = Customer
-                                            !userQuery.isEmpty -> {
-                                                val userDoc = userQuery.documents.first()
-                                                val userName = userDoc.getString("name") ?: "User"
-                                                Toast.makeText(context, "Welcome back, $userName! 👋", Toast.LENGTH_SHORT).show()
-                                                isLoading = false
-                                                onLoginSuccess(false) // Customer
-                                            }
-
-                                            // Found in vendorProfiles = Vendor
-                                            !vendorQuery.isEmpty -> {
-                                                val vendorDoc = vendorQuery.documents.first()
-                                                val userName = vendorDoc.getString("businessName") ?: "Vendor"
-                                                Toast.makeText(context, "Welcome back, $userName! 👋", Toast.LENGTH_SHORT).show()
-                                                isLoading = false
-                                                onLoginSuccess(true) // Vendor
-                                            }
-
-                                            // Not found in either
-                                            else -> {
-                                                FirebaseAuth.getInstance().signOut()
-                                                Toast.makeText(context, "Account not found. Please sign up.", Toast.LENGTH_LONG).show()
-                                                isLoading = false
-                                            }
-                                        }
-
-                                    } catch (e: Exception) {
-                                        FirebaseAuth.getInstance().signOut()
-                                        Toast.makeText(context, "Failed to load account: ${e.message}", Toast.LENGTH_LONG).show()
-                                        isLoading = false
+                                    if (loggedInUser.isVendor) {
+                                        onLoginSuccess(true) // Opens Vendor Dashboard
+                                    } else {
+                                        onLoginSuccess(false) // Opens Customer Dashboard
                                     }
                                 }
 
@@ -382,7 +320,7 @@ fun LoginScreen(
                                         else -> result.message ?: "Login failed."
                                     }
                                     Toast.makeText(context, friendlyMessage, Toast.LENGTH_LONG).show()
-                                    isLoading = false
+                                    isLoading = false // Stop loading on error
                                 }
 
                                 else -> { isLoading = false }
@@ -434,24 +372,6 @@ fun LoginScreen(
                             alpha = if (isLoading) 0.5f else 1f
                         )
                     }
-
-                    Box(
-                        modifier = Modifier
-                            .size(65.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFFF0F0F0))
-                            .clickable(enabled = false) {
-                                Toast.makeText(context, "Apple Sign-In coming soon!", Toast.LENGTH_SHORT).show()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.apple_logo),
-                            contentDescription = "Apple",
-                            modifier = Modifier.size(28.dp),
-                            alpha = 0.5f
-                        )
-                    }
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -464,7 +384,38 @@ fun LoginScreen(
                         color = Color(0xFFFF7900),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        modifier = Modifier.clickable { onSignupClick() }
+                        modifier = Modifier.clickable(enabled = !isLoading) { onSignupClick() }
+                    )
+                }
+            }
+        }
+
+        // ==========================================================
+        // FULL SCREEN LOADING OVERLAY
+        // ==========================================================
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)) // Dimmed background
+                    .clickable(enabled = false) {}, // Block clicks underneath
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFFFF7900),
+                        strokeWidth = 4.dp,
+                        modifier = Modifier.size(50.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Signing in...",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -587,11 +538,6 @@ fun LoginScreenPreview() {
                 Spacer(Modifier.height(20.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(65.dp)
-                            .background(Color(0xFFF0F0F0), shape = RoundedCornerShape(16.dp))
-                    )
                     Box(
                         modifier = Modifier
                             .size(65.dp)
