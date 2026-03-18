@@ -166,6 +166,7 @@ fun PaymentMethodScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                        .navigationBarsPadding()
                         .verticalScroll(rememberScrollState())
                 ) {
                     // Total Display
@@ -247,7 +248,8 @@ private fun PaymentTopBar(
                     Text(
                         "Payment",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
+                        fontSize = 20.sp,
+                        color = TextPrimary
                     )
                     Text(
                         "Order #$orderId",
@@ -290,7 +292,7 @@ private fun TotalDisplay(total: Double) {
         ) {
             Text(
                 "Amount to Pay",
-                color = Color.White.copy(alpha = 0.9f),
+                color = Color.Black.copy(alpha = 0.9f),
                 fontSize = 14.sp
             )
 
@@ -322,7 +324,7 @@ private fun TotalDisplay(total: Double) {
                     )
                     Text(
                         "Secure Payment",
-                        color = Color.White,
+                        color = Color.Black,
                         fontSize = 12.sp
                     )
                 }
@@ -345,6 +347,7 @@ private fun CategorySelection(
             "Select Payment Method",
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
+            color = TextPrimary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
@@ -469,6 +472,7 @@ private fun CardPaymentForm(
                 "Card Details",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
+                color = TextPrimary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -487,6 +491,8 @@ private fun CardPaymentForm(
                 shape = RoundedCornerShape(12.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
                     containerColor = SurfaceLight,
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = TextTertiary.copy(alpha = 0.3f),
                     focusedBorderColor = PaymentCategory.Card.color
                 ),
@@ -508,6 +514,8 @@ private fun CardPaymentForm(
                 shape = RoundedCornerShape(12.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
                     containerColor = SurfaceLight,
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = TextTertiary.copy(alpha = 0.3f),
                     focusedBorderColor = PaymentCategory.Card.color
                 )
@@ -531,6 +539,8 @@ private fun CardPaymentForm(
                     shape = RoundedCornerShape(12.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
                         containerColor = SurfaceLight,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         unfocusedBorderColor = TextTertiary.copy(alpha = 0.3f),
                         focusedBorderColor = PaymentCategory.Card.color
                     ),
@@ -551,6 +561,8 @@ private fun CardPaymentForm(
                     shape = RoundedCornerShape(12.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
                         containerColor = SurfaceLight,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         unfocusedBorderColor = TextTertiary.copy(alpha = 0.3f),
                         focusedBorderColor = PaymentCategory.Card.color
                     ),
@@ -608,6 +620,7 @@ private fun OnlineBankSection(
                 "Select Online Bank",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
+                color = TextPrimary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -648,6 +661,8 @@ private fun OnlineBankSection(
                 shape = RoundedCornerShape(12.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
                     containerColor = SurfaceLight,
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = TextTertiary.copy(alpha = 0.3f),
                     focusedBorderColor = PaymentCategory.OnlineBank.color
                 ),
@@ -780,6 +795,7 @@ private fun BankTransferSection(
                 "Select Bank",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
+                color = TextPrimary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -803,6 +819,8 @@ private fun BankTransferSection(
                     shape = RoundedCornerShape(12.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
                         containerColor = SurfaceLight,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         unfocusedBorderColor = TextTertiary.copy(alpha = 0.3f),
                         focusedBorderColor = PaymentCategory.BankTransfer.color
                     )
@@ -934,6 +952,7 @@ private fun USSDSection(
                 "Select Your Bank",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
+                color = TextPrimary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -1088,7 +1107,8 @@ private fun PayOnDeliverySection() {
             Text(
                 "Pay on Delivery",
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
+                fontSize = 20.sp,
+                color = TextPrimary
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -1114,6 +1134,7 @@ private fun PayOnDeliverySection() {
                         "Please ensure:",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
+                        color = TextPrimary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 

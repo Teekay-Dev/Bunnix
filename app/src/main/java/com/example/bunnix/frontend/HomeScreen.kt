@@ -34,6 +34,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.bunnix.R
@@ -151,30 +152,7 @@ fun VendorProfile.toUiModel(
     )
 }
 
-// Mock vendor list - REPLACE with your actual data source
-val mockVendorList = listOf(
-    VendorUiModel(
-        id = "1",
-        businessName = "TechHub Store",
-        category = "Tech",
-        coverImageRes = R.drawable.tech_background,
-        logoImageRes = R.drawable.tech,
-        rating = 4.8,
-        reviewCount = 128,
-        distance = "2.3 km",
-        isVerified = true
-    ),
-    VendorUiModel(
-        id = "2",
-        businessName = "Fashion Hub",
-        category = "Fashion",
-        coverImageRes = R.drawable.hero_pic,
-        logoImageRes = R.drawable.style,
-        rating = 4.5,
-        reviewCount = 85,
-        distance = "1.5 km"
-    )
-)
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -186,10 +164,12 @@ fun HomeScreen(
     featuredProducts: List<Product> = emptyList(),
     featuredServices: List<Service> = emptyList(),
     bottomBar: @Composable () -> Unit = {}, // ADD THIS
-    vendors: List<VendorUiModel> = mockVendorList // NEW: Accept vendors list
+//    vendors: List<VendorUiModel> = VendorList // NEW: Accept vendors list
 
 ) {
     val scrollState = rememberScrollState()
+    // ✅ TEMPORARY: Use empty list until vendors add data
+    val vendors = remember { emptyList<VendorUiModel>() }
 
     val pagerState = rememberPagerState(pageCount = { specialOffers.size })
 
@@ -226,7 +206,7 @@ fun HomeScreen(
             }
         },
 //        bottomBar = bottomBar,
-//        containerColor = SurfaceLight
+        containerColor = SurfaceLight
     ) { padding ->
         Column(
             modifier = Modifier
@@ -365,28 +345,28 @@ private fun HeroSection(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                IconButton(
-                    onClick = { },
-                    modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
-                ) {
-                    BadgedBox(
-                        badge = {
-                            Badge(
-                                containerColor = Color(0xFFEF4444),
-                                modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
-                            ) {
-                                Text("3", fontSize = 10.sp, color = Color.White)
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = Color.White
-                        )
-                    }
-                }
+//                IconButton(
+//                    onClick = { },
+//                    modifier = Modifier
+//                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
+//                ) {
+//                    BadgedBox(
+//                        badge = {
+//                            Badge(
+//                                containerColor = Color(0xFFEF4444),
+//                                modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
+//                            ) {
+//                                Text("3", fontSize = 10.sp, color = Color.White)
+//                            }
+//                        }
+//                    ) {
+//                        Icon(
+//                            imageVector = Icons.Default.Notifications,
+//                            contentDescription = "Notifications",
+//                            tint = Color.White
+//                        )
+//                    }
+//                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -427,7 +407,7 @@ private fun ModernSearchBar(
         onValueChange = onQueryChange,
         placeholder = {
             Text(
-                "Search products, services, vendors...",
+                "Search here ...",
                 color = TextTertiary
             )
         },
@@ -508,18 +488,18 @@ private fun StickySearchBar(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            IconButton(
-                onClick = onSearch,
-                modifier = Modifier
-                    .background(OrangePrimary, CircleShape)
-                    .size(44.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = "Search",
-                    tint = Color.White
-                )
-            }
+//            IconButton(
+//                onClick = onSearch,
+//                modifier = Modifier
+//                    .background(OrangePrimary, CircleShape)
+//                    .size(44.dp)
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Default.ArrowForward,
+//                    contentDescription = "Search",
+//                    tint = Color.White
+//                )
+//            }
         }
     }
 }
@@ -940,13 +920,13 @@ private fun FeaturedVendorsSection(
                 color = TextPrimary
             )
 
-            TextButton(onClick = { }) {
-                Text(
-                    "See All",
-                    color = OrangePrimary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+//            TextButton(onClick = { }) {
+//                Text(
+//                    "See All",
+//                    color = OrangePrimary,
+//                    fontWeight = FontWeight.Medium
+//                )
+//            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))

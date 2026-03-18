@@ -66,7 +66,7 @@ fun OrderPlacedScreen(
     onTrackOrder: (String) -> Unit = {},
     onContinueShopping: () -> Unit = {},
     viewModel: ReceiptViewModel = hiltViewModel(),
-    onViewReceipt: () -> Unit = {}
+    onViewReceipt: (String) -> Unit = {}
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var showConfetti by remember { mutableStateOf(true) }
@@ -220,7 +220,7 @@ fun OrderPlacedScreen(
                     SecondaryButton(
                         text = "View Receipt",
                         icon = Icons.Default.Receipt,
-                        onClick = onViewReceipt,
+                        onClick =  { onViewReceipt(orderId) },
                         modifier = Modifier.fillMaxWidth()
                     )
 

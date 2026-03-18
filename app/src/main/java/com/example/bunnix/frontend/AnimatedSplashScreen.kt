@@ -107,16 +107,16 @@ fun AnimatedSplashScreen(onComplete: () -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             // Pulsing glow background
-            Box(
-                modifier = Modifier
-                    .size(300.dp)
-                    .scale(pulseScale)
-//                    .alpha(glowAlpha)
-                    .background(
-                        Color.White.copy(alpha = 0.15f),
-                        shape = CircleShape
-                    )
-            )
+//            Box(
+//                modifier = Modifier
+//                    .size(300.dp)
+//                    .scale(pulseScale)
+////                    .alpha(glowAlpha)
+//                    .background(
+//                        Color.White.copy(alpha = 0.15f),
+//                        shape = CircleShape
+//                    )
+//            )
 
             // Your Bunnix logo with animations
             Box(

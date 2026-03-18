@@ -10,15 +10,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -27,7 +26,7 @@ import com.example.bunnix.database.models.CartItem
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
 
-// Colors - defined only ONCE here
+// Colors
 private val OrangePrimary = Color(0xFFFF6B35)
 private val OrangeLight = Color(0xFFFF8C61)
 private val OrangeSoft = Color(0xFFFFF0EB)
@@ -39,8 +38,6 @@ private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
 private val ErrorRed = Color(0xFFEF4444)
 
-
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CartScreen(
@@ -49,29 +46,36 @@ fun CartScreen(
     onCheckout: () -> Unit = {},
     onContinueShopping: () -> Unit = {},
     onRemoveItem: (String) -> Unit = {},
-    onUpdateQuantity: (String, Int) -> Unit = { _, _ -> }
+    onUpdateQuantity: (String, Int) -> Unit = { _, _ -> },
+    onStartShopping: () -> Unit
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf(cartItems) }
+
+    // Update items when cartItems changes
+    LaunchedEffect(cartItems) {
+        items = cartItems
+    }
 
     LaunchedEffect(Unit) {
         delay(100)
         isVisible = true
     }
 
+    // Calculate totals dynamically based on current items
     val subtotal = items.sumOf { it.price * it.quantity }
     val discount = items.sumOf { (it.originalPrice ?: it.price) - it.price } * items.sumOf { it.quantity }
     val deliveryFee = if (subtotal > 50000) 0.0 else 2500.0
-    val total = subtotal + deliveryFee
+    val total = subtotal - discount + deliveryFee
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Shopping Cart", fontWeight = FontWeight.Bold)
+                        Text("Shopping Cart", fontWeight = FontWeight.Bold, color = TextPrimary)
                         Text(
-                            "${items.size} items",
+                            "${items.sumOf { it.quantity }} items", // Show total quantity, not item count
                             fontSize = 14.sp,
                             color = TextSecondary
                         )
@@ -111,7 +115,7 @@ fun CartScreen(
             modifier = Modifier.padding(padding)
         ) {
             if (items.isEmpty()) {
-                EmptyCartView(onContinueShopping)
+                EmptyCartView(onStartShopping)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -121,7 +125,7 @@ fun CartScreen(
                     // Cart Items
                     items(items, key = { it.id }) { item ->
                         AnimatedVisibility(
-                            visible = items.contains(item),
+                            visible = true,
                             exit = shrinkVertically() + fadeOut(),
                             modifier = Modifier.animateItemPlacement(
                                 animationSpec = spring(
@@ -216,6 +220,7 @@ private fun EmptyCartView(onContinueShopping: () -> Unit) {
             "Your cart is empty",
             fontWeight = FontWeight.Bold,
             fontSize = 24.sp,
+            textAlign = TextAlign.Center,
             color = TextPrimary
         )
 
@@ -225,7 +230,7 @@ private fun EmptyCartView(onContinueShopping: () -> Unit) {
             "Looks like you haven't added anything to your cart yet",
             fontSize = 14.sp,
             color = TextSecondary,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -240,7 +245,12 @@ private fun EmptyCartView(onContinueShopping: () -> Unit) {
         ) {
             Icon(Icons.Default.ShoppingBag, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Start Shopping", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(
+                "Start Shopping",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = Color.White // ✅ FIXED: Was TextPrimary (dark), now White
+            )
         }
     }
 }
@@ -326,6 +336,7 @@ private fun CartItemCard(
                             item.name,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
+                            color = TextPrimary,
                             maxLines = 2
                         )
 
@@ -398,8 +409,9 @@ private fun CartItemCard(
                             item.quantity.toString(),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
+                            color = TextPrimary,
                             modifier = Modifier.width(32.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
 
                         IconButton(
@@ -442,6 +454,7 @@ private fun OrderSummaryCard(
                 "Order Summary",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
+                color = TextPrimary,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -463,7 +476,8 @@ private fun OrderSummaryCard(
                 Text(
                     "Total",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    fontSize = 18.sp,
+                    color = TextPrimary
                 )
                 Text(
                     formatCurrency(total),
@@ -584,16 +598,15 @@ private fun CartBottomBar(
                 Text(
                     "Proceed to Checkout",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    color = Color.White
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.Default.ArrowForward, contentDescription = null)
+                Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White)
             }
         }
     }
 }
-
-
 
 private fun formatCurrency(amount: Double): String {
     val formatter = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "NG"))
@@ -601,16 +614,25 @@ private fun formatCurrency(amount: Double): String {
     return formatter.format(amount).replace("NGN", "₦")
 }
 
-@Preview(showBackground = true, device = "id:pixel_5")
+@Preview(showBackground = true)
 @Composable
 fun CartScreenPreview() {
-
     val previewItems = listOf(
         CartItem(
             id = "1",
-            name = "Preview Product",
-            vendorName = "Preview Vendor",
-            price = 10000.0,
+            name = "Premium Wireless Earbuds",
+            vendorName = "Tech Hub Store",
+            price = 12500.0,
+            originalPrice = 15000.0,
+            quantity = 2,
+            imageUrl = null,
+            variant = "Black"
+        ),
+        CartItem(
+            id = "2",
+            name = "Organic Face Cream",
+            vendorName = "Beauty Corner",
+            price = 8500.0,
             originalPrice = null,
             quantity = 1,
             imageUrl = null,
@@ -618,15 +640,15 @@ fun CartScreenPreview() {
         )
     )
 
-    BunnixTheme {
-        CartScreen(cartItems = previewItems)
-    }
+//    BunnixTheme {
+//        CartScreen(cartItems = previewItems,)
+//    }
 }
 
-@Preview(showBackground = true, device = "id:pixel_5")
+@Preview(showBackground = true)
 @Composable
 fun EmptyCartScreenPreview() {
     BunnixTheme {
-        CartScreen(cartItems = emptyList())
+//        CartScreen(cartItems = emptyList(),)
     }
 }

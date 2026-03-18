@@ -16,14 +16,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object ChatNotificationModule {
 
-    @Provides
-    @Singleton
-    fun provideChatRepository(
-        firestore: FirebaseFirestore,
-        supabase: SupabaseClient
-    ): ChatRepository {
-        return ChatRepositoryImpl(firestore, supabase)
-    }
+
 
     @Provides
     @Singleton

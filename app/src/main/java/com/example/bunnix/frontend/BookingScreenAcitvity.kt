@@ -48,6 +48,7 @@ private val TextPrimary = Color(0xFF1A1A2E)
 private val TextSecondary = Color(0xFF6B7280)
 private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
+private val yellow = Color(0xFFFFC107)
 private val ErrorRed = Color(0xFFEF4444)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,6 +116,7 @@ fun BookingScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .navigationBarsPadding()
                     .verticalScroll(rememberScrollState())
             ) {
                 // Service Summary Card
@@ -178,7 +180,8 @@ private fun BookingTopBar(
                     Text(
                         "Book Appointment",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
+                        fontSize = 18.sp,
+                        color = TextPrimary
                     )
                     Text(
                         serviceName,
@@ -263,6 +266,7 @@ private fun ServiceSummaryCard(service: Service) {
                     service.name,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
+                    color = TextPrimary,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
@@ -316,7 +320,8 @@ private fun ServiceSummaryCard(service: Service) {
                         Text(
                             "%.1f".format(service.rating),
                             fontWeight = FontWeight.Medium,
-                            fontSize = 13.sp
+                            fontSize = 13.sp,
+                            color = yellow
                         )
                     }
                 }
@@ -344,7 +349,8 @@ private fun DateSelectionSection(
             Text(
                 "Select Date",
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
+                fontSize = 18.sp,
+                color = TextPrimary
             )
 
             // Month indicator
@@ -473,6 +479,7 @@ private fun TimeSelectionSection(
             "Select Time",
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
+            color = TextPrimary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
@@ -579,6 +586,7 @@ private fun NotesSection(
             "Additional Notes",
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
+            color = TextPrimary,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
@@ -597,6 +605,8 @@ private fun NotesSection(
             shape = RoundedCornerShape(16.dp),
             colors = TextFieldDefaults.outlinedTextFieldColors(
                 containerColor = Color.White,
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black,
                 unfocusedBorderColor = TextTertiary.copy(alpha = 0.3f),
                 focusedBorderColor = OrangePrimary
             ),
@@ -631,6 +641,7 @@ private fun BookingPolicySection() {
                 "Booking Policy",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
+                color = TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -688,7 +699,8 @@ private fun PolicyItem(
             Text(
                 title,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                color = TextPrimary
             )
             Text(
                 description,

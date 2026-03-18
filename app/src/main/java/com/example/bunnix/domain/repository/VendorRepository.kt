@@ -6,4 +6,7 @@ import com.example.bunnix.database.models.VendorProfile
 interface VendorRepository {
     suspend fun getVendorProfile(vendorId: String): AuthResult<VendorProfile>
     suspend fun updateVendorProfile(vendorId: String, updates: Map<String, Any>): AuthResult<Unit>
+
+    // ✅ NEW: Get all vendors for HomeScreen
+    suspend fun getAllVendors(): AuthResult<List<VendorProfile>>
 }
