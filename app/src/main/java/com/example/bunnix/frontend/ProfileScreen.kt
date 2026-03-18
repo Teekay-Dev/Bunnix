@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -53,12 +54,15 @@ fun ProfileScreen(
     onBecomeVendor: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
-    var isVisible by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val isPreview = LocalInspectionMode.current
+    var isVisible by remember { mutableStateOf(isPreview) }
 
     LaunchedEffect(Unit) {
-        delay(100)
-        isVisible = true
+        if (!isPreview) {
+            delay(100)
+            isVisible = true
+        }
     }
 
     Scaffold(
@@ -101,7 +105,7 @@ fun ProfileScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 40.dp),
+                            .padding(top = 30.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // Circular Profile Image
@@ -131,7 +135,7 @@ fun ProfileScreen(
                                     modifier = Modifier.fillMaxSize()
                                 ) {
                                     Text(
-                                        userName.take(2).uppercase(),
+                                        userName.take(1).uppercase(),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 36.sp,
                                         color = OrangePrimary
@@ -140,7 +144,7 @@ fun ProfileScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(1.dp))
 
                         // User Name
                         Text(
@@ -440,8 +444,8 @@ private fun LogoutConfirmationDialog(
                 modifier = Modifier.size(32.dp)
             )
         },
-        title = { Text("Logout", fontWeight = FontWeight.Bold) },
-        text = { Text("Are you sure you want to logout from Bunnix?") },
+        title = { Text("Logout", fontWeight = FontWeight.Bold, color = TextPrimary) },
+        text = { Text("Are you sure you want to logout from Bunnix?", color = TextPrimary) },
         confirmButton = {
             Button(
                 onClick = onConfirm,
@@ -467,10 +471,108 @@ private fun LogoutConfirmationDialog(
     )
 }
 
-@Preview(showBackground = true, device = "id:pixel_5")
+
+@Preview(
+    name = "Profile Screen - Customer",
+    showBackground = true,
+    showSystemUi = true,
+    device = "id:pixel_5"
+)
 @Composable
-fun ProfileScreenPreview() {
+fun ProfileScreenCustomerPreview() {
     BunnixTheme {
-        ProfileScreen(isVendor = false)
+        ProfileScreen(
+            userName = "John Doe",
+            userEmail = "john.doe@example.com",
+            userPhone = "+234 801 234 5678",
+            profileImageUrl = null,
+            isVendor = false,
+            vendorBusinessName = null,
+            onBack = {},
+            onEditProfile = {},
+            onViewOrders = {},
+            onViewNotifications = {},
+            onMenuItemClick = {},
+            onSwitchMode = {},
+            onBecomeVendor = {},
+            onLogout = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Profile Screen - Vendor",
+    showBackground = true,
+    showSystemUi = true,
+    device = "id:pixel_5"
+)
+@Composable
+fun ProfileScreenVendorPreview() {
+    BunnixTheme {
+        ProfileScreen(
+            userName = "Sarah Johnson",
+            userEmail = "sarah@techstore.com",
+            userPhone = "+234 901 234 5678",
+            profileImageUrl = null,
+            isVendor = true,
+            vendorBusinessName = "TechHub Store",
+            onBack = {},
+            onEditProfile = {},
+            onViewOrders = {},
+            onViewNotifications = {},
+            onMenuItemClick = {},
+            onSwitchMode = {},
+            onBecomeVendor = {},
+            onLogout = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Logout Dialog",
+    showBackground = true
+)
+@Composable
+fun LogoutDialogPreview() {
+    BunnixTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            LogoutConfirmationDialog(
+                onConfirm = {},
+                onDismiss = {}
+            )
+        }
+    }
+}
+
+@Preview(
+    name = "Menu Item",
+    showBackground = true,
+    backgroundColor = 0xFFFFFFFF
+)
+@Composable
+fun MenuItemPreview() {
+    BunnixTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            MenuItem(
+                icon = Icons.Default.Person,
+                title = "Edit Profile",
+                onClick = {}
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            MenuItem(
+                icon = Icons.Default.Help,
+                title = "Help Center",
+                iconBackground = Color(0xFFFF8C42).copy(alpha = 0.1f),
+                iconTint = Color(0xFFFF8C42),
+                onClick = {}
+            )
+        }
     }
 }

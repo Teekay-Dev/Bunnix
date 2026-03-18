@@ -58,6 +58,13 @@ import com.example.bunnix.database.models.CartItem
 import com.example.bunnix.presentation.viewmodel.CartViewModel
 import com.example.bunnix.presentation.viewmodel.ServiceViewModel
 import com.example.bunnix.presentation.viewmodel.UserViewModel
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
+import androidx.core.view.WindowCompat
+import android.os.Build
+import android.view.WindowManager
+import androidx.compose.foundation.layout.windowInsetsPadding
+
 
 // Color system
 val OrangePrimaryModern = Color(0xFFFF6B35)
@@ -73,17 +80,19 @@ class MainActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-            enableEdgeToEdge()
-            setContent {
-                BunnixTheme {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        AppNavigation()
-                    }
-                }
+
+        enableEdgeToEdge()
+
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        setContent {
+            BunnixTheme {
+                AppNavigation()
             }
+        }
     }
 
     // ===== MAIN APP NAVIGATION WITH SPLASH & ONBOARDING =====
@@ -602,6 +611,7 @@ class MainActivity : ComponentActivity() {
         )
 
         Scaffold(
+            contentWindowInsets = WindowInsets(0,0,0,0),
             bottomBar = {
                 AnimatedVisibility(
                     visible = currentRoute in bottomBarScreens,
@@ -623,22 +633,52 @@ class MainActivity : ComponentActivity() {
                         onBookServiceClick = { navController.navigate(Routes.ServiceList) },
                         onShopProductClick = { navController.navigate(Routes.ProductList) },
                         onSearchClick = { query -> navController.navigate("search/${Uri.encode(query)}") },
-                        bottomBar = { ModernBottomNavBar(navController, Routes.Home) }
+//                        bottomBar = { ModernBottomNavBar(navController, Routes.Home) }
                     )
                 }
+
 
                 composable(
                     route = "vendor_detail/{vendorId}",
                     arguments = listOf(navArgument("vendorId") { type = NavType.StringType })
                 ) { entry ->
                     val vendorId = entry.arguments?.getString("vendorId") ?: ""
-                    val vendor = vendorList.find { it.vendorId == vendorId } ?: vendorList.first()
+                    val vendorViewModel: VendorViewModel = hiltViewModel()
 
-                    VendorDetailScreen(
-                        vendor = vendor,
-                        onBack = { navController.popBackStack() }
-                    )
+                    val vendor by vendorViewModel.vendorProfile.collectAsState()
+                    val isLoading by vendorViewModel.isLoading.collectAsState()
+                    val error by vendorViewModel.error.collectAsState()
+
+                    // Fetch vendor when composable is first shown
+                    LaunchedEffect(vendorId) {
+                        if (vendorId.isNotBlank()) {
+                            vendorViewModel.fetchVendor(vendorId)
+                        }
+                    }
+
+                    when {
+                        isLoading -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
+
+                        vendor != null -> VendorDetailScreen(
+                            vendor = vendor!!,
+                            onBack = { navController.popBackStack() }
+                        )
+
+                        error != null -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { Text("Error: $error") }
+
+                        else -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { Text("Vendor not found") }
+                    }
                 }
+
 
                 composable(
                     route = "search/{query}",
@@ -677,31 +717,30 @@ class MainActivity : ComponentActivity() {
                 ) { entry ->
                     val serviceId = entry.arguments?.getString("serviceId") ?: ""
 
-                    val service = remember(serviceId) {
-                        Service(
-                            serviceId = serviceId,
-                            vendorId = "v1",
-                            vendorName = "Sample Vendor",
-                            name = "Sample Service",
-                            description = "Service description",
-                            price = 5000.0,
-                            duration = 60,
-                            category = "General",
-                            imageUrl = "",
-                            availability = emptyList(),
-                            totalBookings = 0,
-                            rating = 4.5,
-                            isActive = true
+                    val serviceViewModel: ServiceViewModel = hiltViewModel()
+                    val serviceState by serviceViewModel.getService(serviceId).collectAsState(initial = null)
+                    val service = serviceState
+
+                    if (service == null) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        BookingScreen(
+                            service = service,
+                            onBack = { navController.popBackStack() },
+                            onContinue = { details ->
+
+                                val total = service.price
+                                val orderId = "ORD-${System.currentTimeMillis()}"
+
+                                navController.navigate("payment/$total/$orderId")
+                            }
                         )
                     }
-
-                    BookingScreen(
-                        service = service,
-                        onBack = { navController.popBackStack() },
-                        onContinue = { details ->
-                            navController.navigate("checkout/service/${Uri.encode(serviceId)}/${details.time}")
-                        }
-                    )
                 }
 
                 composable(Routes.ProductList) {
@@ -746,7 +785,9 @@ class MainActivity : ComponentActivity() {
                                 cartViewModel.addToCart(item)
                             },
                             onBuyNow = { product, qty ->
-                                navController.navigate("checkout/product/${product.productId}/$qty")
+                                navController.navigate(
+                                    "checkout/product/${product.productId}/${Uri.encode(qty.toString())}"
+                                )
                             },
                             onBack = { navController.popBackStack() },
                             onChatWithVendor = { id -> navController.navigate("chat_detail/vendor_$id") }
@@ -756,82 +797,85 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                composable(
-                    route = "checkout/{type}/{id}/{quantity}",
-                    arguments = listOf(
-                        navArgument("type") { type = NavType.StringType },
-                        navArgument("id") { type = NavType.StringType },
-                        navArgument("quantity") { type = NavType.IntType }
-                    )
-                ) { entry ->
-                    val type = entry.arguments?.getString("type") ?: ""
-                    val id = entry.arguments?.getString("id") ?: ""
-                    val quantity = entry.arguments?.getInt("quantity") ?: 1
-
-                    val items = when (type) {
-                        "product" -> {
-                            val vm: ProductViewModel = hiltViewModel()
-                            val products by vm.products.collectAsState()
-                            val product = products.find { it.productId == id }
-
-                            product?.let {
-                                listOf(
-                                    CheckoutItem(
-                                        id = it.productId,
-                                        name = it.name,
-                                        imageUrl = it.imageUrls.firstOrNull() ?: "",
-                                        price = it.price,
-                                        quantity = quantity,
-                                        variant = null
-                                    )
-                                )
-                            } ?: emptyList()
-                        }
-
-                        "service" -> listOf(
-                            CheckoutItem(
-                                id = id,
-                                name = "Service Booking",
-                                imageUrl = "",
-                                price = 0.0,
-                                quantity = 1,
-                                variant = null
-                            )
-                        )
-
-                        "cart" -> cartItems.map {
-                            CheckoutItem(
-                                id = it.id,
-                                name = it.name,
-                                imageUrl = it.imageUrl ?: "",
-                                price = it.price,
-                                quantity = it.quantity,
-                                variant = it.variant
-                            )
-                        }
-
-                        else -> emptyList()
-                    }
-
-                    val total = items.sumOf { it.price * it.quantity }
-                    val orderId = "ORD-${System.currentTimeMillis() % 100000}"
-
-                    CheckoutScreen(
-                        items = items,
-                        total = total,
-                        isServiceBooking = type == "service",
-                        onBack = { navController.popBackStack() },
-                        onPaymentMethodSelect = { navController.navigate("payment/$total/$orderId") },
-                        onApplyPromo = {
-                            it.uppercase() in setOf(
-                                "WELCOME10",
-                                "SAVE20",
-                                "BUNNIX50"
-                            )
-                        },
-                        onPlaceOrder = { navController.navigate(Routes.OrderSuccess) }
-                    )
-                }
+//                composable(
+//                    route = "checkout/{type}/{id}/{extra}",
+//                    arguments = listOf(
+//                        navArgument("type") { type = NavType.StringType },
+//                        navArgument("id") { type = NavType.StringType },
+//                        navArgument("extra") { type = NavType.StringType }
+//                    )
+//                ) { entry ->
+//                    val type = entry.arguments?.getString("type") ?: ""
+//                    val id = entry.arguments?.getString("id") ?: ""
+//                    val extra = entry.arguments?.getString("extra") ?: ""
+//
+//                    val items = when (type) {
+//
+//                        "product" -> {
+//                            val vm: ProductViewModel = hiltViewModel()
+//                            val products by vm.products.collectAsState()
+//                            val product = products.find { it.productId == id }
+//
+//                            val qty = extra.toIntOrNull() ?: 1
+//
+//                            product?.let {
+//                                listOf(
+//                                    CheckoutItem(
+//                                        id = it.productId,
+//                                        name = it.name,
+//                                        imageUrl = it.imageUrls.firstOrNull() ?: "",
+//                                        price = it.price,
+//                                        quantity = qty,
+//                                        variant = null
+//                                    )
+//                                )
+//                            } ?: emptyList()
+//                        }
+//
+//                        "service" -> listOf(
+//                            CheckoutItem(
+//                                id = id,
+//                                name = "Service Booking ($extra)",
+//                                imageUrl = "",
+//                                price = 0.0,
+//                                quantity = 1,
+//                                variant = null
+//                            )
+//                        )
+//
+//                        "cart" -> cartItems.map {
+//                            CheckoutItem(
+//                                id = it.id,
+//                                name = it.name,
+//                                imageUrl = it.imageUrl ?: "",
+//                                price = it.price,
+//                                quantity = it.quantity,
+//                                variant = it.variant
+//                            )
+//                        }
+//
+//                        else -> emptyList()
+//                    }
+//
+//                    val total = items.sumOf { it.price * it.quantity }
+//                    val orderId = "ORD-${System.currentTimeMillis() % 100000}"
+//
+//                    CheckoutScreen(
+//                        items = items,
+//                        total = total,
+//                        isServiceBooking = type == "service",
+//                        onBack = { navController.popBackStack() },
+//                        onPaymentMethodSelect = { navController.navigate("payment/$total/$orderId") },
+//                        onApplyPromo = {
+//                            it.uppercase() in setOf(
+//                                "WELCOME10",
+//                                "SAVE20",
+//                                "BUNNIX50"
+//                            )
+//                        },
+//                        onPlaceOrder = { navController.navigate(Routes.OrderSuccess) }
+//                    )
+//                }
 
                 composable(
                     route = "payment/{total}/{orderId}",
@@ -868,7 +912,12 @@ class MainActivity : ComponentActivity() {
                             navController.navigate(Routes.Home) {
                                 popUpTo(Routes.Home) { inclusive = true }
                             }
+                        },
+
+                        onViewReceipt = { id ->
+                            navController.navigate("receipt/$id")
                         }
+
                     )
                 }
 
@@ -884,15 +933,31 @@ class MainActivity : ComponentActivity() {
                 }
 
                 composable(Routes.Chat) {
-                    ChatListScreen(navController, "current_user_id")
+                    ChatListScreen(navController)
                 }
 
+                // Inside MainActivity.kt NavHost
+
                 composable(
-                    route = "chat_detail/{chatId}",
-                    arguments = listOf(navArgument("chatId") { type = NavType.StringType })
+                    route = "chat_detail/{chatId}/{vendorName}/{vendorImage}",
+                    arguments = listOf(
+                        navArgument("chatId") { type = NavType.StringType },
+                        navArgument("vendorName") { type = NavType.StringType },
+                        navArgument("vendorImage") { type = NavType.StringType }
+                    )
                 ) { entry ->
                     val chatId = entry.arguments?.getString("chatId") ?: ""
-                    ChatDetailScreen(navController, chatId, "current_user_id")
+
+                    // ✅ DECODE the data back to normal strings
+                    val vendorName = Uri.decode(entry.arguments?.getString("vendorName") ?: "Unknown")
+                    val vendorImage = Uri.decode(entry.arguments?.getString("vendorImage") ?: "")
+
+                    ChatDetailScreen(
+                        navController = navController,
+                        chatId = chatId,
+                        vendorName = vendorName,
+                        vendorImageUrl = vendorImage
+                    )
                 }
 
                 composable(Routes.Notifications) {
@@ -945,6 +1010,11 @@ class MainActivity : ComponentActivity() {
                     CartScreen(
                         cartItems = cartItems,
                         onBack = { navController.popBackStack() },
+                        onStartShopping = {
+                            navController.navigate(Routes.Home) {
+                                popUpTo(Routes.Home)
+                            }
+                        },
                         onRemoveItem = { id ->
                             cartViewModel.removeFromCart(id)
                         },
@@ -971,45 +1041,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Vendor sample data
-    val vendorList = listOf(
-        VendorProfile(
-            vendorId = "1",
-            businessName = "TechHub Store",
-            category = "Tech",
-            description = "Your one-stop electronics shop",
-            coverPhotoUrl = "",
-            rating = 4.8,
-            totalReviews = 128,
-            address = "2.3 km away",
-            phone = "+234 123 456 7890",
-            isAvailable = true
-        ),
-        VendorProfile(
-            vendorId = "2",
-            businessName = "Fashion Hub",
-            category = "Fashion",
-            description = "Latest trends and styles",
-            coverPhotoUrl = "",
-            rating = 4.5,
-            totalReviews = 85,
-            address = "1.5 km away",
-            phone = "+234 987 654 3210",
-            isAvailable = true
-        ),
-        VendorProfile(
-            vendorId = "3",
-            businessName = "Spa & Wellness",
-            category = "Beauty",
-            description = "Relax and rejuvenate",
-            coverPhotoUrl = "",
-            rating = 4.9,
-            totalReviews = 200,
-            address = "3.0 km away",
-            phone = "+234 456 789 0123",
-            isAvailable = true
-        )
-    )
+
 
     // ===== VENDOR APP =====
     @Composable
@@ -1024,6 +1056,7 @@ class MainActivity : ComponentActivity() {
         val showBottomNav = currentRoute in bottomNavRoutes
 
         Scaffold(
+            contentWindowInsets = WindowInsets(0,0,0,0),
             bottomBar = {
                 if (showBottomNav) {
                     BunnixBottomNav(
@@ -1057,7 +1090,10 @@ class MainActivity : ComponentActivity() {
 
         NavigationBar(
             containerColor = Color.White,
-            tonalElevation = 8.dp
+            tonalElevation = 0.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding() // 👈 pushes it correctly into system bar
         ) {
             items.forEach { item ->
                 val selected = currentRoute == item.route
@@ -1069,22 +1105,12 @@ class MainActivity : ComponentActivity() {
 
                 NavigationBarItem(
                     icon = {
-                        BadgedBox(
-                            badge = {
-                                if (item.route == Routes.Chat || item.route == Routes.Notifications) {
-                                    Badge(containerColor = Color(0xFFEF4444)) {
-                                        Text("2", color = Color.White, fontSize = 10.sp)
-                                    }
-                                }
-                            }
-                        ) {
-                            Icon(
+                         Icon(
                                 imageVector = item.icon,
                                 contentDescription = item.label,
                                 tint = iconColor
                             )
-                        }
-                    },
+                        },
                     label = {
                         Text(
                             item.label,

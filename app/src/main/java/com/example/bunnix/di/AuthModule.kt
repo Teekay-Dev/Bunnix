@@ -21,23 +21,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AuthModule {
 
-    /**
-     * Provide Firebase Authentication instance
-     */
-    @Provides
-    @Singleton
-    fun provideFirebaseAuth(): FirebaseAuth {
-        return FirebaseAuth.getInstance()
-    }
-
-    /**
-     * Provide Firebase Firestore instance
-     */
-    @Provides
-    @Singleton
-    fun provideFirebaseFirestore(): FirebaseFirestore {
-        return FirebaseFirestore.getInstance()
-    }
 
     /**
      * Provide AuthManager (wraps Firebase Auth operations)
@@ -50,25 +33,7 @@ object AuthModule {
         return AuthManager(firebaseAuth)
     }
 
-    /**
-     * Provide AuthRepository implementation
-     */
-    @Provides
-    @Singleton
-    fun provideAuthRepository(
-        authManager: AuthManager,
-        firestore: FirebaseFirestore,
-        firebaseAuth: FirebaseAuth
-    ): AuthRepository {
-        return AuthRepositoryImpl(authManager, firestore, firebaseAuth, firebaseAuth, firestore)
-    }
 
-    /**
-     * Provide Firebase Storage instance
-     */
-    @Provides
-    @Singleton
-    fun provideFirebaseStorage(): FirebaseStorage {
-        return FirebaseStorage.getInstance()
-    }
+
+
 }

@@ -333,7 +333,7 @@ private fun PersonalInfoTab(
                     } else {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                name.take(2).uppercase(),
+                                name.take(1).uppercase(),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 40.sp,
                                 color = OrangePrimary
@@ -381,6 +381,8 @@ private fun PersonalInfoTab(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black,
                 focusedBorderColor = OrangePrimary,
                 focusedLabelColor = OrangePrimary
             )
@@ -398,6 +400,8 @@ private fun PersonalInfoTab(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black,
                 focusedBorderColor = OrangePrimary,
                 focusedLabelColor = OrangePrimary
             )
@@ -415,6 +419,8 @@ private fun PersonalInfoTab(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black,
                 focusedBorderColor = OrangePrimary,
                 focusedLabelColor = OrangePrimary
             )

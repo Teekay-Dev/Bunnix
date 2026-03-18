@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
@@ -44,6 +45,7 @@ import com.google.firebase.Timestamp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import com.example.bunnix.presentation.viewmodel.ChatViewModel
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -64,143 +66,55 @@ private val SuccessGreen = Color(0xFF10B981)
 fun ChatDetailScreen(
     navController: NavController,
     chatId: String,
-    currentUserId: String = "user_123"
+    vendorName: String, // ✅ REAL NAME from navigation
+    vendorImageUrl: String, // ✅ REAL IMAGE from navigation
+    viewModel: ChatViewModel = hiltViewModel()
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Your ParticipantInfo model
-    val participantInfo = remember {
-        ParticipantInfo(
-            name = "Glow Up Salon",
-            profilePic = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400",
-            isVendor = true
-        )
+    // ✅ COLLECT STATE
+    val messages by viewModel.chatMessages.collectAsState()
+    val isLoading by viewModel.isLoadingMessages.collectAsState()
+    val isSending by viewModel.isSendingMessage.collectAsState()
+    val messageSent by viewModel.messageSent.collectAsState()
+    val currentUserId by viewModel.currentUserId.collectAsState()
+
+    // ✅ LOAD MESSAGES
+    LaunchedEffect(chatId) {
+        viewModel.observeChatMessages(chatId)
+        currentUserId?.let { viewModel.markMessagesAsRead(chatId, it) }
     }
 
-    // Your Message model with all fields
-    var messages by remember {
-        mutableStateOf(
-            listOf(
-                Message(
-                    messageId = "msg_1",
-                    senderId = "vendor_456",
-                    senderName = "Glow Up Salon",
-                    text = "Hi! Thank you for booking our Premium Spa Package. We're excited to have you! 🎉",
-                    messageType = "text",
-                    timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2))),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                Message(
-                    messageId = "msg_2",
-                    senderId = "user_123",
-                    senderName = "You",
-                    text = "Hi! I'm excited about the appointment. What time should I arrive?",
-                    messageType = "text",
-                    timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1) - TimeUnit.MINUTES.toMillis(45))),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                Message(
-                    messageId = "msg_3",
-                    senderId = "vendor_456",
-                    senderName = "Glow Up Salon",
-                    text = "Please arrive 15 minutes early for preparation. Also, don't forget to bring the payment receipt!",
-                    messageType = "text",
-                    timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1) - TimeUnit.MINUTES.toMillis(30))),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                // Order link message using your orderPreview Map
-                Message(
-                    messageId = "msg_4",
-                    senderId = "vendor_456",
-                    senderName = "Glow Up Salon",
-                    text = "Booking #BK-2024-001",
-                    messageType = "order_link",
-                    orderPreview = mapOf(
-                        "type" to "booking",
-                        "id" to "BK-2024-001",
-                        "title" to "Premium Spa Package",
-                        "amount" to "₦25,000",
-                        "status" to "Confirmed",
-                        "date" to "Tomorrow, 2:00 PM",
-                        "location" to "123 Victoria Island, Lagos"
-                    ),
-                    timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1))),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                Message(
-                    messageId = "msg_5",
-                    senderId = "user_123",
-                    senderName = "You",
-                    text = "Perfect! I've made the transfer. Here's the receipt:",
-                    messageType = "text",
-                    timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(30))),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                // Image message using your imageUrl field
-                Message(
-                    messageId = "msg_6",
-                    senderId = "user_123",
-                    senderName = "You",
-                    text = "payment_receipt.jpg",
-                    imageUrl = "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600",
-                    messageType = "image",
-                    timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(25))),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                Message(
-                    messageId = "msg_7",
-                    senderId = "vendor_456",
-                    senderName = "Glow Up Salon",
-                    text = "Thank you! Payment received ✅. See you tomorrow at 2 PM. Don't be late! 😊",
-                    messageType = "text",
-                    timestamp = Timestamp(Date(System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(5))),
-                    isRead = false,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                )
-            )
+    LaunchedEffect(messageSent) {
+        if (messageSent) viewModel.resetMessageSent()
+    }
+
+    // ✅ REAL PARTICIPANT INFO (No hardcoding)
+    val participantInfo = remember(vendorName, vendorImageUrl) {
+        ParticipantInfo(
+            name = vendorName,
+            profilePic = vendorImageUrl,
+            isVendor = true
         )
     }
 
     var messageText by remember { mutableStateOf("") }
     var isTyping by remember { mutableStateOf(false) }
 
-    // Auto-scroll to bottom
     LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
 
     Scaffold(
         topBar = {
             ModernChatTopBar(
-                participantInfo = participantInfo,
+                participantInfo = participantInfo, // ✅ Uses Real Name/Photo
                 isTyping = isTyping,
                 onBack = { navController.popBackStack() },
-                onCall = { /* Implement call */ },
-                onMore = { /* Show options */ }
+                onCall = { },
+                onMore = { }
             )
         },
         bottomBar = {
@@ -211,88 +125,56 @@ fun ChatDetailScreen(
                     isTyping = it.isNotEmpty()
                 },
                 onSend = {
-                    if (messageText.isNotBlank()) {
-                        val newMessage = Message(
-                            messageId = "msg_${System.currentTimeMillis()}",
-                            senderId = currentUserId,
+                    if (messageText.isNotBlank() && !isSending && currentUserId != null) {
+                        viewModel.sendTextMessage(
+                            chatId = chatId,
+                            senderId = currentUserId!!,
                             senderName = "You",
-                            text = messageText,
-                            messageType = "text",
-                            timestamp = Timestamp.now(),
-                            isRead = false,
-                            content = "",
-                            chatId = "",
-                            type = ""
+                            text = messageText
                         )
-                        messages = messages + newMessage
                         messageText = ""
                         isTyping = false
-
-                        // Simulate reply
-                        scope.launch {
-                            delay(2000)
-                            val replyMessage = Message(
-                                messageId = "msg_reply_${System.currentTimeMillis()}",
-                                senderId = "vendor_456",
-                                senderName = "Glow Up Salon",
-                                text = "Thanks for your message! We'll get back to you shortly.",
-                                messageType = "text",
-                                timestamp = Timestamp.now(),
-                                isRead = false,
-                                content = "",
-                                chatId = "",
-                                type = ""
-                            )
-                            messages = messages + replyMessage
-                        }
                     }
                     keyboardController?.hide()
                 },
-                onAttach = { /* Show attachment options */ }
+                onAttach = { }
             )
         },
         containerColor = SurfaceLight
     ) { padding ->
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Date header
-            item {
-                DateHeader(date = "Today")
-            }
-
-            items(
-                items = messages,
-                key = { it.messageId }
-            ) { message ->
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn() + slideInVertically { it / 2 }
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = OrangePrimary)
+            } else if (messages.isEmpty()) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    MessageItem(
-                        message = message,
-                        isFromMe = message.senderId == currentUserId,
-                        participantInfo = participantInfo,
-                        onOrderClick = { orderId ->
-                            // Navigate to order/booking detail
-                            navController.navigate("order_detail/$orderId")
-                        },
-                        onImageClick = { imageUrl ->
-                            // Show full screen image
-                        }
-                    )
+                    Icon(Icons.Default.ChatBubbleOutline, null, tint = TextTertiary, modifier = Modifier.size(64.dp))
+                    Text("No messages yet", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text("Start chatting with ${participantInfo.name}", color = TextSecondary) // ✅ Real Name
                 }
-            }
-
-            // Typing indicator
-            if (isTyping) {
-                item {
-                    TypingIndicator(participantInfo = participantInfo)
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item { DateHeader(date = "Today") }
+                    items(items = messages, key = { it.messageId }) { message ->
+                        AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically { it / 2 }) {
+                            MessageItem(
+                                message = message,
+                                isFromMe = message.senderId == currentUserId,
+                                participantInfo = participantInfo,
+                                onOrderClick = { },
+                                onImageClick = { }
+                            )
+                        }
+                    }
+                    if (isTyping) item { TypingIndicator(participantInfo = participantInfo) }
                 }
             }
         }
@@ -941,10 +823,10 @@ private fun formatMessageTime(timestamp: Timestamp?): String {
 @Composable
 fun ChatDetailScreenPreview() {
     BunnixTheme {
-        ChatDetailScreen(
-            navController = rememberNavController(),
-            chatId = "chat_1"
-        )
+//        ChatDetailScreen(
+//            navController = rememberNavController(),
+//            chatId = "chat_1"
+//        )
     }
 }
 

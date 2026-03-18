@@ -15,14 +15,22 @@ class VendorRepositoryImpl @Inject constructor(
         vendorId: String
     ): AuthResult<VendorProfile> {
         return try {
-            val profile = supabase
+
+            val vendor = supabase
                 .from("vendors")
-                .select()
+                .select {
+                    filter {
+                        eq("id", vendorId)
+                    }
+                }
                 .decodeSingle<VendorProfile>()
 
-            AuthResult.Success(profile)
+            AuthResult.Success(vendor)
+
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Error")
+
+            AuthResult.Error(e.message ?: "Failed to fetch vendor")
+
         }
     }
 
@@ -38,6 +46,20 @@ class VendorRepositoryImpl @Inject constructor(
             AuthResult.Success(Unit)
         } catch (e: Exception) {
             AuthResult.Error(e.message ?: "Error")
+        }
+    }
+
+    override suspend fun getAllVendors(): AuthResult<List<VendorProfile>> {
+        return try {
+            val vendors = supabase
+                .from("vendors")
+                .select()
+                .decodeList<VendorProfile>()
+
+            AuthResult.Success(vendors)
+
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Failed to fetch vendors")
         }
     }
 }

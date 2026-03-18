@@ -3,7 +3,6 @@ package com.example.bunnix.frontend
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,7 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,8 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -30,11 +26,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.bunnix.database.models.Notification
+import com.example.bunnix.presentation.viewmodel.NotificationViewModel
 import com.example.bunnix.ui.theme.BunnixTheme
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.delay
@@ -43,27 +41,23 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-// Modern Colors
+// Simple Colors
 private val OrangePrimary = Color(0xFFFF6B35)
-private val OrangeLight = Color(0xFFFF8C61)
 private val OrangeSoft = Color(0xFFFFF0EB)
-private val TealAccent = Color(0xFF2EC4B6)
-private val PurpleAccent = Color(0xFF9B5DE5)
-private val YellowAccent = Color(0xFFFFBE0B)
 private val SurfaceLight = Color(0xFFFAFAFA)
 private val TextPrimary = Color(0xFF1A1A2E)
 private val TextSecondary = Color(0xFF6B7280)
 private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
-private val ErrorRed = Color(0xFFEF4444)
-private val WarningYellow = Color(0xFFF59E0B)
 private val InfoBlue = Color(0xFF3B82F6)
+private val PurpleAccent = Color(0xFF9B5DE5)
+private val WarningYellow = Color(0xFFF59E0B)
+private val TealAccent = Color(0xFF2EC4B6)
 
-// Notification types using your model's "type" field
+// Notification types
 enum class NotificationType(val icon: ImageVector, val color: Color, val bgColor: Color) {
     ORDER(Icons.Default.ShoppingBag, SuccessGreen, SuccessGreen.copy(alpha = 0.1f)),
     BOOKING(Icons.Default.CalendarToday, InfoBlue, InfoBlue.copy(alpha = 0.1f)),
-    PROMO(Icons.Default.LocalOffer, OrangePrimary, OrangeSoft),
     SYSTEM(Icons.Default.Info, WarningYellow, WarningYellow.copy(alpha = 0.1f)),
     MESSAGE(Icons.Default.Chat, PurpleAccent, PurpleAccent.copy(alpha = 0.1f)),
     PAYMENT(Icons.Default.Payment, TealAccent, TealAccent.copy(alpha = 0.1f))
@@ -73,141 +67,79 @@ enum class NotificationType(val icon: ImageVector, val color: Color, val bgColor
 @Composable
 fun NotificationScreen(
     navController: NavController,
-    currentUserId: String = "user_123"
+    currentUserId: String = "user_123",
+    initialVisibility: Boolean = false,
 ) {
-    var isVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(100)
-        isVisible = true
+    // ✅ GET VIEWMODEL
+    val notificationViewModel: NotificationViewModel = hiltViewModel()
+    val notifications by notificationViewModel.notifications.collectAsState()
+    val isLoading by notificationViewModel.isLoading.collectAsState()
+    val error by notificationViewModel.error.collectAsState()
+    val unreadCount by notificationViewModel.unreadCount.collectAsState()
+
+    // ✅ LOAD NOTIFICATIONS ON FIRST LAUNCH
+    LaunchedEffect(currentUserId) {
+        notificationViewModel.observeNotifications(currentUserId) // Real-time updates
     }
 
-    // Your exact Notification model
-    var notifications by remember {
-        mutableStateOf(
-            listOf(
-                Notification(
-                    notificationId = "notif_001",
-                    userId = "user_123",
-                    type = "ORDER",
-                    title = "Payment Confirmed! 🎉",
-                    message = "Your payment for Order #ORD-2024-001 has been verified by Glow Up Salon. Your order is now being processed and will be shipped soon.",
-                    relatedId = "ORD-2024-001",
-                    relatedType = "order",
-                    imageUrl = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400",
-                    isRead = false,
-                    createdAt = Timestamp.now()
-                ),
-                Notification(
-                    notificationId = "notif_002",
-                    userId = "user_123",
-                    type = "BOOKING",
-                    title = "Booking Reminder",
-                    message = "Your appointment with TechFix Pro is tomorrow at 2:00 PM. Don't forget to bring your device and payment receipt!",
-                    relatedId = "BK-2024-002",
-                    relatedType = "booking",
-                    imageUrl = "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?w=400",
-                    isRead = false,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(30)))
-                ),
-                Notification(
-                    notificationId = "notif_003",
-                    userId = "user_123",
-                    type = "PROMO",
-                    title = "Weekend Special! 🔥",
-                    message = "Get 30% off all spa services this weekend only! Book now and treat yourself to some well-deserved relaxation.",
-                    relatedId = "",
-                    relatedType = "promotion",
-                    imageUrl = "",
-                    isRead = false,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2)))
-                ),
-                Notification(
-                    notificationId = "notif_004",
-                    userId = "user_123",
-                    type = "ORDER",
-                    title = "Order Shipped 🚚",
-                    message = "Your order #ORD-2024-003 has been shipped! Track your package in real-time. Estimated delivery: 2-3 business days.",
-                    relatedId = "ORD-2024-003",
-                    relatedType = "order",
-                    imageUrl = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400",
-                    isRead = true,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(5)))
-                ),
-                Notification(
-                    notificationId = "notif_005",
-                    userId = "user_123",
-                    type = "PAYMENT",
-                    title = "Refund Processed",
-                    message = "Your refund of ₦15,000 for cancelled booking #BK-2024-001 has been processed. It will reflect in your account within 3-5 business days.",
-                    relatedId = "BK-2024-001",
-                    relatedType = "booking",
-                    imageUrl = "",
-                    isRead = true,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1)))
-                ),
-                Notification(
-                    notificationId = "notif_006",
-                    userId = "user_123",
-                    type = "MESSAGE",
-                    title = "New Message",
-                    message = "FreshMart Grocery: \"Your organic vegetable basket is ready for pickup!\"",
-                    relatedId = "chat_003",
-                    relatedType = "chat",
-                    imageUrl = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400",
-                    isRead = true,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(2)))
-                ),
-                Notification(
-                    notificationId = "notif_007",
-                    userId = "user_123",
-                    type = "SYSTEM",
-                    title = "Welcome to Bunnix! 👋",
-                    message = "Complete your profile to get personalized recommendations and exclusive deals tailored just for you.",
-                    relatedId = "",
-                    relatedType = "system",
-                    imageUrl = "",
-                    isRead = true,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)))
-                ),
-                Notification(
-                    notificationId = "notif_008",
-                    userId = "user_123",
-                    type = "BOOKING",
-                    title = "Booking Cancelled",
-                    message = "Your booking with HomeClean Services has been cancelled as requested. A refund has been initiated.",
-                    relatedId = "BK-2024-005",
-                    relatedType = "booking",
-                    imageUrl = "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400",
-                    isRead = true,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(3)))
-                )
-            )
-        )
+    var isVisible by remember { mutableStateOf(initialVisibility) }
+    LaunchedEffect(Unit) {
+        if (!initialVisibility) {
+            delay(100)
+            isVisible = true
+        }
     }
 
     var selectedFilter by remember { mutableStateOf("All") }
-    val filters = listOf("All", "Orders", "Bookings", "Promos", "Unread")
+    val filters = listOf("All", "Orders", "Bookings", "Unread")
 
     val filteredNotifications = notifications.filter { notif ->
         when (selectedFilter) {
             "Orders" -> notif.type == "ORDER" || notif.type == "PAYMENT"
             "Bookings" -> notif.type == "BOOKING"
-            "Promos" -> notif.type == "PROMO"
             "Unread" -> !notif.isRead
             else -> true
         }
     }.sortedByDescending { it.createdAt?.toDate() }
 
-    val unreadCount = notifications.count { !it.isRead }
-
     Scaffold(
         topBar = {
-            ModernNotificationTopBar(
-                unreadCount = unreadCount,
-                onMarkAllRead = {
-                    notifications = notifications.map { it.copy(isRead = true) }
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Notifications",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = TextPrimary
+                    )
                 },
-                onBack = { navController.popBackStack() }
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = OrangePrimary
+                        )
+                    }
+                },
+                actions = {
+                    TextButton(
+                        onClick = {
+                            notificationViewModel.markAllAsRead(currentUserId)
+                        },
+                        enabled = unreadCount > 0
+                    ) {
+                        Text(
+                            "Mark all read",
+                            color = if (unreadCount > 0) OrangePrimary else TextTertiary,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.White
+                )
             )
         },
         containerColor = SurfaceLight
@@ -229,43 +161,110 @@ fun NotificationScreen(
                     notifications = notifications
                 )
 
-                // Stats Row
-                NotificationStats(notifications = notifications)
-
-                // Notifications List
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(
-                        items = filteredNotifications,
-                        key = { it.notificationId }
-                    ) { notification ->
-                        NotificationCard(
-                            notification = notification,
-                            onClick = {
-                                // Mark as read
-                                notifications = notifications.map {
-                                    if (it.notificationId == notification.notificationId)
-                                        it.copy(isRead = true)
-                                    else
-                                        it
-                                }
-                                // Navigate based on relatedType
-                                when (notification.relatedType) {
-                                    "order" -> navController.navigate("order_detail/${notification.relatedId}")
-                                    "booking" -> navController.navigate("booking_detail/${notification.relatedId}")
-                                    "chat" -> navController.navigate("chat_detail/${notification.relatedId}")
-                                    else -> { }
-                                }
-                            },
-                            onDismiss = {
-                                notifications = notifications.filter {
-                                    it.notificationId != notification.notificationId
+                // ✅ SHOW LOADING, ERROR, OR EMPTY STATE
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = OrangePrimary)
+                        }
+                    }
+                    error != null -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Error,
+                                    contentDescription = null,
+                                    tint = OrangePrimary,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Text(
+                                    "Failed to load notifications",
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    error ?: "",
+                                    color = TextSecondary,
+                                    fontSize = 14.sp
+                                )
+                                Button(
+                                    onClick = { notificationViewModel.loadNotifications(currentUserId) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = OrangePrimary)
+                                ) {
+                                    Text("Retry")
                                 }
                             }
-                        )
+                        }
+                    }
+                    filteredNotifications.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = TextTertiary,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Text(
+                                    "No notifications yet",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    "We'll notify you when something happens",
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        // ✅ NOTIFICATIONS LIST
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            items(
+                                items = filteredNotifications,
+                                key = { it.notificationId }
+                            ) { notification ->
+                                NotificationCard(
+                                    notification = notification,
+                                    onClick = {
+                                        // ✅ Mark as read when clicked
+                                        notificationViewModel.markAsRead(notification.notificationId)
+
+                                        // Navigate based on type
+                                        when (notification.relatedType) {
+                                            "order" -> navController.navigate("order_detail/${notification.relatedId}")
+                                            "booking" -> navController.navigate("booking_detail/${notification.relatedId}")
+                                            "chat" -> navController.navigate("chat_detail/${notification.relatedId}")
+                                            else -> { }
+                                        }
+                                    },
+                                    onDismiss = {
+                                        // ✅ Delete notification
+                                        notificationViewModel.deleteNotification(notification.notificationId)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -273,76 +272,7 @@ fun NotificationScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ModernNotificationTopBar(
-    unreadCount: Int,
-    onMarkAllRead: () -> Unit,
-    onBack: () -> Unit
-) {
-    Surface(
-        color = Color.White,
-        tonalElevation = 4.dp
-    ) {
-        CenterAlignedTopAppBar(
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        "Notifications",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-
-                    AnimatedVisibility(
-                        visible = unreadCount > 0,
-                        enter = scaleIn() + fadeIn()
-                    ) {
-                        Surface(
-                            color = OrangePrimary,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(
-                                unreadCount.toString(),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-            },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = OrangePrimary
-                    )
-                }
-            },
-            actions = {
-                TextButton(
-                    onClick = onMarkAllRead,
-                    enabled = unreadCount > 0
-                ) {
-                    Text(
-                        "Mark all read",
-                        color = if (unreadCount > 0) OrangePrimary else TextTertiary,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = Color.White
-            )
-        )
-    }
-}
+// ===== REST OF YOUR CODE STAYS THE SAME =====
 
 @Composable
 private fun FilterChips(
@@ -358,7 +288,7 @@ private fun FilterChips(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             filters.forEach { filter ->
@@ -366,35 +296,24 @@ private fun FilterChips(
                     "All" -> notifications.size
                     "Orders" -> notifications.count { it.type == "ORDER" || it.type == "PAYMENT" }
                     "Bookings" -> notifications.count { it.type == "BOOKING" }
-                    "Promos" -> notifications.count { it.type == "PROMO" }
                     "Unread" -> notifications.count { !it.isRead }
                     else -> 0
                 }
 
-                val isSelected = selectedFilter == filter
-
                 FilterChip(
-                    selected = isSelected,
+                    selected = selectedFilter == filter,
                     onClick = { onFilterSelect(filter) },
                     label = {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(filter)
                             if (count > 0 && filter != "All") {
-                                Surface(
-                                    color = if (isSelected) Color.White.copy(alpha = 0.3f) else TextTertiary.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Text(
-                                        count.toString(),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else TextSecondary,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
+                                Text(
+                                    "($count)",
+                                    fontSize = 12.sp
+                                )
                             }
                         }
                     },
@@ -404,102 +323,6 @@ private fun FilterChips(
                         containerColor = SurfaceLight
                     ),
                     shape = RoundedCornerShape(20.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NotificationStats(notifications: List<Notification>) {
-    val todayCount = notifications.count {
-        it.createdAt?.toDate()?.let { date ->
-            val now = Date()
-            val diff = now.time - date.time
-            diff < TimeUnit.DAYS.toMillis(1)
-        } ?: false
-    }
-
-    val orderCount = notifications.count { it.type == "ORDER" && !it.isRead }
-    val promoCount = notifications.count { it.type == "PROMO" && !it.isRead }
-
-    AnimatedVisibility(
-        visible = todayCount > 0 || orderCount > 0 || promoCount > 0,
-        enter = expandVertically() + fadeIn()
-    ) {
-        Surface(
-            color = Color.White,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (todayCount > 0) {
-                    StatCard(
-                        icon = Icons.Default.Today,
-                        value = todayCount.toString(),
-                        label = "Today",
-                        color = TealAccent
-                    )
-                }
-                if (orderCount > 0) {
-                    StatCard(
-                        icon = Icons.Default.ShoppingBag,
-                        value = orderCount.toString(),
-                        label = "Orders",
-                        color = SuccessGreen
-                    )
-                }
-                if (promoCount > 0) {
-                    StatCard(
-                        icon = Icons.Default.LocalOffer,
-                        value = promoCount.toString(),
-                        label = "Deals",
-                        color = OrangePrimary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatCard(
-    icon: ImageVector,
-    value: String,
-    label: String,
-    color: Color
-) {
-    Surface(
-        color = color.copy(alpha = 0.1f),
-        shape = RoundedCornerShape(16.dp),
-//        modifier = Modifier.weight(1f)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(20.dp)
-            )
-            Column {
-                Text(
-                    value,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = color
-                )
-                Text(
-                    label,
-                    fontSize = 11.sp,
-                    color = TextSecondary
                 )
             }
         }
@@ -521,7 +344,6 @@ private fun NotificationCard(
 
     val isUnread = !notification.isRead
 
-    // Swipe to dismiss animation
     var isDismissed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isDismissed) 0.9f else 1f,
@@ -533,6 +355,8 @@ private fun NotificationCard(
         animationSpec = tween(200),
         label = "alpha"
     )
+
+    val scope = rememberCoroutineScope()
 
     AnimatedVisibility(
         visible = !isDismissed,
@@ -595,7 +419,7 @@ private fun NotificationCard(
 
                 // Content
                 Column(
-                    modifier = Modifier.weight(1f)  // This makes the column take available space
+                    modifier = Modifier.weight(1f)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -605,17 +429,16 @@ private fun NotificationCard(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)  // FIXED: Changed from weight(1f, fill = false) to just weight(1f)
+                            modifier = Modifier.weight(1f)
                         ) {
                             Text(
                                 text = notification.title,
                                 fontWeight = if (isUnread) FontWeight.Bold else FontWeight.SemiBold,
                                 fontSize = 15.sp,
                                 color = TextPrimary,
-                                modifier = Modifier.weight(1f)  // FIXED: Changed from weight(1f, fill = false) to weight(1f)
+                                modifier = Modifier.weight(1f)
                             )
 
-                            // Type badge
                             Surface(
                                 color = notifType.bgColor,
                                 shape = RoundedCornerShape(6.dp)
@@ -630,7 +453,6 @@ private fun NotificationCard(
                             }
                         }
 
-                        // Unread indicator
                         if (isUnread) {
                             Box(
                                 modifier = Modifier
@@ -670,7 +492,6 @@ private fun NotificationCard(
                             color = TextTertiary
                         )
 
-                        // Related ID chip
                         if (notification.relatedId.isNotEmpty()) {
                             Surface(
                                 color = notifType.color.copy(alpha = 0.1f),
@@ -688,11 +509,10 @@ private fun NotificationCard(
                     }
                 }
 
-                // Dismiss button
                 IconButton(
                     onClick = {
                         isDismissed = true
-                        kotlinx.coroutines.GlobalScope.launch {
+                        scope.launch {
                             delay(200)
                             onDismiss()
                         }
@@ -728,82 +548,14 @@ private fun formatNotificationTime(timestamp: Timestamp?): String {
     }
 }
 
-// ===== PREVIEWS =====
-
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun NotificationScreenPreview() {
     BunnixTheme {
         NotificationScreen(
             navController = rememberNavController(),
-            currentUserId = "user_123"
+            currentUserId = "user_123",
+            initialVisibility = true
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun NotificationCardPreview() {
-    BunnixTheme {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Unread notification
-            NotificationCard(
-                notification = Notification(
-                    notificationId = "1",
-                    userId = "user_123",
-                    type = "ORDER",
-                    title = "Payment Confirmed!",
-                    message = "Your payment has been verified by the vendor.",
-                    relatedId = "ORD-001",
-                    relatedType = "order",
-                    isRead = false,
-                    createdAt = Timestamp.now()
-                ),
-                onClick = {},
-                onDismiss = {}
-            )
-
-            // Read notification
-            NotificationCard(
-                notification = Notification(
-                    notificationId = "2",
-                    userId = "user_123",
-                    type = "PROMO",
-                    title = "Weekend Special!",
-                    message = "Get 20% off all services this weekend.",
-                    isRead = true,
-                    createdAt = Timestamp(Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1)))
-                ),
-                onClick = {},
-                onDismiss = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun StatCardPreview() {
-    BunnixTheme {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard(
-                icon = Icons.Default.Today,
-                value = "5",
-                label = "Today",
-                color = TealAccent
-            )
-            StatCard(
-                icon = Icons.Default.ShoppingBag,
-                value = "3",
-                label = "Orders",
-                color = SuccessGreen
-            )
-        }
     }
 }
