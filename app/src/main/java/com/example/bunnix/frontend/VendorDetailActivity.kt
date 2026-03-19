@@ -96,7 +96,7 @@ fun VendorDetailScreen(
                 fallbackCoverRes = fallbackCoverRes // ✅ PASS IT HERE
             )
 
-            Spacer(modifier = Modifier.height(20.dp)) // ✅ FIXED: Was 120.dp, now 20.dp
+            Spacer(modifier = Modifier.height(120.dp)) // ✅ FIXED: Was 20.dp, now 120.dp
 
             ActionButtonsRow(onChat = onChat)
 
