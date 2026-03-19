@@ -23,14 +23,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.bunnix.database.models.CartItem
 import com.example.bunnix.database.models.Product
-import com.example.bunnix.frontend.SimpleSearchBar
+import com.example.bunnix.database.firebase.collections.CartCollection
+import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.ui.theme.BunnixTheme
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.*
 
-// ===== SIMPLE COLORS (MATCHING SERVICE LIST) =====
 private val OrangePrimary = Color(0xFFFF6B35)
 private val BackgroundWhite = Color(0xFFFFFFFF)
 private val CardBackground = Color(0xFFF8F9FA)
@@ -51,6 +53,9 @@ fun ProductListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showFilterMenu by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf("All") }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val userId = FirebaseManager.getCurrentUserId()
 
     // Simple filtering
     val filteredProducts = remember(products, searchQuery, selectedFilter) {
@@ -75,7 +80,6 @@ fun ProductListScreen(
     Scaffold(
         containerColor = BackgroundWhite,
         topBar = {
-            // Simple Top Bar
             CenterAlignedTopAppBar(
                 title = {
                     Text(
@@ -106,7 +110,6 @@ fun ProductListScreen(
                 .navigationBarsPadding()
                 .padding(padding)
         ) {
-            // Simple Search Bar
             SimpleSearchBar(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it },
@@ -147,9 +150,7 @@ fun ProductListScreen(
                 )
             }
 
-            // Product List
             if (filteredProducts.isEmpty()) {
-                // Empty State
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -189,11 +190,29 @@ fun ProductListScreen(
                     ) { product ->
                         SimpleProductCard(
                             product = product,
-                            onClick = { onProductClick(product) }
+                            onClick = { onProductClick(product) },
+                            onAddToCart = { clickedProduct ->
+                                if (userId != null) {
+                                    val cartItem = CartItem(
+                                        id = clickedProduct.productId,
+                                        productId = clickedProduct.productId,
+                                        name = clickedProduct.name,
+                                        vendorId = clickedProduct.vendorId,
+                                        vendorName = clickedProduct.vendorName,
+                                        price = clickedProduct.discountPrice ?: clickedProduct.price,
+                                        originalPrice = if(clickedProduct.discountPrice != null) clickedProduct.price else null,
+                                        imageUrl = clickedProduct.imageUrls.firstOrNull() ?: "",
+                                        quantity = 1
+                                    )
+                                    scope.launch {
+                                        CartCollection.addToCart(userId, cartItem)
+                                        onAddToCart()
+                                    }
+                                }
+                            }
                         )
                     }
 
-                    // Bottom spacing
                     item {
                         Spacer(modifier = Modifier.height(80.dp))
                     }
@@ -203,7 +222,6 @@ fun ProductListScreen(
     }
 }
 
-// ===== SIMPLE SEARCH BAR =====
 @Composable
 private fun SimpleSearchBar(
     query: String,
@@ -217,7 +235,6 @@ private fun SimpleSearchBar(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Search Box
         Surface(
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(12.dp),
@@ -274,7 +291,6 @@ private fun SimpleSearchBar(
             }
         }
 
-        // Filter Icon (optional)
         Surface(
             onClick = onFilterClick,
             shape = RoundedCornerShape(12.dp),
@@ -294,12 +310,11 @@ private fun SimpleSearchBar(
 }
 
 
-// ===== SIMPLE PRODUCT CARD (MATCHING SERVICE CARD STYLE) =====
 @Composable
 private fun SimpleProductCard(
     product: Product,
     onClick: () -> Unit,
-    onAddToCart: (Product) -> Unit = {} // Add this parameter
+    onAddToCart: (Product) -> Unit
 ) {
     Surface(
         onClick = onClick,
@@ -314,7 +329,6 @@ private fun SimpleProductCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ===== LEFT: Product Image =====
             Box {
                 Surface(
                     modifier = Modifier.size(80.dp),
@@ -332,7 +346,6 @@ private fun SimpleProductCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        // Placeholder
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -347,7 +360,6 @@ private fun SimpleProductCard(
                     }
                 }
 
-                // Discount Badge (Top Left)
                 product.discountPrice?.let { discount ->
                     val discountPercent = ((product.price - discount) / product.price * 100).toInt()
                     Surface(
@@ -367,7 +379,6 @@ private fun SimpleProductCard(
                     }
                 }
 
-                // Stock Badge (Bottom Right)
                 if (product.totalStock < 10 && product.totalStock > 0) {
                     Surface(
                         modifier = Modifier
@@ -403,12 +414,10 @@ private fun SimpleProductCard(
                 }
             }
 
-            // ===== RIGHT: Product Info =====
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Product Name & Category Badge
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -424,7 +433,6 @@ private fun SimpleProductCard(
                         modifier = Modifier.weight(1f, fill = false)
                     )
 
-                    // Category Badge
                     Surface(
                         color = OrangePrimary.copy(alpha = 0.1f),
                         shape = RoundedCornerShape(6.dp)
@@ -439,7 +447,6 @@ private fun SimpleProductCard(
                     }
                 }
 
-                // Vendor Name & Location Icon
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -461,17 +468,14 @@ private fun SimpleProductCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Bottom Row: Sold Count, Price & Add to Cart Button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: Sold Count & Price
                     Column(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        // Sold Count
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -490,12 +494,10 @@ private fun SimpleProductCard(
                             )
                         }
 
-                        // Price Section
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Current Price
                             Text(
                                 formatCurrency(product.discountPrice ?: product.price),
                                 fontSize = 16.sp,
@@ -503,7 +505,6 @@ private fun SimpleProductCard(
                                 color = OrangePrimary
                             )
 
-                            // Original Price (if discounted)
                             product.discountPrice?.let {
                                 Text(
                                     formatCurrency(product.price),
@@ -515,7 +516,6 @@ private fun SimpleProductCard(
                         }
                     }
 
-                    // ✅ RIGHT: ADD TO CART BUTTON (like Service card Book button)
                     Button(
                         onClick = { onAddToCart(product) },
                         colors = ButtonDefaults.buttonColors(
@@ -524,7 +524,7 @@ private fun SimpleProductCard(
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                         modifier = Modifier.height(40.dp),
-                        enabled = product.totalStock > 0 // Disable if sold out
+                        enabled = product.totalStock > 0
                     ) {
                         Icon(
                             Icons.Default.AddShoppingCart,
@@ -544,14 +544,12 @@ private fun SimpleProductCard(
     }
 }
 
-// ===== HELPER FUNCTION =====
 private fun formatCurrency(amount: Double): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("en", "NG"))
     formatter.currency = java.util.Currency.getInstance("NGN")
     return formatter.format(amount).replace("NGN", "₦")
 }
 
-// ===== PREVIEW =====
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ProductListScreenPreview() {
@@ -593,66 +591,8 @@ fun ProductListScreenPreview() {
             sold = 145,
             createdAt = Timestamp.now(),
             updatedAt = Timestamp.now()
-        ),
-        Product(
-            productId = "3",
-            vendorId = "v3",
-            vendorName = "Home Decor Plus",
-            name = "Modern Table Lamp",
-            description = "Elegant design",
-            price = 25000.0,
-            discountPrice = null,
-            category = "Home",
-            imageUrls = listOf("https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400 "),
-            variants = emptyList(),
-            totalStock = 3,
-            inStock = true,
-            tags = emptyList(),
-            views = 500,
-            sold = 67,
-            createdAt = Timestamp.now(),
-            updatedAt = Timestamp.now()
-        ),
-        Product(
-            productId = "4",
-            vendorId = "v4",
-            vendorName = "Sports World",
-            name = "Running Shoes",
-            description = "Lightweight and durable",
-            price = 35000.0,
-            discountPrice = null,
-            category = "Sports",
-            imageUrls = listOf("https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400 "),
-            variants = emptyList(),
-            totalStock = 0,
-            inStock = false,
-            tags = emptyList(),
-            views = 950,
-            sold = 234,
-            createdAt = Timestamp.now(),
-            updatedAt = Timestamp.now()
-        ),
-        Product(
-            productId = "5",
-            vendorId = "v5",
-            vendorName = "Beauty Corner",
-            name = "Skincare Set",
-            description = "Complete skincare routine",
-            price = 18000.0,
-            discountPrice = null,
-            category = "Beauty",
-            imageUrls = emptyList(),
-            variants = emptyList(),
-            totalStock = 15,
-            inStock = true,
-            tags = emptyList(),
-            views = 600,
-            sold = 98,
-            createdAt = Timestamp.now(),
-            updatedAt = Timestamp.now()
         )
     )
-
     BunnixTheme {
         ProductListScreen(
             products = sampleProducts,

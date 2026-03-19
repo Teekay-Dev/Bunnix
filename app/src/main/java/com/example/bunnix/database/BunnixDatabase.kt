@@ -24,6 +24,7 @@ object BunnixDatabase {
     val reviews = ReviewCollection
     val notifications = NotificationCollection
     val categories = CategoryCollection
+    val vendors = VendorProfileCollection
 
     // Supabase Storage
     val storage = SupabaseManager

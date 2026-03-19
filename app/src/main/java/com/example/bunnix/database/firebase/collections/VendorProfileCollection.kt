@@ -12,57 +12,31 @@ import kotlinx.coroutines.tasks.await
 
 object VendorProfileCollection {
 
-    private val collection = FirebaseConfig.firestore
-        .collection(FirebaseConfig.Collections.VENDOR_PROFILES)
+    private val collection = FirebaseConfig.firestore.collection(FirebaseConfig.Collections.VENDOR_PROFILES)
 
-    /**
-     * CREATE VENDOR PROFILE
-     */
-    suspend fun createVendorProfile(vendorId: String, vendorProfile: VendorProfile): Result<Unit> {
+    // GET VENDOR PROFILE (One-time fetch for Bank Details)
+    suspend fun getVendorProfile(vendorId: String): Result<VendorProfile> {
         return try {
-            val profileData = hashMapOf(
-                "userId" to vendorProfile.userId,
-                "businessName" to vendorProfile.businessName,
-                "description" to vendorProfile.description,
-                "coverPhotoUrl" to vendorProfile.coverPhotoUrl,
-                "category" to vendorProfile.category,
-                "subCategories" to vendorProfile.subCategories,
-                "bankName" to vendorProfile.bankName,
-                "accountNumber" to vendorProfile.accountNumber,
-                "accountName" to vendorProfile.accountName,
-                "alternativePayment" to vendorProfile.alternativePayment,
-                "rating" to vendorProfile.rating,
-                "totalReviews" to vendorProfile.totalReviews,
-                "totalSales" to vendorProfile.totalSales,
-                "totalRevenue" to vendorProfile.totalRevenue,
-                "isAvailable" to vendorProfile.isAvailable,
-                "workingHours" to vendorProfile.workingHours,
-                "location" to vendorProfile.location,
-                "address" to vendorProfile.address,
-                "phone" to vendorProfile.phone,
-                "email" to vendorProfile.email,
-                "createdAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-
-            collection.document(vendorId).set(profileData).await()
-            Result.success(Unit)
+            val snapshot = collection.document(vendorId).get().await()
+            val vendor = snapshot.toObject(VendorProfile::class.java)
+            if (vendor != null) Result.success(vendor) else Result.failure(Exception("Vendor not found"))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    /**
-     * GET VENDOR PROFILE
-     */
-    suspend fun getVendorProfile(vendorId: String): Result<VendorProfile?> {
-        return try {
-            val document = collection.document(vendorId).get().await()
-            val profile = document.toObject(VendorProfile::class.java)
-            Result.success(profile)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    // GET VENDOR PUBLIC INFO (Real-time for Vendor Profile Screen)
+    fun getVendorRealtime(vendorId: String): Flow<VendorProfile?> = callbackFlow {
+        val listener = collection.document(vendorId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val vendor = snapshot?.toObject(VendorProfile::class.java)
+                trySend(vendor)
+            }
+        awaitClose { listener.remove() }
     }
 
     /**

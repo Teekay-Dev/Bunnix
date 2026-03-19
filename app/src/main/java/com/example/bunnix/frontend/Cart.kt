@@ -23,10 +23,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bunnix.database.models.CartItem
+import com.example.bunnix.database.firebase.collections.CartCollection
+import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-// Colors
 private val OrangePrimary = Color(0xFFFF6B35)
 private val OrangeLight = Color(0xFFFF8C61)
 private val OrangeSoft = Color(0xFFFFF0EB)
@@ -41,32 +43,29 @@ private val ErrorRed = Color(0xFFEF4444)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CartScreen(
-    cartItems: List<CartItem>,
     onBack: () -> Unit = {},
     onCheckout: () -> Unit = {},
     onContinueShopping: () -> Unit = {},
-    onRemoveItem: (String) -> Unit = {},
-    onUpdateQuantity: (String, Int) -> Unit = { _, _ -> },
     onStartShopping: () -> Unit
 ) {
     var isVisible by remember { mutableStateOf(false) }
-    var items by remember { mutableStateOf(cartItems) }
+    val userId = FirebaseManager.getCurrentUserId()
+    val scope = rememberCoroutineScope()
 
-    // Update items when cartItems changes
-    LaunchedEffect(cartItems) {
-        items = cartItems
-    }
+    // ✅ BACKEND CONNECTION: Collect real-time cart items
+    val cartItems by CartCollection.getCartItems(userId ?: "")
+        .collectAsState(initial = emptyList())
+
+    // Calculate totals dynamically
+    val subtotal = cartItems.sumOf { it.price * it.quantity }
+    val discount = cartItems.sumOf { (it.originalPrice ?: it.price) - it.price } * cartItems.sumOf { it.quantity }
+    val deliveryFee = if (subtotal > 50000) 0.0 else 2500.0
+    val total = subtotal - discount + deliveryFee
 
     LaunchedEffect(Unit) {
         delay(100)
         isVisible = true
     }
-
-    // Calculate totals dynamically based on current items
-    val subtotal = items.sumOf { it.price * it.quantity }
-    val discount = items.sumOf { (it.originalPrice ?: it.price) - it.price } * items.sumOf { it.quantity }
-    val deliveryFee = if (subtotal > 50000) 0.0 else 2500.0
-    val total = subtotal - discount + deliveryFee
 
     Scaffold(
         topBar = {
@@ -75,7 +74,7 @@ fun CartScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Shopping Cart", fontWeight = FontWeight.Bold, color = TextPrimary)
                         Text(
-                            "${items.sumOf { it.quantity }} items", // Show total quantity, not item count
+                            "${cartItems.sumOf { it.quantity }} items",
                             fontSize = 14.sp,
                             color = TextSecondary
                         )
@@ -87,8 +86,12 @@ fun CartScreen(
                     }
                 },
                 actions = {
-                    if (items.isNotEmpty()) {
-                        TextButton(onClick = { items = emptyList() }) {
+                    if (cartItems.isNotEmpty()) {
+                        TextButton(onClick = {
+                            if (userId != null) {
+                                scope.launch { CartCollection.clearCart(userId) }
+                            }
+                        }) {
                             Text("Clear", color = ErrorRed)
                         }
                     }
@@ -99,10 +102,10 @@ fun CartScreen(
             )
         },
         bottomBar = {
-            if (items.isNotEmpty()) {
+            if (cartItems.isNotEmpty()) {
                 CartBottomBar(
                     total = total,
-                    itemCount = items.sumOf { it.quantity },
+                    itemCount = cartItems.sumOf { it.quantity },
                     onCheckout = onCheckout
                 )
             }
@@ -114,7 +117,7 @@ fun CartScreen(
             enter = fadeIn() + slideInVertically { it / 4 },
             modifier = Modifier.padding(padding)
         ) {
-            if (items.isEmpty()) {
+            if (cartItems.isEmpty()) {
                 EmptyCartView(onStartShopping)
             } else {
                 LazyColumn(
@@ -123,7 +126,7 @@ fun CartScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Cart Items
-                    items(items, key = { it.id }) { item ->
+                    items(cartItems, key = { it.id }) { item ->
                         AnimatedVisibility(
                             visible = true,
                             exit = shrinkVertically() + fadeOut(),
@@ -137,27 +140,18 @@ fun CartScreen(
                             CartItemCard(
                                 item = item,
                                 onRemove = {
-                                    items = items.filter { it.id != item.id }
-                                    onRemoveItem(item.id)
+                                    if (userId != null) {
+                                        scope.launch { CartCollection.removeFromCart(userId, item.productId) }
+                                    }
                                 },
                                 onIncreaseQty = {
-                                    val newItems = items.toMutableList()
-                                    val index = newItems.indexOfFirst { it.id == item.id }
-                                    if (index != -1) {
-                                        newItems[index] = item.copy(quantity = item.quantity + 1)
-                                        items = newItems
-                                        onUpdateQuantity(item.id, item.quantity + 1)
+                                    if (userId != null) {
+                                        scope.launch { CartCollection.updateQuantity(userId, item.productId, item.quantity + 1) }
                                     }
                                 },
                                 onDecreaseQty = {
-                                    if (item.quantity > 1) {
-                                        val newItems = items.toMutableList()
-                                        val index = newItems.indexOfFirst { it.id == item.id }
-                                        if (index != -1) {
-                                            newItems[index] = item.copy(quantity = item.quantity - 1)
-                                            items = newItems
-                                            onUpdateQuantity(item.id, item.quantity - 1)
-                                        }
+                                    if (item.quantity > 1 && userId != null) {
+                                        scope.launch { CartCollection.updateQuantity(userId, item.productId, item.quantity - 1) }
                                     }
                                 }
                             )
@@ -249,7 +243,7 @@ private fun EmptyCartView(onContinueShopping: () -> Unit) {
                 "Start Shopping",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                color = Color.White // ✅ FIXED: Was TextPrimary (dark), now White
+                color = Color.White
             )
         }
     }
@@ -312,7 +306,6 @@ private fun CartItemCard(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Product Image
                     Surface(
                         color = OrangeSoft,
                         shape = RoundedCornerShape(16.dp),
@@ -330,7 +323,6 @@ private fun CartItemCard(
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    // Product Info
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             item.name,
@@ -386,7 +378,6 @@ private fun CartItemCard(
                         }
                     }
 
-                    // Quantity Controls
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -617,38 +608,7 @@ private fun formatCurrency(amount: Double): String {
 @Preview(showBackground = true)
 @Composable
 fun CartScreenPreview() {
-    val previewItems = listOf(
-        CartItem(
-            id = "1",
-            name = "Premium Wireless Earbuds",
-            vendorName = "Tech Hub Store",
-            price = 12500.0,
-            originalPrice = 15000.0,
-            quantity = 2,
-            imageUrl = null,
-            variant = "Black"
-        ),
-        CartItem(
-            id = "2",
-            name = "Organic Face Cream",
-            vendorName = "Beauty Corner",
-            price = 8500.0,
-            originalPrice = null,
-            quantity = 1,
-            imageUrl = null,
-            variant = null
-        )
-    )
-
-//    BunnixTheme {
-//        CartScreen(cartItems = previewItems,)
-//    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun EmptyCartScreenPreview() {
     BunnixTheme {
-//        CartScreen(cartItems = emptyList(),)
+        CartScreen(onStartShopping = {})
     }
 }
