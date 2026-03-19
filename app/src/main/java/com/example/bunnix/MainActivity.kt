@@ -64,6 +64,8 @@ import androidx.core.view.WindowCompat
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.layout.windowInsetsPadding
+import com.example.bunnix.database.firebase.FirebaseManager
+import com.example.bunnix.database.firebase.collections.CartCollection
 
 
 // Color system
@@ -762,6 +764,10 @@ class MainActivity : ComponentActivity() {
                 ) { entry ->
                     val productId = entry.arguments?.getString("productId") ?: ""
                     val productViewModel: ProductViewModel = hiltViewModel()
+                    // Use a CartViewModel if you have one injected, or use CartCollection directly
+                    val scope = rememberCoroutineScope()
+                    val userId = FirebaseManager.getCurrentUserId()
+
                     val allProducts by productViewModel.products.collectAsState()
                     val product = allProducts.find { it.productId == productId }
 
@@ -769,28 +775,36 @@ class MainActivity : ComponentActivity() {
                         ProductDetailsScreen(
                             product = product,
                             allProducts = allProducts,
-                            onAddToCart = { product, quantity ->
-
+                            onAddToCart = { prod, quantity ->
                                 val item = CartItem(
-                                    id = product.productId,
-                                    name = product.name,
-                                    vendorName = product.vendorName,
-                                    price = product.discountPrice ?: product.price,
-                                    originalPrice = product.discountPrice?.let { product.price },
+                                    id = prod.productId,
+                                    productId = prod.productId,
+                                    name = prod.name,
+                                    vendorId = prod.vendorId,
+                                    vendorName = prod.vendorName,
+                                    price = prod.discountPrice ?: prod.price,
+                                    originalPrice = if (prod.discountPrice != null) prod.price else null,
                                     quantity = quantity,
-                                    imageUrl = product.imageUrls.firstOrNull(),
+                                    imageUrl = prod.imageUrls.firstOrNull() ?: "", // FIXED Type
                                     variant = null
                                 )
 
-                                cartViewModel.addToCart(item)
+                                // ✅ CALL CART COLLECTION DIRECTLY
+                                scope.launch {
+                                    if (userId != null) {
+                                        CartCollection.addToCart(userId, item)
+                                    }
+                                }
                             },
-                            onBuyNow = { product, qty ->
-                                navController.navigate(
-                                    "checkout/product/${product.productId}/${Uri.encode(qty.toString())}"
-                                )
+                            onBuyNow = { prod, qty ->
+                                // Navigate to checkout
                             },
                             onBack = { navController.popBackStack() },
-                            onChatWithVendor = { id -> navController.navigate("chat_detail/vendor_$id") }
+                            onChatWithVendor = { vId ->
+                                val vName = Uri.encode(product.vendorName)
+                                val vImage = Uri.encode(product.imageUrls.firstOrNull() ?: "")
+                                navController.navigate("chat_detail/chat_${product.vendorId}_$vId/$vName/$vImage/$vId")
+                            }
                         )
                     } else {
                         ProductNotFoundScreen { navController.popBackStack() }
@@ -943,20 +957,21 @@ class MainActivity : ComponentActivity() {
                     arguments = listOf(
                         navArgument("chatId") { type = NavType.StringType },
                         navArgument("vendorName") { type = NavType.StringType },
-                        navArgument("vendorImage") { type = NavType.StringType }
+                        navArgument("vendorImage") { type = NavType.StringType },
+                        navArgument("vendorId") { type = NavType.StringType }
                     )
                 ) { entry ->
                     val chatId = entry.arguments?.getString("chatId") ?: ""
-
-                    // ✅ DECODE the data back to normal strings
                     val vendorName = Uri.decode(entry.arguments?.getString("vendorName") ?: "Unknown")
                     val vendorImage = Uri.decode(entry.arguments?.getString("vendorImage") ?: "")
+                    val vendorId = entry.arguments?.getString("vendorId") ?: ""
 
                     ChatDetailScreen(
                         navController = navController,
                         chatId = chatId,
                         vendorName = vendorName,
-                        vendorImageUrl = vendorImage
+                        vendorImageUrl = vendorImage,
+                        vendorId = vendorId
                     )
                 }
 
@@ -1042,19 +1057,13 @@ class MainActivity : ComponentActivity() {
 
                 composable(Routes.Cart) {
                     CartScreen(
-                        cartItems = cartItems,
                         onBack = { navController.popBackStack() },
+                        onCheckout = { navController.navigate(Routes.Checkout) },
                         onStartShopping = {
                             navController.navigate(Routes.Home) {
                                 popUpTo(Routes.Home)
                             }
                         },
-                        onRemoveItem = { id ->
-                            cartViewModel.removeFromCart(id)
-                        },
-                        onUpdateQuantity = { id, qty ->
-                            cartViewModel.updateQuantity(id, qty)
-                        }
                     )
                 }
 

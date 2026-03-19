@@ -4,55 +4,45 @@ import android.content.Context
 import android.net.Uri
 import com.example.bunnix.database.config.SupabaseConfig
 import io.github.jan.supabase.storage.storage
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.File
 import java.util.UUID
 
 object ChatStorage {
 
     private val storage = SupabaseConfig.client.storage
 
-    // UPLOAD CHAT IMAGE
-    suspend fun uploadChatImage(
-        context: Context,
-        chatId: String,
-        imageUri: Uri
-    ): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val file = uriToFile(context, imageUri)
-            val fileBytes = file.readBytes()
-            val messageId = UUID.randomUUID().toString()
-            val path = "$chatId/$messageId.jpg"
+    suspend fun uploadChatImage(context: Context, uri: Uri): Result<String> {
+        return try {
+            val bucket = storage["chat-images"]
+            val fileName = "images/${UUID.randomUUID()}.jpg"
 
-            val bucket = storage.from(SupabaseConfig.Buckets.CHAT_IMAGES)
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: throw Exception("Could not read file")
 
-            // ✅ CORRECT: Using options builder
-            bucket.upload(
-                path = path,
-                data = fileBytes,
-                upsert = false
-            )
+            // ✅ FIX: Pass upsert as a direct parameter, not in a lambda
+            bucket.upload(fileName, bytes, upsert = false)
 
-            val publicUrl = bucket.publicUrl(path)
-            file.delete()
-
+            val publicUrl = bucket.publicUrl(fileName)
             Result.success(publicUrl)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private fun uriToFile(context: Context, uri: Uri): File {
-        val inputStream = context.contentResolver.openInputStream(uri)
-            ?: throw Exception("Cannot open URI")
+    suspend fun uploadVoiceNote(context: Context, uri: Uri): Result<String> {
+        return try {
+            val bucket = storage["chat-audio"]
+            val fileName = "voice/${UUID.randomUUID()}.m4a"
 
-        val tempFile = File(context.cacheDir, "temp_${System.currentTimeMillis()}.jpg")
-        tempFile.outputStream().use { output ->
-            inputStream.copyTo(output)
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: throw Exception("Could not read audio file")
+
+            // ✅ FIX: Pass upsert as a direct parameter, not in a lambda
+            bucket.upload(fileName, bytes, upsert = false)
+
+            val publicUrl = bucket.publicUrl(fileName)
+            Result.success(publicUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
-        inputStream.close()
-
-        return tempFile
     }
 }
