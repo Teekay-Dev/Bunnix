@@ -44,7 +44,7 @@ class ProductViewModel @Inject constructor(
             _error.value = null
             try {
                 val snapshot = firestore.collection("products")
-                    .whereEqualTo("inStock", true)
+                    // REMOVE .whereEqualTo("inStock", true) temporarily
                     .get()
                     .await()
                 _products.value = snapshot.toObjects(Product::class.java)

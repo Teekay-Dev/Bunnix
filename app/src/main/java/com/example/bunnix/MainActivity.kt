@@ -701,7 +701,7 @@ class MainActivity : ComponentActivity() {
 
                 composable(Routes.ServiceList) {
 
-                    val serviceViewModel: ServiceViewModel = hiltViewModel()
+                    val serviceViewModel: ServiceViewModel = hiltViewModel() // BUT SEE NOTE BELOW
                     val services by serviceViewModel.services.collectAsState()
 
                     ServiceListScreen(

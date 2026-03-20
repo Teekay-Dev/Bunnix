@@ -42,6 +42,8 @@ private val StarYellow = Color(0xFFFFC107)
 private val DiscountRed = Color(0xFFEF4444)
 private val StockWarning = Color(0xFFFFA000)
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductListScreen(
