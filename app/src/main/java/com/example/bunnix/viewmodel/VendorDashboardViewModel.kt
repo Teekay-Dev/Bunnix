@@ -6,23 +6,19 @@ import com.example.bunnix.vendorUI.screens.vendor.dashboard.DashboardOrder
 import com.example.bunnix.vendorUI.screens.vendor.dashboard.DashboardStats
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import android.content.Context
-import com.google.firebase.firestore.Query
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import androidx.core.content.edit
 
 @HiltViewModel
 class VendorDashboardViewModel @Inject constructor(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore,
-    @ApplicationContext private val context: Context
+    private val firestore: FirebaseFirestore
 ) : ViewModel() {
 
     private val _dashboardStats = MutableStateFlow<DashboardStats?>(null)
@@ -31,17 +27,17 @@ class VendorDashboardViewModel @Inject constructor(
     private val _recentOrders = MutableStateFlow<List<DashboardOrder>>(emptyList())
     val recentOrders: StateFlow<List<DashboardOrder>> = _recentOrders.asStateFlow()
 
-    private val _businessName = MutableStateFlow<String?>(null)
-    val businessName: StateFlow<String?> = _businessName.asStateFlow()
-
-    private val _isVerified = MutableStateFlow(false)
-    val isVerified: StateFlow<Boolean> = _isVerified.asStateFlow()
-
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _businessName = MutableStateFlow<String?>(null)
+    val businessName: StateFlow<String?> = _businessName.asStateFlow()
+
+    private val _isVerified = MutableStateFlow(false)
+    val isVerified: StateFlow<Boolean> = _isVerified.asStateFlow()
 
     fun loadDashboardData() {
         viewModelScope.launch {
@@ -49,16 +45,21 @@ class VendorDashboardViewModel @Inject constructor(
                 _isLoading.value = true
                 _error.value = null
 
-                val userId = auth.currentUser?.uid ?: return@launch
-
-                // Load business name and verification status
-                loadBusinessInfo(userId)
+                // ✅ BUG 5 FIX: Proper error handling for auth
+                val userId = auth.currentUser?.uid ?: run {
+                    _isLoading.value = false
+                    _error.value = "Session expired. Please log in again."
+                    return@launch
+                }
 
                 // Load vendor stats
                 loadVendorStats(userId)
 
                 // Load recent orders
                 loadRecentOrders(userId)
+
+                // Load business name and verification status
+                loadVendorProfile(userId)
 
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load dashboard data"
@@ -68,16 +69,15 @@ class VendorDashboardViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadBusinessInfo(vendorId: String) {
+    private suspend fun loadVendorProfile(vendorId: String) {
         try {
-            val vendorProfile = firestore.collection("vendorProfiles")
+            val vendorDoc = firestore.collection("vendorProfiles")
                 .document(vendorId)
                 .get()
                 .await()
 
-            _businessName.value = vendorProfile.getString("businessName") ?: "My Business"
-            _isVerified.value = vendorProfile.getBoolean("isVerified") ?: false
-
+            _businessName.value = vendorDoc.getString("businessName") ?: "My Business"
+            _isVerified.value = vendorDoc.getBoolean("isVerified") ?: false
         } catch (e: Exception) {
             _businessName.value = "My Business"
             _isVerified.value = false
@@ -86,6 +86,14 @@ class VendorDashboardViewModel @Inject constructor(
 
     private suspend fun loadVendorStats(vendorId: String) {
         try {
+            // Get vendor profile
+            val vendorProfile = firestore.collection("vendorProfiles")
+                .document(vendorId)
+                .get()
+                .await()
+
+            val totalRevenue = vendorProfile.getDouble("totalRevenue") ?: 0.0
+
             // Get all completed orders
             val completedOrders = firestore.collection("orders")
                 .whereEqualTo("vendorId", vendorId)
@@ -98,32 +106,40 @@ class VendorDashboardViewModel @Inject constructor(
                 totalSales += doc.getDouble("totalAmount") ?: 0.0
             }
 
-            // Get all orders count
+            // Get total order count
+            val totalOrders = firestore.collection("orders")
+                .whereEqualTo("vendorId", vendorId)
+                .get()
+                .await()
+                .size()
+
+            // Get bookings count
+            val bookings = firestore.collection("bookings")
+                .whereEqualTo("vendorId", vendorId)
+                .get()
+                .await()
+                .size()
+
+            // Get unique customers count
+            val customerIds = mutableSetOf<String>()
             val allOrders = firestore.collection("orders")
                 .whereEqualTo("vendorId", vendorId)
                 .get()
                 .await()
 
-            val uniqueCustomers = mutableSetOf<String>()
             allOrders.documents.forEach { doc ->
-                doc.getString("userId")?.let { uniqueCustomers.add(it) }
+                doc.getString("customerId")?.let { customerIds.add(it) }
             }
-
-            // Get bookings
-            val bookings = firestore.collection("bookings")
-                .whereEqualTo("vendorId", vendorId)
-                .get()
-                .await()
 
             _dashboardStats.value = DashboardStats(
                 totalSales = totalSales,
-                totalOrders = allOrders.size(),
-                bookings = bookings.size(),
-                customers = uniqueCustomers.size
+                totalOrders = totalOrders,
+                bookings = bookings,
+                customers = customerIds.size
             )
 
         } catch (e: Exception) {
-            _dashboardStats.value = DashboardStats()
+            _error.value = "Failed to load stats: ${e.message}"
         }
     }
 
@@ -132,49 +148,31 @@ class VendorDashboardViewModel @Inject constructor(
             val ordersSnapshot = firestore.collection("orders")
                 .whereEqualTo("vendorId", vendorId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(3)
+                .limit(5)
                 .get()
                 .await()
 
-            val orders = mutableListOf<DashboardOrder>()
-
-            for (doc in ordersSnapshot.documents) {
+            val orders = ordersSnapshot.documents.mapNotNull { doc ->
                 try {
-                    val userId = doc.getString("userId") ?: continue
-
-                    val userDoc = firestore.collection("users")
-                        .document(userId)
-                        .get()
-                        .await()
-
-                    val customerName = userDoc.getString("name") ?: "Unknown Customer"
-
-                    val items = doc.get("items") as? List<*>
-                    val itemCount = items?.size ?: 0
-
-                    orders.add(
-                        DashboardOrder(
-                            orderId = doc.id,
-                            orderNumber = doc.getString("orderNumber") ?: "#${doc.id.take(6).uppercase()}",
-                            customerName = customerName,
-                            amount = doc.getDouble("totalAmount") ?: 0.0,
-                            itemCount = itemCount,
-                            status = doc.getString("status") ?: "pending"
-                        )
+                    DashboardOrder(
+                        orderId = doc.id,
+                        orderNumber = doc.getString("orderNumber") ?: "#${doc.id.take(8)}",
+                        customerName = doc.getString("customerName") ?: "Unknown Customer",
+                        amount = doc.getDouble("totalAmount") ?: 0.0,
+                        itemCount = (doc.get("items") as? List<*>)?.size ?: 1,
+                        status = doc.getString("status") ?: "pending"
                     )
                 } catch (e: Exception) {
-                    continue
+                    null
                 }
             }
 
             _recentOrders.value = orders
 
         } catch (e: Exception) {
-            _recentOrders.value = emptyList()
+            _error.value = "Failed to load orders: ${e.message}"
         }
     }
-
-    // Update this function:
 
     fun shouldShowVerificationPrompt(): Boolean {
         // Always returns true if not verified
@@ -184,9 +182,5 @@ class VendorDashboardViewModel @Inject constructor(
 
     fun markVerificationPromptSeen() {
         // Do nothing - handled by global flag in screen
-    }
-
-    fun refresh() {
-        loadDashboardData()
     }
 }

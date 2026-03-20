@@ -22,10 +22,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    // You might inject a Repository here, but we will use Collection objects directly for now
 ) : ViewModel() {
 
-    // ===== CHAT LIST STATE =====
     private val firestore = FirebaseFirestore.getInstance()
     private val userId = FirebaseManager.getCurrentUserId()
 
@@ -38,7 +36,6 @@ class ChatViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
-
 
     // ================== CHAT DETAIL STATE ==================
     private val _chatMessages = MutableStateFlow<List<Message>>(emptyList())
@@ -59,9 +56,7 @@ class ChatViewModel @Inject constructor(
     private val _vendorProfile = MutableStateFlow<VendorProfile?>(null)
     val vendorProfile: StateFlow<VendorProfile?> = _vendorProfile.asStateFlow()
 
-
     init {
-        // Automatically load chats when ViewModel is created
         loadCurrentUserChats()
     }
 
@@ -73,12 +68,9 @@ class ChatViewModel @Inject constructor(
                 _error.value = "User not logged in"
                 return@launch
             }
-
             _isLoading.value = true
             _error.value = null
-
             try {
-                // Observe real-time changes from ChatCollection
                 ChatCollection.getUserChats(userId).collectLatest { chats ->
                     _userChats.value = chats
                     _isLoading.value = false
@@ -101,7 +93,6 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
-
 
     fun getOrCreateChat(
         currentUserId: String,
@@ -134,17 +125,12 @@ class ChatViewModel @Inject constructor(
                         vendorId to 0
                     )
                 )
-
                 chatRef.set(newChat)
                     .addOnSuccessListener { onResult(chatId) }
             }
         }
     }
 
-
-    // --- Detail Screen Methods ---
-
-    fun observeChatMessages(chatId: String) {
     fun loadVendorProfile(vendorId: String) {
         viewModelScope.launch {
             _vendorProfile.value = VendorProfileCollection.getVendorProfile(vendorId).getOrNull()
@@ -206,5 +192,9 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             ChatCollection.markMessagesAsRead(chatId, userId)
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
     }
 }

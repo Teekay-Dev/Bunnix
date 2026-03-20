@@ -3,68 +3,61 @@ package com.example.bunnix.vendorUI.screens.vendor.orders
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.bunnix.ui.theme.LightGrayBg
 import com.example.bunnix.ui.theme.OrangePrimaryModern
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersBookingsScreen(
     navController: NavController
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Orders & Bookings",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = OrangePrimaryModern
-                )
-            )
-        },
-        containerColor = Color(0xFFF8F9FE)
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+    // ✅ NO SCAFFOLD - Just Column to avoid nested Scaffold issue
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(LightGrayBg)
+    ) {
+        // ✅ Simple header (NO back arrow - this is a bottom nav destination)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = OrangePrimaryModern,
+            shadowElevation = 4.dp
         ) {
-            // Custom Tab Row
-            CustomTabRow(
-                selectedTabIndex = selectedTab,
-                onTabClick = { selectedTab = it }
-            )
-
-            // Content based on selected tab
-            when (selectedTab) {
-                0 -> ProductOrdersScreen(navController)
-                1 -> ServiceBookingsScreen(navController)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Orders & Bookings",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
+        }
+
+        // Custom Tab Row
+        CustomTabRow(
+            selectedTabIndex = selectedTab,
+            onTabClick = { selectedTab = it }
+        )
+
+        // Content based on selected tab
+        when (selectedTab) {
+            0 -> ProductOrdersScreen(navController)
+            1 -> ServiceBookingsScreen(navController)
         }
     }
 }

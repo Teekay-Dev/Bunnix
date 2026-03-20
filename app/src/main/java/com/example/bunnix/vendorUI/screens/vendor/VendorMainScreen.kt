@@ -18,8 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.bunnix.ui.theme.LightGrayBg
-import com.example.bunnix.ui.theme.OrangePrimaryModern
+import com.example.bunnix.ui.theme.OrangePrimary
 import com.example.bunnix.vendorUI.navigation.VendorNavHost
 import com.example.bunnix.vendorUI.navigation.VendorRoutes
 
@@ -31,16 +30,17 @@ fun VendorMainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    Column(
+    // 🔥 ULTRA VISIBLE DEBUG VERSION
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(LightGrayBg)
+            .background(Color(0xFFF8F9FA))
     ) {
         // Main Content
         Box(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+                .fillMaxSize()
+                .padding(bottom = 90.dp) // ✅ LEAVE SPACE FOR BOTTOM NAV
         ) {
             VendorNavHost(
                 navController = navController,
@@ -49,18 +49,18 @@ fun VendorMainScreen(
             )
         }
 
-        // ✅ HARDCODED BOTTOM NAV - NO EXTERNAL COMPOSABLE
-        Surface(
+        // ✅ BRIGHT RED BOTTOM NAV - IMPOSSIBLE TO MISS
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp),
-            shadowElevation = 8.dp,
-            color = Color.White
+                .height(90.dp)
+                .align(Alignment.BottomCenter)
+                .background(Color.Red) // 🔥 BRIGHT RED FOR DEBUGGING
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -74,21 +74,20 @@ fun VendorMainScreen(
                                 popUpTo(VendorRoutes.DASHBOARD) { inclusive = true }
                             }
                         }
+                        .padding(8.dp)
                 ) {
                     Icon(
                         imageVector = if (currentRoute == VendorRoutes.DASHBOARD)
                             Icons.Filled.Dashboard else Icons.Outlined.Dashboard,
                         contentDescription = "Dashboard",
-                        tint = if (currentRoute == VendorRoutes.DASHBOARD)
-                            OrangePrimaryModern else Color.Gray,
-                        modifier = Modifier.size(24.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Dashboard",
-                        fontSize = 12.sp,
-                        color = if (currentRoute == VendorRoutes.DASHBOARD)
-                            OrangePrimaryModern else Color.Gray,
+                        fontSize = 13.sp,
+                        color = Color.White,
                         fontWeight = if (currentRoute == VendorRoutes.DASHBOARD)
                             FontWeight.Bold else FontWeight.Normal
                     )
@@ -106,21 +105,20 @@ fun VendorMainScreen(
                                 restoreState = true
                             }
                         }
+                        .padding(8.dp)
                 ) {
                     Icon(
                         imageVector = if (currentRoute == VendorRoutes.ORDERS)
                             Icons.Filled.ShoppingBag else Icons.Outlined.ShoppingBag,
                         contentDescription = "Orders",
-                        tint = if (currentRoute == VendorRoutes.ORDERS)
-                            OrangePrimaryModern else Color.Gray,
-                        modifier = Modifier.size(24.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Orders",
-                        fontSize = 12.sp,
-                        color = if (currentRoute == VendorRoutes.ORDERS)
-                            OrangePrimaryModern else Color.Gray,
+                        fontSize = 13.sp,
+                        color = Color.White,
                         fontWeight = if (currentRoute == VendorRoutes.ORDERS)
                             FontWeight.Bold else FontWeight.Normal
                     )
@@ -138,21 +136,20 @@ fun VendorMainScreen(
                                 restoreState = true
                             }
                         }
+                        .padding(8.dp)
                 ) {
                     Icon(
                         imageVector = if (currentRoute == VendorRoutes.MESSAGES)
                             Icons.AutoMirrored.Filled.Message else Icons.AutoMirrored.Outlined.Message,
                         contentDescription = "Messages",
-                        tint = if (currentRoute == VendorRoutes.MESSAGES)
-                            OrangePrimaryModern else Color.Gray,
-                        modifier = Modifier.size(24.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Messages",
-                        fontSize = 12.sp,
-                        color = if (currentRoute == VendorRoutes.MESSAGES)
-                            OrangePrimaryModern else Color.Gray,
+                        fontSize = 13.sp,
+                        color = Color.White,
                         fontWeight = if (currentRoute == VendorRoutes.MESSAGES)
                             FontWeight.Bold else FontWeight.Normal
                     )
@@ -170,21 +167,20 @@ fun VendorMainScreen(
                                 restoreState = true
                             }
                         }
+                        .padding(8.dp)
                 ) {
                     Icon(
                         imageVector = if (currentRoute == VendorRoutes.PROFILE)
                             Icons.Filled.Person else Icons.Outlined.Person,
                         contentDescription = "Profile",
-                        tint = if (currentRoute == VendorRoutes.PROFILE)
-                            OrangePrimaryModern else Color.Gray,
-                        modifier = Modifier.size(24.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Profile",
-                        fontSize = 12.sp,
-                        color = if (currentRoute == VendorRoutes.PROFILE)
-                            OrangePrimaryModern else Color.Gray,
+                        fontSize = 13.sp,
+                        color = Color.White,
                         fontWeight = if (currentRoute == VendorRoutes.PROFILE)
                             FontWeight.Bold else FontWeight.Normal
                     )

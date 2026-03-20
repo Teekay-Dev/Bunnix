@@ -25,8 +25,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.bunnix.ui.theme.*
-import com.example.bunnix.vendorUI.components.ShimmerLoading
 import com.example.bunnix.viewmodel.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -48,17 +48,20 @@ fun ChatConversationScreen(
     var customerName by remember { mutableStateOf("") }
     var customerAvatar by remember { mutableStateOf("") }
 
+    // ✅ FIX: Get current user ID without accessing private auth field
+    val currentUserId = remember {
+        FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    }
+
     LaunchedEffect(chatId) {
         viewModel.loadMessages(chatId)
 
-        // Load customer info from first conversation
         val conversations = viewModel.conversations.value
         val currentChat = conversations.find { it.chatId == chatId }
         customerName = currentChat?.customerName ?: "Customer"
         customerAvatar = currentChat?.customerAvatar ?: ""
     }
 
-    // Auto scroll to bottom when new message arrives
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             scope.launch {
@@ -67,160 +70,165 @@ fun ChatConversationScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
+    // ✅ NO SCAFFOLD - Use Column to avoid nested Scaffold issue
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+    ) {
+        // Top Bar
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = OrangePrimary,
+            shadowElevation = 4.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                IconButton(onClick = { navController.navigateUp() }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (customerAvatar.isNotBlank()) {
+                        AsyncImage(
+                            model = customerAvatar,
+                            contentDescription = "Customer",
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(Color.White.copy(alpha = 0.2f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (customerAvatar.isNotBlank()) {
-                                AsyncImage(
-                                    model = customerAvatar,
-                                    contentDescription = "Customer",
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Customer",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-
-                        Text(
-                            text = customerName,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
                         )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
+                    } else {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Customer",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = OrangePrimaryModern
-                )
-            )
-        },
-        containerColor = LightGrayBg
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Messages List
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = customerName,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Active now",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+
+                IconButton(onClick = { /* TODO: More options */ }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More",
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+
+        // Messages List
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = OrangePrimary)
+            }
+        } else {
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .weight(1f),
                 state = listState,
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (isLoading && messages.isEmpty()) {
-                    items(5) {
-                        ShimmerMessageBubble()
-                    }
-                } else if (messages.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No messages yet\nSay hello!",
-                                color = TextSecondary,
-                                fontSize = 14.sp,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
-                    }
-                } else {
-                    items(messages) { message ->
-                        ChatBubble(
-                            message = message,
-                            currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                        )
-                    }
+                items(messages) { message ->
+                    ChatBubble(
+                        message = message,
+                        currentUserId = currentUserId  // ✅ Pass userId here
+                    )
                 }
             }
+        }
 
-            // Message Input
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                shadowElevation = 8.dp
+        // ✅ FIXED MESSAGE INPUT BAR - BLACK TEXT
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White,
+            shadowElevation = 8.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = messageInput,
-                        onValueChange = { messageInput = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = {
-                            Text(
-                                text = "Type a message...",
-                                color = TextSecondary
-                            )
-                        },
-                        shape = RoundedCornerShape(50.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color.LightGray,
-                            focusedBorderColor = OrangePrimaryModern
-                        ),
-                        maxLines = 4
-                    )
+                OutlinedTextField(
+                    value = messageInput,
+                    onValueChange = { messageInput = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            text = "Type a message...",
+                            color = Color.Gray
+                        )
+                    },
+                    shape = RoundedCornerShape(50.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color.LightGray,
+                        focusedBorderColor = OrangePrimary,
+                        cursorColor = OrangePrimary,
+                        // ✅ FIX: BLACK TEXT COLOR
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black
+                    ),
+                    maxLines = 4
+                )
 
-                    FloatingActionButton(
-                        onClick = {
-                            if (messageInput.isNotBlank()) {
-                                viewModel.sendMessage(chatId, messageInput.trim())
-                                messageInput = ""
-                                scope.launch {
-                                    listState.animateScrollToItem(messages.size)
-                                }
-                            }
-                        },
-                        modifier = Modifier.size(56.dp),
-                        containerColor = OrangePrimaryModern,
-                        elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 0.dp
+                IconButton(
+                    onClick = {
+                        if (messageInput.isNotBlank()) {
+                            viewModel.sendMessage(chatId, messageInput)
+                            messageInput = ""
+                        }
+                    },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            if (messageInput.isNotBlank()) OrangePrimary else Color.LightGray,
+                            CircleShape
                         )
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = Color.White
-                        )
-                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -238,35 +246,69 @@ fun ChatBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isVendor) Arrangement.End else Arrangement.Start
     ) {
-        Card(
+        if (!isVendor) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(Color.LightGray, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Customer",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Column(
             modifier = Modifier.widthIn(max = 280.dp),
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isVendor) 16.dp else 4.dp,
-                bottomEnd = if (isVendor) 4.dp else 16.dp
-            ),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isVendor) OrangePrimaryModern else Color.White
-            ),
-            elevation = CardDefaults.cardElevation(2.dp)
+            horizontalAlignment = if (isVendor) Alignment.End else Alignment.Start
         ) {
-            Column(
-                modifier = Modifier.padding(12.dp)
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = if (isVendor) OrangePrimary else Color.White,
+                        shape = RoundedCornerShape(
+                            topStart = 16.dp,
+                            topEnd = 16.dp,
+                            bottomStart = if (isVendor) 16.dp else 4.dp,
+                            bottomEnd = if (isVendor) 4.dp else 16.dp
+                        )
+                    )
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Text(
                     text = message.text,
-                    fontSize = 14.sp,
-                    color = if (isVendor) Color.White else TextPrimary
+                    color = if (isVendor) Color.White else Color.Black,
+                    fontSize = 15.sp
                 )
+            }
 
-                Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-                Text(
-                    text = formatTimestamp(message.timestamp),
-                    fontSize = 11.sp,
-                    color = if (isVendor) Color.White.copy(alpha = 0.7f) else TextSecondary,
-                    modifier = Modifier.align(Alignment.End)
+            Text(
+                text = formatTimestamp(message.timestamp),
+                fontSize = 11.sp,
+                color = Color.Gray
+            )
+        }
+
+        if (isVendor) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(OrangePrimary.copy(alpha = 0.2f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Store,
+                    contentDescription = "You",
+                    tint = OrangePrimary,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -274,24 +316,6 @@ fun ChatBubble(
 }
 
 fun formatTimestamp(timestamp: Long): String {
-    return try {
-        val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
-        sdf.format(Date(timestamp))
-    } catch (e: Exception) {
-        "Now"
-    }
-}
-
-@Composable
-fun ShimmerMessageBubble() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
-    ) {
-        ShimmerLoading(
-            modifier = Modifier
-                .width(200.dp)
-                .height(60.dp)
-        )
-    }
+    val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+    return sdf.format(Date(timestamp))
 }
