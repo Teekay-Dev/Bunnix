@@ -7,6 +7,9 @@ import com.example.bunnix.database.firebase.collections.ChatCollection
 import com.example.bunnix.database.firebase.collections.VendorProfileCollection
 import com.example.bunnix.database.models.Chat
 import com.example.bunnix.database.models.Message
+import com.example.bunnix.database.models.ParticipantInfo
+import com.example.bunnix.domain.repository.AuthRepository
+import com.example.bunnix.domain.repository.ChatRepository
 import com.example.bunnix.database.models.VendorProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,12 +18,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     // You might inject a Repository here, but we will use Collection objects directly for now
 ) : ViewModel() {
 
+    // ===== CHAT LIST STATE =====
+    private val firestore = FirebaseFirestore.getInstance()
     private val userId = FirebaseManager.getCurrentUserId()
 
     // ================== CHAT LIST STATE ==================
@@ -96,6 +102,49 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+
+    fun getOrCreateChat(
+        currentUserId: String,
+        vendorId: String,
+        vendorName: String,
+        vendorImage: String,
+        onResult: (String) -> Unit
+    ) {
+        val chatId = if (currentUserId < vendorId)
+            "$currentUserId-$vendorId"
+        else
+            "$vendorId-$currentUserId"
+
+        val chatRef = firestore.collection("chats").document(chatId)
+
+        chatRef.get().addOnSuccessListener { doc ->
+            if (doc.exists()) {
+                onResult(chatId)
+            } else {
+                val newChat = Chat(
+                    chatId = chatId,
+                    participants = listOf(currentUserId, vendorId),
+                    participantDetails = mapOf(
+                        currentUserId to ParticipantInfo("You", "", false),
+                        vendorId to ParticipantInfo(vendorName, vendorImage, true)
+                    ),
+                    lastMessage = "",
+                    unreadCount = mapOf(
+                        currentUserId to 0,
+                        vendorId to 0
+                    )
+                )
+
+                chatRef.set(newChat)
+                    .addOnSuccessListener { onResult(chatId) }
+            }
+        }
+    }
+
+
+    // --- Detail Screen Methods ---
+
+    fun observeChatMessages(chatId: String) {
     fun loadVendorProfile(vendorId: String) {
         viewModelScope.launch {
             _vendorProfile.value = VendorProfileCollection.getVendorProfile(vendorId).getOrNull()

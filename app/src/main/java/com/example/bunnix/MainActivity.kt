@@ -64,6 +64,8 @@ import androidx.core.view.WindowCompat
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bunnix.presentation.viewmodel.ChatViewModel
 import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.database.firebase.collections.CartCollection
 
@@ -631,6 +633,9 @@ class MainActivity : ComponentActivity() {
                     val vendorId = entry.arguments?.getString("vendorId") ?: ""
                     val vendorViewModel: VendorViewModel = hiltViewModel()
 
+                    val chatViewModel: ChatViewModel = hiltViewModel()
+                    val userViewModel: UserViewModel = hiltViewModel()
+                    val currentUser by userViewModel.user.collectAsState()
                     val vendor by vendorViewModel.vendorProfile.collectAsState()
                     val isLoading by vendorViewModel.isLoading.collectAsState()
                     val error by vendorViewModel.error.collectAsState()
@@ -652,10 +657,16 @@ class MainActivity : ComponentActivity() {
                             vendor = vendor!!,
                             onBack = { navController.popBackStack() },
                             onChat = {
-                                val vName = android.net.Uri.encode(vendor!!.businessName)
-                                val vImage = android.net.Uri.encode(vendor!!.coverPhotoUrl)
-                                val chatId = "chat_${FirebaseManager.getCurrentUserId()}_${vendorId}"
-                                navController.navigate("chat_detail/$chatId/$vName/$vImage")
+                                currentUser?.let { user ->
+                                    chatViewModel.getOrCreateChat(
+                                        currentUserId = user.userId,
+                                        vendorId = vendor!!.vendorId,
+                                        vendorName = vendor!!.businessName,
+                                        vendorImage = ""
+                                    ) { chatId ->
+                                        navController.navigate("chat_detail/$chatId")
+                                    }
+                                }
                             }
                         )
 
