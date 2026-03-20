@@ -1,5 +1,6 @@
 package com.example.bunnix.frontend
 
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -247,15 +248,15 @@ fun NotificationScreen(
                                 NotificationCard(
                                     notification = notification,
                                     onClick = {
-                                        // ✅ Mark as read when clicked
                                         notificationViewModel.markAsRead(notification.notificationId)
-
-                                        // Navigate based on type
                                         when (notification.relatedType) {
-                                            "order" -> navController.navigate("order_detail/${notification.relatedId}")
-                                            "booking" -> navController.navigate("booking_detail/${notification.relatedId}")
-                                            "chat" -> navController.navigate("chat_detail/${notification.relatedId}")
-                                            else -> { }
+                                            "order" -> navController.navigate("track_order/${notification.relatedId}")
+                                            "booking" -> navController.navigate("booking/${Uri.encode(notification.relatedId)}")
+                                            "chat" -> {
+                                                val chatId = Uri.encode(notification.relatedId)
+                                                navController.navigate("chat_detail/$chatId/Message//")
+                                            }
+                                            else -> { } // payment, system — just mark as read, no navigation
                                         }
                                     },
                                     onDismiss = {

@@ -36,6 +36,8 @@ import com.example.bunnix.presentation.viewmodel.AuthViewModel
 import com.google.firebase.Timestamp
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 
 @AndroidEntryPoint
 class SignupActivity : ComponentActivity() {
@@ -58,14 +60,15 @@ class SignupActivity : ComponentActivity() {
                     startActivity(Intent(this, LoginActivity::class.java))
                     finish()
                 },
-                onSignupSuccess = { user, password ->
-                    authViewModel.initiateSignup(user, password)
+                onSignupSuccess = { user, password, vendorData ->
+                    authViewModel.initiateSignup(user, password, vendorData)
                 }
             )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
@@ -73,7 +76,7 @@ fun SignupScreen(
     currentMode: String = "customer",
     verificationStep: VerificationStep = VerificationStep.IDLE, // NEW PARAM
     onLoginClick: () -> Unit,
-    onSignupSuccess: (User, String) -> Unit
+    onSignupSuccess: (User, String, com.example.bunnix.database.models.VendorProfile?) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -83,6 +86,7 @@ fun SignupScreen(
     var fullName by remember { mutableStateOf("") }
     var businessName by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
+    var businessCategory by remember { mutableStateOf("") }
     var isCustomer by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
@@ -223,6 +227,59 @@ fun SignupScreen(
                 Spacer(Modifier.height(14.dp))
                 IconTextField(businessAddress, { businessAddress = it }, "Business Address", Icons.Default.LocationOn, isVerificationInProgress, KeyboardType.Text)
                 Spacer(Modifier.height(14.dp))
+
+
+                // REPLACE the entire Box { OutlinedTextField + DropdownMenu } block with:
+
+                var expanded by remember { mutableStateOf(false) }
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { if (!isVerificationInProgress) expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = businessCategory,
+                        onValueChange = {},
+                        placeholder = { Text("Select Category", color = Color(0xFFB0B0B0)) },
+                        leadingIcon = { Icon(Icons.Default.Category, null, tint = Color(0xFF999999)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        readOnly = true,
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
+                            focusedBorderColor = Color(0xFFFF7900),
+                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                            cursorColor = Color(0xFFFF7900)
+                        ),
+                        enabled = !isVerificationInProgress
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.background(Color.White)
+                    ) {
+                        listOf("Food","Fashion","Events","Home","Beauty","Tech","Sports","Health","Versatile")
+                            .forEach { option ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            option,
+                                            color = if (option == businessCategory) Color(0xFFFF7900) else Color(0xFF1A1A1A),
+                                            fontWeight = if (option == businessCategory) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    onClick = { businessCategory = option; expanded = false }
+                                )
+                            }
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
             }
 
             IconTextField(email, { email = it }, "Email Address", Icons.Default.Email, isVerificationInProgress, KeyboardType.Email)
@@ -289,8 +346,8 @@ fun SignupScreen(
                             Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
-                        if (!isCustomer && (businessName.isBlank() || businessAddress.isBlank())) {
-                            Toast.makeText(context, "Business details required", Toast.LENGTH_SHORT).show()
+                        if (!isCustomer && (businessName.isBlank() || businessAddress.isBlank() || businessCategory.isBlank())) {
+                            Toast.makeText(context, "Please fill all business details including category", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
                         if (password.trim() != confirm.trim()) {
@@ -310,7 +367,20 @@ fun SignupScreen(
                             createdAt = Timestamp.now(),
                             lastActive = Timestamp.now()
                         )
-                        onSignupSuccess(newUser, password)
+
+                        if (!isCustomer) {
+                            val vendorData = com.example.bunnix.database.models.VendorProfile(
+                                vendorId = "",
+                                businessName = businessName,
+                                category = businessCategory,
+                                address = businessAddress,
+                                phone = phone,
+                                email = email
+                            )
+                            onSignupSuccess(newUser, password, vendorData)
+                        } else {
+                            onSignupSuccess(newUser, password, null)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),

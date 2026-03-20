@@ -112,44 +112,78 @@ fun ProductListScreen(
                 .navigationBarsPadding()
                 .padding(padding)
         ) {
-            SimpleSearchBar(
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-                onFilterClick = { showFilterMenu = true }
-            )
-
-            DropdownMenu(
-                expanded = showFilterMenu,
-                onDismissRequest = { showFilterMenu = false }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                DropdownMenuItem(
-                    text = { Text("All") },
-                    onClick = {
-                        selectedFilter = "All"
-                        showFilterMenu = false
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = CardBackground
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(Icons.Default.Search, null, tint = TextSecondary,
+                            modifier = Modifier.size(20.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.weight(1f),
+                            textStyle = LocalTextStyle.current.copy(
+                                fontSize = 15.sp, color = TextPrimary),
+                            singleLine = true,
+                            decorationBox = { inner ->
+                                if (searchQuery.isEmpty()) {
+                                    Text("Search products...", fontSize = 15.sp, color = TextSecondary)
+                                }
+                                inner()
+                            }
+                        )
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" },
+                                modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Close, null, tint = TextSecondary,
+                                    modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text("Popular") },
-                    onClick = {
-                        selectedFilter = "Popular"
-                        showFilterMenu = false
+                }
+
+                // Filter button with ANCHORED dropdown
+                Box {
+                    Surface(
+                        onClick = { showFilterMenu = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = CardBackground,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Tune, null, tint = OrangePrimary,
+                                modifier = Modifier.size(22.dp))
+                        }
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text("Cheap") },
-                    onClick = {
-                        selectedFilter = "Cheap"
-                        showFilterMenu = false
+                    DropdownMenu(
+                        expanded = showFilterMenu,
+                        onDismissRequest = { showFilterMenu = false }
+                    ) {
+                        DropdownMenuItem(text = { Text("All") },
+                            onClick = { selectedFilter = "All"; showFilterMenu = false })
+                        DropdownMenuItem(text = { Text("Popular") },
+                            onClick = { selectedFilter = "Popular"; showFilterMenu = false })
+                        DropdownMenuItem(text = { Text("Cheap") },
+                            onClick = { selectedFilter = "Cheap"; showFilterMenu = false })
+                        DropdownMenuItem(text = { Text("Expensive") },
+                            onClick = { selectedFilter = "Expensive"; showFilterMenu = false })
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text("Expensive") },
-                    onClick = {
-                        selectedFilter = "Expensive"
-                        showFilterMenu = false
-                    }
-                )
+                }
             }
 
             if (filteredProducts.isEmpty()) {
