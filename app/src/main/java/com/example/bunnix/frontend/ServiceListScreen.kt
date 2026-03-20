@@ -25,7 +25,6 @@ import com.example.bunnix.database.models.Service
 import java.text.NumberFormat
 import java.util.*
 
-// ===== SIMPLE COLORS =====
 private val OrangePrimary = Color(0xFFFF6B35)
 private val BackgroundWhite = Color(0xFFFFFFFF)
 private val CardBackground = Color(0xFFF8F9FA)
@@ -44,22 +43,16 @@ fun ServiceListScreen(
     var selectedTab by remember { mutableStateOf("All") }
     var showFilterMenu by remember { mutableStateOf(false) }
 
-    // Simple filtering
     val filteredServices = remember(services, searchQuery, selectedTab) {
         services.filter { service ->
-
-            val matchesSearch =
-                searchQuery.isBlank() ||
-                        service.name.contains(searchQuery, true) ||
-                        service.vendorName.contains(searchQuery, true) ||
-                        service.category.contains(searchQuery, true)
-
+            val matchesSearch = searchQuery.isBlank() ||
+                    service.name.contains(searchQuery, true) ||
+                    service.vendorName.contains(searchQuery, true) ||
+                    service.category.contains(searchQuery, true)
             val matchesTab = when (selectedTab) {
                 "Popular" -> service.rating >= 4.5
-                "Nearby" -> true
                 else -> true
             }
-
             matchesSearch && matchesTab
         }
     }
@@ -67,107 +60,109 @@ fun ServiceListScreen(
     Scaffold(
         containerColor = BackgroundWhite,
         topBar = {
-            // Simple Top Bar
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        "Service Lists",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = TextPrimary
-                    )
+                    Text("Service Lists", fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp, color = TextPrimary)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = TextPrimary
-                        )
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = BackgroundWhite
-                )
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = BackgroundWhite)
             )
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            // Simple Search Bar
-            SimpleSearchBar(
-                query = searchQuery,
-                onQueryChange = { searchQuery = it },
-                onFilterClick = { showFilterMenu = true }
-            )
-
-            DropdownMenu(
-                expanded = showFilterMenu,
-                onDismissRequest = { showFilterMenu = false }
+            // Search + Filter row with anchored dropdown
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                DropdownMenuItem(
-                    text = { Text("All") },
-                    onClick = {
-                        selectedTab = "All"
-                        showFilterMenu = false
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = CardBackground
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(Icons.Default.Search, null, tint = TextSecondary,
+                            modifier = Modifier.size(20.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.weight(1f),
+                            textStyle = LocalTextStyle.current.copy(
+                                fontSize = 15.sp, color = TextPrimary),
+                            singleLine = true,
+                            decorationBox = { inner ->
+                                if (searchQuery.isEmpty()) {
+                                    Text("Search service..", fontSize = 15.sp, color = TextSecondary)
+                                }
+                                inner()
+                            }
+                        )
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" },
+                                modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Close, null, tint = TextSecondary,
+                                    modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text("Popular") },
-                    onClick = {
-                        selectedTab = "Popular"
-                        showFilterMenu = false
+                }
+
+                // Filter button with ANCHORED dropdown
+                Box {
+                    Surface(
+                        onClick = { showFilterMenu = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = CardBackground,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Tune, null, tint = OrangePrimary,
+                                modifier = Modifier.size(22.dp))
+                        }
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text("Nearby") },
-                    onClick = {
-                        selectedTab = "Nearby"
-                        showFilterMenu = false
+                    DropdownMenu(
+                        expanded = showFilterMenu,
+                        onDismissRequest = { showFilterMenu = false }
+                    ) {
+                        DropdownMenuItem(text = { Text("All") },
+                            onClick = { selectedTab = "All"; showFilterMenu = false })
+                        DropdownMenuItem(text = { Text("Popular") },
+                            onClick = { selectedTab = "Popular"; showFilterMenu = false })
+                        DropdownMenuItem(text = { Text("Nearby") },
+                            onClick = { selectedTab = "Nearby"; showFilterMenu = false })
                     }
-                )
+                }
             }
 
-            // Service List
             if (services.isEmpty()) {
-                // 🔥 No data from backend
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "No services available yet",
-                        fontSize = 18.sp,
-                        color = TextSecondary
-                    )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No services available yet", fontSize = 18.sp, color = TextSecondary)
                 }
             } else if (filteredServices.isEmpty()) {
-                // 🔍 Search/filter empty
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.SearchOff,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Text(
-                            "No services found",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextPrimary
-                        )
-
+                        Icon(Icons.Default.SearchOff, null, tint = TextSecondary,
+                            modifier = Modifier.size(64.dp))
+                        Text("No services found", fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium, color = TextPrimary)
                         if (searchQuery.isNotBlank()) {
-                            TextButton(onClick = { searchQuery = "" }) {
-                                Text("Clear search")
-                            }
+                            TextButton(onClick = { searchQuery = "" }) { Text("Clear search") }
                         }
                     }
                 }
@@ -177,299 +172,101 @@ fun ServiceListScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(
-                        items = filteredServices,
-                        key = { it.serviceId }
-                    ) { service ->
-                        SimpleServiceCard(
-                            service = service,
-                            onClick = { onServiceClick(service) }
-                        )
+                    items(items = filteredServices, key = { it.serviceId }) { service ->
+                        SimpleServiceCard(service = service, onClick = { onServiceClick(service) })
                     }
-
-                    // Bottom spacing
-                    item {
-                        Spacer(modifier = Modifier.height(80.dp))
-                    }
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
                 }
             }
         }
     }
 }
 
-
-// ===== SIMPLE SEARCH BAR =====
 @Composable
-private fun SimpleSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onFilterClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Search Box
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(12.dp),
-            color = CardBackground
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
-
-                BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    modifier = Modifier.weight(1f),
-                    textStyle = LocalTextStyle.current.copy(
-                        fontSize = 15.sp,
-                        color = TextPrimary
-                    ),
-                    singleLine = true,
-                    decorationBox = { innerTextField ->
-                        if (query.isEmpty()) {
-                            Text(
-                                "Search service..",
-                                fontSize = 15.sp,
-                                color = TextSecondary
-                            )
-                        }
-                        innerTextField()
-                    }
-                )
-
-                if (query.isNotEmpty()) {
-                    IconButton(
-                        onClick = { onQueryChange("") },
-                        modifier = Modifier.size(20.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Clear",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Filter Icon (optional)
-        Surface(
-            onClick = onFilterClick,
-            shape = RoundedCornerShape(12.dp),
-            color = CardBackground,
-            modifier = Modifier.size(48.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Default.Tune,
-                    contentDescription = "Filter",
-                    tint = OrangePrimary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-
-    }
-
-
-}
-
-// ===== SIMPLE SERVICE CARD (Like doctor card in image) =====
-@Composable
-private fun SimpleServiceCard(
-    service: Service,
-    onClick: () -> Unit
-) {
-    Surface(
+private fun SimpleServiceCard(service: Service, onClick: () -> Unit) {
+    Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = CardBackground
+        colors = CardDefaults.cardColors(containerColor = CardBackground)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // ===== LEFT: Service Image (Round) =====
-            Surface(
-                modifier = Modifier.size(80.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White
-            ) {
+            Surface(modifier = Modifier.size(80.dp), shape = RoundedCornerShape(12.dp),
+                color = Color.White) {
                 if (service.imageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(service.imageUrl)
-                            .crossfade(true)
-                            .build(),
+                            .data(service.imageUrl).crossfade(true).build(),
                         contentDescription = service.name,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    // Placeholder
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Build,
-                            contentDescription = null,
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Build, null,
                             tint = OrangePrimary.copy(alpha = 0.5f),
-                            modifier = Modifier.size(32.dp)
-                        )
+                            modifier = Modifier.size(32.dp))
                     }
                 }
             }
 
-            // ===== RIGHT: Service Info =====
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Service Name
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+            Column(modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        service.name,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Rating Badge
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = StarYellow,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            "%.1f".format(service.rating),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(service.name, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                        color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, null, tint = StarYellow,
+                            modifier = Modifier.size(16.dp))
+                        Text("%.1f".format(service.rating), fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold, color = TextPrimary)
                     }
                 }
 
-                // Category
-                Text(
-                    service.category,
-                    fontSize = 14.sp,
-                    color = TextSecondary,
-                    maxLines = 1
-                )
+                Text(service.category, fontSize = 14.sp, color = TextSecondary, maxLines = 1)
 
-                // Vendor Name & Location
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = TextSecondary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        service.vendorName,
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.LocationOn, null, tint = TextSecondary,
+                        modifier = Modifier.size(14.dp))
+                    Text(service.vendorName, fontSize = 13.sp, color = TextSecondary,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Duration & Price Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Left: Duration & Price
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Schedule,
-                                contentDescription = null,
-                                tint = OrangePrimary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                "${service.duration} mins",
-                                fontSize = 13.sp,
-                                color = TextSecondary,
-                                fontWeight = FontWeight.Medium
-                            )
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Schedule, null, tint = OrangePrimary,
+                                modifier = Modifier.size(14.dp))
+                            Text("${service.duration} mins", fontSize = 13.sp,
+                                color = TextSecondary, fontWeight = FontWeight.Medium)
                         }
-
-                        Text(
-                            formatCurrency(service.price),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = OrangePrimary
-                        )
+                        Text(formatServiceCurrency(service.price), fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold, color = OrangePrimary)
                     }
-
-                    // ✅ RIGHT: SMALL BOOK BUTTON
                     Button(
                         onClick = onClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = OrangePrimary
-                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = OrangePrimary),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                         modifier = Modifier.height(40.dp)
                     ) {
-                        Icon(
-                            Icons.Default.CalendarToday,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            "Book",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Book", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -477,20 +274,14 @@ private fun SimpleServiceCard(
     }
 }
 
-// ===== HELPER FUNCTION =====
-private fun formatCurrency(amount: Double): String {
+private fun formatServiceCurrency(amount: Double): String {
     val formatter = NumberFormat.getCurrencyInstance(Locale("en", "NG"))
     formatter.currency = java.util.Currency.getInstance("NGN")
     return formatter.format(amount).replace("NGN", "₦")
 }
 
-// ===== PREVIEW =====
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ServiceListScreenPreview() {
-    ServiceListScreen(
-        services = emptyList(),
-        onBack = {},
-        onServiceClick = {}
-    )
+    ServiceListScreen(services = emptyList(), onBack = {}, onServiceClick = {})
 }
