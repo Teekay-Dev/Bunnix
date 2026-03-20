@@ -1,6 +1,7 @@
 package com.example.bunnix.database.firebase.collections
 
 import com.example.bunnix.database.config.FirebaseConfig
+import com.example.bunnix.database.config.FirebaseConfig.firestore
 import com.example.bunnix.database.models.Chat
 import com.example.bunnix.database.models.Message
 import com.google.firebase.Timestamp
@@ -58,7 +59,7 @@ object ChatCollection {
 
     // GET USER CHATS (Real-time)
     fun getUserChats(userId: String): Flow<List<Chat>> = callbackFlow {
-        val listener = chatsCollection
+        val listener =  firestore.collection("chats")
             .whereArrayContains("participants", userId)
             .orderBy("lastMessageTime", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->

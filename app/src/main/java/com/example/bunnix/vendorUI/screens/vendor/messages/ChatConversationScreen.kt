@@ -28,6 +28,8 @@ import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.ShimmerLoading
 import com.example.bunnix.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,16 +39,23 @@ fun ChatConversationScreen(
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val messages by viewModel.messages.collectAsState()
-    val messageText by viewModel.messageText.collectAsState()
-    val customerInfo by viewModel.customerInfo.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
+    var messageInput by remember { mutableStateOf("") }
+    var customerName by remember { mutableStateOf("") }
+    var customerAvatar by remember { mutableStateOf("") }
+
     LaunchedEffect(chatId) {
         viewModel.loadMessages(chatId)
-        viewModel.loadCustomerInfo(chatId)
+
+        // Load customer info from first conversation
+        val conversations = viewModel.conversations.value
+        val currentChat = conversations.find { it.chatId == chatId }
+        customerName = currentChat?.customerName ?: "Customer"
+        customerAvatar = currentChat?.customerAvatar ?: ""
     }
 
     // Auto scroll to bottom when new message arrives
@@ -72,9 +81,9 @@ fun ChatConversationScreen(
                                 .background(Color.White.copy(alpha = 0.2f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (customerInfo?.imageUrl?.isNotBlank() == true) {
+                            if (customerAvatar.isNotBlank()) {
                                 AsyncImage(
-                                    model = customerInfo?.imageUrl,
+                                    model = customerAvatar,
                                     contentDescription = "Customer",
                                     modifier = Modifier
                                         .size(40.dp)
@@ -91,21 +100,12 @@ fun ChatConversationScreen(
                             }
                         }
 
-                        Column {
-                            Text(
-                                text = customerInfo?.name ?: "Loading...",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            if (customerInfo?.isOnline == true) {
-                                Text(
-                                    text = "Online",
-                                    fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
+                        Text(
+                            text = customerName,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 },
                 navigationIcon = {
@@ -162,7 +162,7 @@ fun ChatConversationScreen(
                     items(messages) { message ->
                         ChatBubble(
                             message = message,
-                            isVendor = message.isVendor
+                            currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
                         )
                     }
                 }
@@ -182,8 +182,8 @@ fun ChatConversationScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
-                        value = messageText,
-                        onValueChange = { viewModel.updateMessageText(it) },
+                        value = messageInput,
+                        onValueChange = { messageInput = it },
                         modifier = Modifier.weight(1f),
                         placeholder = {
                             Text(
@@ -201,9 +201,12 @@ fun ChatConversationScreen(
 
                     FloatingActionButton(
                         onClick = {
-                            viewModel.sendMessage(chatId)
-                            scope.launch {
-                                listState.animateScrollToItem(messages.size)
+                            if (messageInput.isNotBlank()) {
+                                viewModel.sendMessage(chatId, messageInput.trim())
+                                messageInput = ""
+                                scope.launch {
+                                    listState.animateScrollToItem(messages.size)
+                                }
                             }
                         },
                         modifier = Modifier.size(56.dp),
@@ -226,9 +229,11 @@ fun ChatConversationScreen(
 
 @Composable
 fun ChatBubble(
-    message: ChatMessage,
-    isVendor: Boolean
+    message: com.example.bunnix.viewmodel.ChatMessage,
+    currentUserId: String
 ) {
+    val isVendor = message.senderId == currentUserId
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isVendor) Arrangement.End else Arrangement.Start
@@ -258,13 +263,22 @@ fun ChatBubble(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = message.timestamp,
+                    text = formatTimestamp(message.timestamp),
                     fontSize = 11.sp,
                     color = if (isVendor) Color.White.copy(alpha = 0.7f) else TextSecondary,
                     modifier = Modifier.align(Alignment.End)
                 )
             }
         }
+    }
+}
+
+fun formatTimestamp(timestamp: Long): String {
+    return try {
+        val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
+        sdf.format(Date(timestamp))
+    } catch (e: Exception) {
+        "Now"
     }
 }
 
@@ -281,17 +295,3 @@ fun ShimmerMessageBubble() {
         )
     }
 }
-
-// Data Classes
-data class ChatMessage(
-    val messageId: String,
-    val text: String,
-    val timestamp: String,
-    val isVendor: Boolean
-)
-
-data class CustomerInfo(
-    val name: String,
-    val imageUrl: String,
-    val isOnline: Boolean
-)

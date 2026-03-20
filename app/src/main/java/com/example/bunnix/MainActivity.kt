@@ -66,6 +66,8 @@ import android.view.WindowManager
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bunnix.presentation.viewmodel.ChatViewModel
+import com.example.bunnix.database.firebase.FirebaseManager
+import com.example.bunnix.database.firebase.collections.CartCollection
 
 
 // Color system
@@ -716,7 +718,7 @@ class MainActivity : ComponentActivity() {
 
                 composable(Routes.ServiceList) {
 
-                    val serviceViewModel: ServiceViewModel = hiltViewModel()
+                    val serviceViewModel: ServiceViewModel = hiltViewModel() // BUT SEE NOTE BELOW
                     val services by serviceViewModel.services.collectAsState()
 
                     ServiceListScreen(
@@ -779,6 +781,10 @@ class MainActivity : ComponentActivity() {
                 ) { entry ->
                     val productId = entry.arguments?.getString("productId") ?: ""
                     val productViewModel: ProductViewModel = hiltViewModel()
+                    // Use a CartViewModel if you have one injected, or use CartCollection directly
+                    val scope = rememberCoroutineScope()
+                    val userId = FirebaseManager.getCurrentUserId()
+
                     val allProducts by productViewModel.products.collectAsState()
                     val product = allProducts.find { it.productId == productId }
 
@@ -786,28 +792,36 @@ class MainActivity : ComponentActivity() {
                         ProductDetailsScreen(
                             product = product,
                             allProducts = allProducts,
-                            onAddToCart = { product, quantity ->
-
+                            onAddToCart = { prod, quantity ->
                                 val item = CartItem(
-                                    id = product.productId,
-                                    name = product.name,
-                                    vendorName = product.vendorName,
-                                    price = product.discountPrice ?: product.price,
-                                    originalPrice = product.discountPrice?.let { product.price },
+                                    id = prod.productId,
+                                    productId = prod.productId,
+                                    name = prod.name,
+                                    vendorId = prod.vendorId,
+                                    vendorName = prod.vendorName,
+                                    price = prod.discountPrice ?: prod.price,
+                                    originalPrice = if (prod.discountPrice != null) prod.price else null,
                                     quantity = quantity,
-                                    imageUrl = product.imageUrls.firstOrNull(),
+                                    imageUrl = prod.imageUrls.firstOrNull() ?: "", // FIXED Type
                                     variant = null
                                 )
 
-                                cartViewModel.addToCart(item)
+                                // ✅ CALL CART COLLECTION DIRECTLY
+                                scope.launch {
+                                    if (userId != null) {
+                                        CartCollection.addToCart(userId, item)
+                                    }
+                                }
                             },
-                            onBuyNow = { product, qty ->
-                                navController.navigate(
-                                    "checkout/product/${product.productId}/${Uri.encode(qty.toString())}"
-                                )
+                            onBuyNow = { prod, qty ->
+                                // Navigate to checkout
                             },
                             onBack = { navController.popBackStack() },
-                            onChatWithVendor = { id -> navController.navigate("chat_detail/vendor_$id") }
+                            onChatWithVendor = { vId ->
+                                val vName = Uri.encode(product.vendorName)
+                                val vImage = Uri.encode(product.imageUrls.firstOrNull() ?: "")
+                                navController.navigate("chat_detail/chat_${product.vendorId}_$vId/$vName/$vImage/$vId")
+                            }
                         )
                     } else {
                         ProductNotFoundScreen { navController.popBackStack() }
@@ -960,20 +974,21 @@ class MainActivity : ComponentActivity() {
                     arguments = listOf(
                         navArgument("chatId") { type = NavType.StringType },
                         navArgument("vendorName") { type = NavType.StringType },
-                        navArgument("vendorImage") { type = NavType.StringType }
+                        navArgument("vendorImage") { type = NavType.StringType },
+                        navArgument("vendorId") { type = NavType.StringType }
                     )
                 ) { entry ->
                     val chatId = entry.arguments?.getString("chatId") ?: ""
-
-                    // ✅ DECODE the data back to normal strings
                     val vendorName = Uri.decode(entry.arguments?.getString("vendorName") ?: "Unknown")
                     val vendorImage = Uri.decode(entry.arguments?.getString("vendorImage") ?: "")
+                    val vendorId = entry.arguments?.getString("vendorId") ?: ""
 
                     ChatDetailScreen(
                         navController = navController,
                         chatId = chatId,
                         vendorName = vendorName,
-                        vendorImageUrl = vendorImage
+                        vendorImageUrl = vendorImage,
+                        vendorId = vendorId
                     )
                 }
 
@@ -982,40 +997,74 @@ class MainActivity : ComponentActivity() {
                 }
 
                 composable(Routes.Profile) {
-
                     val userViewModel: UserViewModel = hiltViewModel()
                     val user by userViewModel.user.collectAsState()
+                    val vendorProfile by userViewModel.vendorProfile.collectAsState()
+                    val isVendor by userViewModel.isVendor.collectAsState()
 
                     var showEditDialog by remember { mutableStateOf(false) }
 
-                    user?.let { currentUser ->
+                    // Use vendor data if available, otherwise user data
+                    val displayName = vendorProfile?.businessName ?: user?.name ?: ""
+                    val displayEmail = vendorProfile?.email ?: user?.email ?: ""
+                    val displayPhone = vendorProfile?.phone ?: user?.phone ?: ""
+                    val displayAddress = vendorProfile?.address ?: user?.address ?: ""
 
-                        ProfileScreen(
-                            userName = currentUser.name,
-                            userEmail = currentUser.email,
-                            userPhone = currentUser.phone,
-                            isVendor = currentUser.isVendor,
-                            vendorBusinessName = null,
-                            onBack = { navController.popBackStack() },
-                            onEditProfile = { showEditDialog = true },
-                            onViewOrders = { navController.navigate("order_history") },
-                            onViewNotifications = { navController.navigate(Routes.Notifications) },
-                            onSwitchMode = onSwitchToVendor,
-                            onBecomeVendor = onSwitchToVendor,
-                            onLogout = onLogout
-                        )
+                    ProfileScreen(
+                        userName = displayName,
+                        userEmail = displayEmail,
+                        userPhone = displayPhone,
+                        isVendor = isVendor,
+                        vendorBusinessName = vendorProfile?.businessName,
+                        onBack = { navController.popBackStack() },
+                        onEditProfile = { showEditDialog = true },
+                        onViewOrders = { navController.navigate("order_history") },
+                        onViewNotifications = { navController.navigate(Routes.Notifications) },
+                        onSwitchMode = onSwitchToVendor,
+                        onBecomeVendor = onSwitchToVendor,
+                        onLogout = onLogout
+                    )
 
+                    if (isVendor && vendorProfile != null) {
+                        // Vendor edit dialog
                         EditProfileDialog(
                             showDialog = showEditDialog,
                             onDismiss = { showEditDialog = false },
-                            isVendor = currentUser.isVendor,
-                            currentName = currentUser.name,
-                            currentEmail = currentUser.email,
-                            currentPhone = currentUser.phone,
+                            isVendor = true,
+                            currentName = vendorProfile?.businessName ?: "",
+                            currentEmail = vendorProfile?.email ?: "",
+                            currentPhone = vendorProfile?.phone ?: "",
+                            currentBusinessName = vendorProfile?.businessName,
+                            currentBusinessAddress = vendorProfile?.address,
+                            currentBusinessDescription = vendorProfile?.description,
+                            onSaveProfile = { name, email, phone, businessName, address, description ->
+                                // Update vendor profile in Firestore
+                                userViewModel.updateVendorProfile(
+                                    businessName = businessName ?: name,
+                                    email = email,
+                                    phone = phone,
+                                    address = address ?: "",
+                                    description = description ?: ""
+                                )
+                                showEditDialog = false
+                            },
+                            onChangeProfilePicture = {}
+                        )
+                    } else {
+                        // Customer edit dialog
+                        EditProfileDialog(
+                            showDialog = showEditDialog,
+                            onDismiss = { showEditDialog = false },
+                            isVendor = false,
+                            currentName = user?.name ?: "",
+                            currentEmail = user?.email ?: "",
+                            currentPhone = user?.phone ?: "",
                             currentBusinessName = null,
                             currentBusinessAddress = null,
                             currentBusinessDescription = null,
-                            onSaveProfile = { _, _, _, _, _, _ ->
+                            onSaveProfile = { name, email, phone, _, _, _ ->
+                                // Update user profile in Firestore
+                                userViewModel.updateUserProfile(name, email, phone)
                                 showEditDialog = false
                             },
                             onChangeProfilePicture = {}
@@ -1025,19 +1074,13 @@ class MainActivity : ComponentActivity() {
 
                 composable(Routes.Cart) {
                     CartScreen(
-                        cartItems = cartItems,
                         onBack = { navController.popBackStack() },
+                        onCheckout = { navController.navigate(Routes.Checkout) },
                         onStartShopping = {
                             navController.navigate(Routes.Home) {
                                 popUpTo(Routes.Home)
                             }
                         },
-                        onRemoveItem = { id ->
-                            cartViewModel.removeFromCart(id)
-                        },
-                        onUpdateQuantity = { id, qty ->
-                            cartViewModel.updateQuantity(id, qty)
-                        }
                     )
                 }
 

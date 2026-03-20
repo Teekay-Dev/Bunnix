@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,8 +12,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.util.*
 import javax.inject.Inject
+
+data class VendorService(
+    val serviceId: String = "",
+    val vendorId: String = "",
+    val name: String = "",
+    val description: String = "",
+    val price: Double = 0.0,
+    val duration: String = "",
+    val category: String = "",
+    val imageUrl: String = "",
+    val isAvailable: Boolean = true,
+    val createdAt: Long = 0L
+)
 
 @HiltViewModel
 class ServicesViewModel @Inject constructor(
@@ -28,6 +39,9 @@ class ServicesViewModel @Inject constructor(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _uploadProgress = MutableStateFlow(0f)
+    val uploadProgress: StateFlow<Float> = _uploadProgress.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -43,28 +57,37 @@ class ServicesViewModel @Inject constructor(
 
                 firestore.collection("services")
                     .whereEqualTo("vendorId", vendorId)
-                    .get()
-                    .await()
-                    .documents.mapNotNull { doc ->
-                        try {
-                            VendorService(
-                                serviceId = doc.id,
-                                name = doc.getString("name") ?: "",
-                                description = doc.getString("description") ?: "",
-                                price = doc.getDouble("price") ?: 0.0,
-                                duration = doc.getString("duration") ?: "",
-                                category = doc.getString("category") ?: "",
-                                imageUrl = doc.getString("imageUrl") ?: "",
-                                isAvailable = doc.getBoolean("isAvailable") ?: true
-                            )
-                        } catch (e: Exception) {
-                            null
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            _error.value = error.message
+                            return@addSnapshotListener
                         }
-                    }.also { _services.value = it }
+
+                        val servicesList = snapshot?.documents?.mapNotNull { doc ->
+                            try {
+                                VendorService(
+                                    serviceId = doc.id,
+                                    vendorId = doc.getString("vendorId") ?: "",
+                                    name = doc.getString("name") ?: "",
+                                    description = doc.getString("description") ?: "",
+                                    price = doc.getDouble("price") ?: 0.0,
+                                    duration = doc.getString("duration") ?: "",
+                                    category = doc.getString("category") ?: "",
+                                    imageUrl = doc.getString("imageUrl") ?: "",
+                                    isAvailable = doc.getBoolean("isAvailable") ?: true,
+                                    createdAt = doc.getLong("createdAt") ?: 0L
+                                )
+                            } catch (e: Exception) {
+                                null
+                            }
+                        } ?: emptyList()
+
+                        _services.value = servicesList
+                        _isLoading.value = false
+                    }
 
             } catch (e: Exception) {
                 _error.value = e.message
-            } finally {
                 _isLoading.value = false
             }
         }
@@ -76,15 +99,20 @@ class ServicesViewModel @Inject constructor(
         price: Double,
         duration: String,
         category: String,
-        imageUri: Uri?
+        imageUri: Uri
     ) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
+                _uploadProgress.value = 0f
+                _error.value = null
+
                 val vendorId = auth.currentUser?.uid ?: return@launch
 
-                val imageUrl = imageUri?.let { uploadServiceImage(it) } ?: ""
+                // Upload image
+                val imageUrl = uploadServiceImage(imageUri, vendorId)
 
+                // Create service document
                 val serviceData = hashMapOf(
                     "vendorId" to vendorId,
                     "name" to name,
@@ -94,34 +122,114 @@ class ServicesViewModel @Inject constructor(
                     "category" to category,
                     "imageUrl" to imageUrl,
                     "isAvailable" to true,
-                    "createdAt" to FieldValue.serverTimestamp()
+                    "createdAt" to System.currentTimeMillis(),
+                    "updatedAt" to System.currentTimeMillis()
                 )
 
                 firestore.collection("services")
                     .add(serviceData)
                     .await()
 
-                _successMessage.value = "Service added successfully!"
-                loadServices()
+                _successMessage.value = "Service added successfully"
 
             } catch (e: Exception) {
-                _error.value = e.message
+                _error.value = e.message ?: "Failed to add service"
+            } finally {
+                _isLoading.value = false
+                _uploadProgress.value = 0f
+            }
+        }
+    }
+
+    fun updateService(
+        serviceId: String,
+        name: String,
+        description: String,
+        price: Double,
+        duration: String,
+        category: String,
+        imageUri: Uri? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _error.value = null
+
+                val vendorId = auth.currentUser?.uid ?: return@launch
+
+                val updateData = mutableMapOf<String, Any>(
+                    "name" to name,
+                    "description" to description,
+                    "price" to price,
+                    "duration" to duration,
+                    "category" to category,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+
+                if (imageUri != null) {
+                    val imageUrl = uploadServiceImage(imageUri, vendorId)
+                    updateData["imageUrl"] = imageUrl
+                }
+
+                firestore.collection("services")
+                    .document(serviceId)
+                    .update(updateData)
+                    .await()
+
+                _successMessage.value = "Service updated successfully"
+
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to update service"
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    private suspend fun uploadServiceImage(uri: Uri): String {
-        return try {
-            val vendorId = auth.currentUser?.uid ?: ""
-            val filename = "services/${vendorId}/${UUID.randomUUID()}.jpg"
-            val storageRef = storage.reference.child(filename)
-            storageRef.putFile(uri).await()
-            storageRef.downloadUrl.await().toString()
-        } catch (e: Exception) {
-            ""
+    fun deleteService(serviceId: String) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("services")
+                    .document(serviceId)
+                    .delete()
+                    .await()
+
+                _successMessage.value = "Service deleted successfully"
+
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to delete service"
+            }
         }
+    }
+
+    fun toggleServiceAvailability(serviceId: String, isAvailable: Boolean) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("services")
+                    .document(serviceId)
+                    .update("isAvailable", isAvailable)
+                    .await()
+
+            } catch (e: Exception) {
+                _error.value = e.message
+            }
+        }
+    }
+
+    private suspend fun uploadServiceImage(imageUri: Uri, vendorId: String): String {
+        val storageRef = storage.reference
+            .child("services/$vendorId/service_${System.currentTimeMillis()}.jpg")
+
+        val uploadTask = storageRef.putFile(imageUri)
+
+        uploadTask.addOnProgressListener { taskSnapshot ->
+            val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toFloat()
+            _uploadProgress.value = progress / 100f
+        }
+
+        uploadTask.await()
+
+        return storageRef.downloadUrl.await().toString()
     }
 
     fun clearMessages() {
@@ -129,14 +237,3 @@ class ServicesViewModel @Inject constructor(
         _successMessage.value = null
     }
 }
-
-data class VendorService(
-    val serviceId: String,
-    val name: String,
-    val description: String,
-    val price: Double,
-    val duration: String,
-    val category: String,
-    val imageUrl: String,
-    val isAvailable: Boolean
-)

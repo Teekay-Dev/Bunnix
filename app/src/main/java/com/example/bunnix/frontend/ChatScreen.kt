@@ -1,9 +1,17 @@
 package com.example.bunnix.frontend
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.media.MediaRecorder
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,7 +22,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,10 +48,11 @@ import com.example.bunnix.database.models.Message
 import com.example.bunnix.database.models.ParticipantInfo
 import com.example.bunnix.ui.theme.BunnixTheme
 import com.google.firebase.Timestamp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import com.example.bunnix.presentation.viewmodel.ChatViewModel
+import com.example.bunnix.database.supabase.storage.ChatStorage
+import java.io.File
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -60,19 +67,22 @@ private val TextPrimary = Color(0xFF1A1A2E)
 private val TextSecondary = Color(0xFF6B7280)
 private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
+private val ErrorRed = Color(0xFFEF4444)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class, ExperimentalAnimationApi::class)
 @Composable
 fun ChatDetailScreen(
     navController: NavController,
     chatId: String,
-    vendorName: String, // ✅ REAL NAME from navigation
-    vendorImageUrl: String, // ✅ REAL IMAGE from navigation
+    vendorName: String,
+    vendorImageUrl: String,
+    vendorId: String,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
 
     // ✅ COLLECT STATE
     val messages by viewModel.chatMessages.collectAsState()
@@ -80,10 +90,12 @@ fun ChatDetailScreen(
     val isSending by viewModel.isSendingMessage.collectAsState()
     val messageSent by viewModel.messageSent.collectAsState()
     val currentUserId by viewModel.currentUserId.collectAsState()
+    val vendorProfile by viewModel.vendorProfile.collectAsState()
 
-    // ✅ LOAD MESSAGES
+    // ✅ LOAD DATA
     LaunchedEffect(chatId) {
         viewModel.observeChatMessages(chatId)
+        viewModel.loadVendorProfile(vendorId)
         currentUserId?.let { viewModel.markMessagesAsRead(chatId, it) }
     }
 
@@ -91,7 +103,7 @@ fun ChatDetailScreen(
         if (messageSent) viewModel.resetMessageSent()
     }
 
-    // ✅ REAL PARTICIPANT INFO (No hardcoding)
+    // ✅ REAL PARTICIPANT INFO
     val participantInfo = remember(vendorName, vendorImageUrl) {
         ParticipantInfo(
             name = vendorName,
@@ -103,17 +115,61 @@ fun ChatDetailScreen(
     var messageText by remember { mutableStateOf("") }
     var isTyping by remember { mutableStateOf(false) }
 
+    // ✅ VOICE RECORDING STATE
+    var isRecording by remember { mutableStateOf(false) }
+    var mediaRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var audioFile by remember { mutableStateOf<File?>(null) }
+
+    // ✅ IMAGE PICKER
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                val result = ChatStorage.uploadChatImage(context, it)
+                result.onSuccess { url ->
+                    currentUserId?.let { id ->
+                        viewModel.sendImageMessage(chatId, id, "You", url)
+                    }
+                }
+            }
+        }
+    }
+
+    // ✅ PERMISSIONS
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startRecording(context) { recorder, file ->
+                mediaRecorder = recorder
+                audioFile = file
+                isRecording = true
+            }
+        }
+    }
+
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+    }
+
+    // ✅ CALL INTENT
+    val makeCall: () -> Unit = {
+        vendorProfile?.phone?.let { phone ->
+            val intent = Intent(Intent.ACTION_DIAL).apply {
+                data = Uri.parse("tel:$phone")
+            }
+            context.startActivity(intent)
+        }
     }
 
     Scaffold(
         topBar = {
             ModernChatTopBar(
-                participantInfo = participantInfo, // ✅ Uses Real Name/Photo
+                participantInfo = participantInfo,
                 isTyping = isTyping,
                 onBack = { navController.popBackStack() },
-                onCall = { },
+                onCall = makeCall,
                 onMore = { }
             )
         },
@@ -137,7 +193,28 @@ fun ChatDetailScreen(
                     }
                     keyboardController?.hide()
                 },
-                onAttach = { }
+                onAttach = { imagePickerLauncher.launch("image/*") },
+                isRecording = isRecording,
+                onStartRecording = {
+                    // ✅ FIX: Simplified permission check
+                    recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                },
+                onStopRecording = {
+                    stopRecording(mediaRecorder) {
+                        isRecording = false
+                        audioFile?.let { file ->
+                            val uri = Uri.fromFile(file)
+                            scope.launch {
+                                val result = ChatStorage.uploadVoiceNote(context, uri)
+                                result.onSuccess { url ->
+                                    currentUserId?.let { id ->
+                                        viewModel.sendVoiceMessage(chatId, id, "You", url)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             )
         },
         containerColor = SurfaceLight
@@ -153,7 +230,7 @@ fun ChatDetailScreen(
                 ) {
                     Icon(Icons.Default.ChatBubbleOutline, null, tint = TextTertiary, modifier = Modifier.size(64.dp))
                     Text("No messages yet", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                    Text("Start chatting with ${participantInfo.name}", color = TextSecondary) // ✅ Real Name
+                    Text("Start chatting with ${participantInfo.name}", color = TextSecondary)
                 }
             } else {
                 LazyColumn(
@@ -180,6 +257,36 @@ fun ChatDetailScreen(
         }
     }
 }
+
+// Helpers for recording
+fun startRecording(context: Context, onStarted: (MediaRecorder, File) -> Unit) {
+    val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        MediaRecorder(context)
+    } else {
+        MediaRecorder()
+    }
+
+    val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+
+    recorder.apply {
+        setAudioSource(MediaRecorder.AudioSource.MIC)
+        setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+        setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        setOutputFile(file.absolutePath)
+        prepare()
+        start()
+    }
+    onStarted(recorder, file)
+}
+
+fun stopRecording(recorder: MediaRecorder?, onStopped: () -> Unit) {
+    recorder?.apply {
+        stop()
+        release()
+    }
+    onStopped()
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
@@ -705,7 +812,10 @@ private fun ModernChatInput(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
-    onAttach: () -> Unit
+    onAttach: () -> Unit,
+    isRecording: Boolean,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit
 ) {
     Surface(
         color = Color.White,
@@ -721,11 +831,11 @@ private fun ModernChatInput(
             ) {
                 QuickActionButton(
                     icon = Icons.Default.Image,
-                    onClick = { /* Send image */ }
+                    onClick = onAttach
                 )
                 QuickActionButton(
                     icon = Icons.Default.CameraAlt,
-                    onClick = { /* Take photo */ }
+                    onClick = { /* Take photo implementation */ }
                 )
                 QuickActionButton(
                     icon = Icons.Default.AttachFile,
@@ -764,17 +874,24 @@ private fun ModernChatInput(
                     label = "sendScale"
                 )
 
+                // ✅ CHANGE: Mic Icon when empty, Send Icon when text present
                 FloatingActionButton(
-                    onClick = onSend,
+                    onClick = {
+                        if (value.isNotBlank()) {
+                            onSend()
+                        } else {
+                            if (isRecording) onStopRecording() else onStartRecording()
+                        }
+                    },
                     modifier = Modifier
                         .size(56.dp)
                         .scale(sendScale),
                     shape = CircleShape,
-                    containerColor = if (value.isNotBlank()) OrangePrimary else TextTertiary,
+                    containerColor = if (isRecording) ErrorRed else if (value.isNotBlank()) OrangePrimary else TextTertiary,
                     contentColor = Color.White
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Send,
+                        imageVector = if (isRecording) Icons.Default.Stop else if (value.isNotBlank()) Icons.Default.Send else Icons.Default.Mic,
                         contentDescription = "Send"
                     )
                 }
@@ -823,84 +940,12 @@ private fun formatMessageTime(timestamp: Timestamp?): String {
 @Composable
 fun ChatDetailScreenPreview() {
     BunnixTheme {
-//        ChatDetailScreen(
-//            navController = rememberNavController(),
-//            chatId = "chat_1"
-//        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun TextMessagePreview() {
-    BunnixTheme {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            TextMessage(
-                message = Message(
-                    messageId = "1",
-                    senderId = "vendor",
-                    senderName = "Vendor",
-                    text = "Hello! How can I help you today?",
-                    messageType = "text",
-                    timestamp = Timestamp.now(),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                isFromMe = false
-            )
-
-            TextMessage(
-                message = Message(
-                    messageId = "2",
-                    senderId = "user",
-                    senderName = "You",
-                    text = "I'd like to book an appointment please!",
-                    messageType = "text",
-                    timestamp = Timestamp.now(),
-                    isRead = true,
-                    content = "",
-                    chatId = "",
-                    type = ""
-                ),
-                isFromMe = true
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun OrderLinkCardPreview() {
-    BunnixTheme {
-        OrderLinkCard(
-            message = Message(
-                messageId = "3",
-                senderId = "vendor",
-                senderName = "Vendor",
-                text = "Booking #001",
-                messageType = "order_link",
-                orderPreview = mapOf(
-                    "type" to "booking",
-                    "id" to "BK-001",
-                    "title" to "Premium Spa Package",
-                    "amount" to "₦25,000",
-                    "status" to "Confirmed",
-                    "date" to "Tomorrow, 2:00 PM",
-                    "location" to "123 Victoria Island"
-                ),
-                timestamp = Timestamp.now(),
-                isRead = false,
-                content = "",
-                chatId = "",
-                type = ""
-            ),
-            isFromMe = false,
-            onClick = {}
+        ChatDetailScreen(
+            navController = rememberNavController(),
+            chatId = "chat_1",
+            vendorName = "Vendor",
+            vendorImageUrl = "",
+            vendorId = "vendor_1"
         )
     }
 }

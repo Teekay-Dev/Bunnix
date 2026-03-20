@@ -163,14 +163,13 @@ fun HomeScreen(
     onSearchClick: (String) -> Unit,
     featuredProducts: List<Product> = emptyList(),
     featuredServices: List<Service> = emptyList(),
-    bottomBar: @Composable () -> Unit = {}, // ADD THIS
-//    vendors: List<VendorUiModel> = VendorList // NEW: Accept vendors list
+    bottomBar: @Composable () -> Unit = {},
+    vendorViewModel: VendorViewModel = hiltViewModel()
 
 ) {
     val scrollState = rememberScrollState()
-    // ✅ TEMPORARY: Use empty list until vendors add data
-    val vendors = remember { emptyList<VendorUiModel>() }
-
+    val rawVendors by vendorViewModel.vendorList.collectAsState()
+    val vendors = rawVendors.map { it.toUiModel() }
     val pagerState = rememberPagerState(pageCount = { specialOffers.size })
 
     LaunchedEffect(pagerState) {
