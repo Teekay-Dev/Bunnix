@@ -1110,7 +1110,6 @@ class MainActivity : ComponentActivity() {
             tonalElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding() // 👈 pushes it correctly into system bar
         ) {
             items.forEach { item ->
                 val selected = currentRoute == item.route
