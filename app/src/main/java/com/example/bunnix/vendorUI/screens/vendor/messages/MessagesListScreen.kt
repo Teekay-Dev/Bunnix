@@ -30,7 +30,6 @@ import com.example.bunnix.viewmodel.ChatViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessagesListScreen(
     navController: NavController,
@@ -55,96 +54,93 @@ fun MessagesListScreen(
         }
     }
 
-    Scaffold(
-        containerColor = LightGrayBg
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+    // ✅ NO SCAFFOLD - Just Column
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(LightGrayBg)
+    ) {
+        // Header
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White,
+            shadowElevation = 2.dp
         ) {
-            // Header
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                shadowElevation = 2.dp
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Messages",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                Text(
+                    text = "Messages",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    // Search Bar
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = {
-                            Text(
-                                text = "Search conversations...",
-                                color = TextSecondary
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = TextSecondary
-                            )
-                        },
-                        shape = RoundedCornerShape(50.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color.LightGray,
-                            focusedBorderColor = OrangePrimaryModern
-                        ),
-                        singleLine = true
-                    )
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            text = "Search conversations...",
+                            color = TextSecondary
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = TextSecondary
+                        )
+                    },
+                    shape = RoundedCornerShape(50.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = Color.LightGray,
+                        focusedBorderColor = OrangePrimaryModern
+                    ),
+                    singleLine = true
+                )
+            }
+        }
+
+        // Conversations List
+        if (isLoading) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(5) {
+                    ShimmerConversationCard()
                 }
             }
-
-            // Conversations List
-            if (isLoading) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(5) {
-                        ShimmerConversationCard()
-                    }
-                }
-            } else if (filteredConversations.isEmpty()) {
-                EmptyState(
-                    icon = Icons.Default.ChatBubble,
-                    title = if (searchQuery.isBlank()) "No Messages" else "No Results",
-                    message = if (searchQuery.isBlank())
-                        "When customers message you,\ntheir conversations will appear here"
-                    else
-                        "No conversations match your search"
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(filteredConversations) { conversation ->
-                        ConversationCard(
-                            conversation = conversation,
-                            onClick = {
-                                navController.navigate(VendorRoutes.chat(conversation.chatId))
-                            }
-                        )
-                    }
+        } else if (filteredConversations.isEmpty()) {
+            EmptyState(
+                icon = Icons.Default.ChatBubble,
+                title = if (searchQuery.isBlank()) "No Messages" else "No Results",
+                message = if (searchQuery.isBlank())
+                    "When customers message you,\ntheir conversations will appear here"
+                else
+                    "No conversations match your search"
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredConversations) { conversation ->
+                    ConversationCard(
+                        conversation = conversation,
+                        onClick = {
+                            navController.navigate(VendorRoutes.chat(conversation.chatId))
+                        }
+                    )
                 }
             }
         }
