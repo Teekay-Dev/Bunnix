@@ -215,15 +215,7 @@ class MainActivity : ComponentActivity() {
                                     popUpTo("signup") { inclusive = true }
                                 }
                             },
-                            onSignupSuccess = { user, password ->
-                                val vendorData = if (!user.isVendor) null else VendorProfile(
-                                    vendorId = "",
-                                    businessName = user.name,
-                                    category = "",
-                                    address = user.address,
-                                    phone = user.phone,
-                                    email = user.email
-                                )
+                            onSignupSuccess = { user, password, vendorData ->
                                 authViewModel.initiateSignup(user, password, vendorData)
                             }
                         )
@@ -310,16 +302,8 @@ class MainActivity : ComponentActivity() {
                             currentMode = "customer",
                             verificationStep = verificationState.currentStep,
                             onLoginClick = { navController.popBackStack() },
-                            onSignupSuccess = { user, password ->
+                            onSignupSuccess = { user, password, vendorData ->
                                 val vendorUser = user.copy(isVendor = true)
-                                val vendorData = VendorProfile(
-                                    vendorId = "",
-                                    businessName = user.name,
-                                    category = "",
-                                    address = user.address,
-                                    phone = user.phone,
-                                    email = user.email
-                                )
                                 authViewModel.initiateSignup(vendorUser, password, vendorData)
                             }
                         )
@@ -993,7 +977,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 composable(Routes.Notifications) {
-                    NotificationScreen(navController, "current_user_id")
+                    val userId = FirebaseManager.getCurrentUserId() ?: ""
+                    NotificationScreen(navController, userId)
                 }
 
                 composable(Routes.Profile) {

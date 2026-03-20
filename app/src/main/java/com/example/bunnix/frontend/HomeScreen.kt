@@ -71,7 +71,8 @@ val categoryList = listOf(
     Category("Beauty", "💄"),
     Category("Tech", "💻"),
     Category("Sports", "⚽"),
-    Category("Health", "🏥")
+    Category("Health", "🏥"),
+    Category("Versatile", "🌟")
 )
 
 // ===== SPECIAL OFFER DATA =====
@@ -125,8 +126,8 @@ data class VendorUiModel(
     val id: String, // Changed to String to match vendorId
     val businessName: String,
     val category: String,
-    val coverImageRes: Int, // Drawable resource ID
-    val logoImageRes: Int, // Drawable resource ID
+    val coverImageUrl: String,
+    val logoImageRes: Int,
     val rating: Double,
     val reviewCount: Int,
     val distance: String,
@@ -136,18 +137,20 @@ data class VendorUiModel(
 // Extension to convert VendorProfile to VendorUiModel
 fun VendorProfile.toUiModel(
     coverRes: Int = R.drawable.ic_launcher_background,
-    logoRes: Int = R.drawable.ic_launcher_foreground,
-    distanceKm: String = "2.0 km"
+    logoRes: Int = R.drawable.bunnix_2,
+    distance: String = if (this.address.isNotEmpty())
+        this.address.split(",").firstOrNull() ?: "Nearby"
+    else "Nearby"
 ): VendorUiModel {
     return VendorUiModel(
         id = this.vendorId,
         businessName = this.businessName,
         category = this.category,
-        coverImageRes = coverRes,
+        coverImageUrl = this.coverPhotoUrl,
         logoImageRes = logoRes,
         rating = this.rating,
         reviewCount = this.totalReviews,
-        distance = distanceKm,
+        distance = distance,
         isVerified = this.rating > 4.0
     )
 }
@@ -897,7 +900,10 @@ private fun FeaturedVendorsSection(
     onVendorClick: (String) -> Unit // CHANGED: Int to String
 ) {
     val filteredVendors = if (selectedCategory != null) {
-        vendors.filter { it.category == selectedCategory }
+        vendors.filter {
+            it.category.equals(selectedCategory, ignoreCase = true) ||
+                    it.category.equals("Versatile", ignoreCase = true)
+        }
     } else {
         vendors
     }
@@ -960,12 +966,23 @@ private fun ModernVendorCard(
                     .fillMaxWidth()
                     .height(160.dp)
             ) {
-                Image(
-                    painter = painterResource(vendor.coverImageRes),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+                if (vendor.coverImageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(vendor.coverImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Brush.linearGradient(listOf(OrangePrimary, OrangeLight)))
+                    )
+                }
 
                 Box(
                     modifier = Modifier
