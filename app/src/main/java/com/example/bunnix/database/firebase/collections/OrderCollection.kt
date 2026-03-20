@@ -16,11 +16,17 @@ object OrderCollection {
 
     private val collection = FirebaseConfig.firestore.collection(FirebaseConfig.Collections.ORDERS)
 
-    // CREATE ORDER
+    // CREATE ORDER (Customer Side)
+    // Note: No payment receipt needed upfront.
     suspend fun createOrder(order: Order): Result<String> {
         return try {
             val orderNumber = generateOrderNumber()
-            val orderData = order.copy(orderNumber = orderNumber)
+            // Default status is "Order Placed"
+            val orderData = order.copy(
+                orderNumber = orderNumber,
+                status = "Order Placed",
+                createdAt = Timestamp.now()
+            )
             val docRef = collection.add(orderData).await()
             Result.success(docRef.id)
         } catch (e: Exception) {
@@ -44,33 +50,36 @@ object OrderCollection {
         awaitClose { listener.remove() }
     }
 
-    // GET VENDOR ORDERS (Real-time)
-    fun getVendorOrders(vendorId: String): Flow<List<Order>> = callbackFlow {
-        val listener = collection
-            .whereEqualTo("vendorId", vendorId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
+    // GET SINGLE ORDER (For deep links from Chat)
+    suspend fun getOrderById(orderId: String): Result<Order> {
+        return try {
+            val snapshot = collection.document(orderId).get().await()
+            val order = snapshot.toObject(Order::class.java)
+            if (order != null) Result.success(order) else Result.failure(Exception("Order not found"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // GET SINGLE ORDER (Real-time for Tracking)
+    fun getOrderByIdFlow(orderId: String): Flow<Order?> = callbackFlow {
+        val listener = collection.document(orderId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
                     return@addSnapshotListener
                 }
-                val orders = snapshot?.toObjects(Order::class.java) ?: emptyList()
-                trySend(orders)
+                val order = snapshot?.toObject(Order::class.java)
+                trySend(order)
             }
         awaitClose { listener.remove() }
     }
 
-    // UPLOAD PAYMENT RECEIPT
-    suspend fun uploadPaymentReceipt(
-        orderId: String,
-        receiptUrl: String,
-        paymentMethod: String
-    ): Result<Unit> {
+    // CANCEL ORDER (Customer can cancel if not yet Shipped)
+    suspend fun cancelOrder(orderId: String, userId: String): Result<Unit> {
         return try {
             val updates = mapOf(
-                "paymentReceiptUrl" to receiptUrl,
-                "paymentMethod" to paymentMethod,
-                "status" to "Payment Submitted",
+                "status" to "Cancelled",
                 "updatedAt" to Timestamp.now()
             )
             collection.document(orderId).update(updates).await()
@@ -80,57 +89,6 @@ object OrderCollection {
         }
     }
 
-    // VERIFY PAYMENT (Vendor confirms)
-    suspend fun verifyPayment(orderId: String, vendorId: String): Result<Unit> {
-        return try {
-            val statusUpdate = mapOf(
-                "status" to "Payment Confirmed",
-                "timestamp" to Timestamp.now(),
-                "updatedBy" to vendorId
-            )
-
-            val updates = mapOf(
-                "paymentVerified" to true,
-                "paymentVerifiedAt" to Timestamp.now(),
-                "status" to "Payment Confirmed",
-                "statusHistory" to FieldValue.arrayUnion(statusUpdate),
-                "updatedAt" to Timestamp.now()
-            )
-
-            collection.document(orderId).update(updates).await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // UPDATE ORDER STATUS
-    suspend fun updateOrderStatus(orderId: String, newStatus: String, userId: String): Result<Unit> {
-        return try {
-            val statusUpdate = mapOf(
-                "status" to newStatus,
-                "timestamp" to Timestamp.now(),
-                "updatedBy" to userId
-            )
-
-            val updates = mutableMapOf<String, Any>(
-                "status" to newStatus,
-                "statusHistory" to FieldValue.arrayUnion(statusUpdate),
-                "updatedAt" to Timestamp.now()
-            )
-
-            if (newStatus == "Delivered") {
-                updates["completedAt"] = Timestamp.now()
-            }
-
-            collection.document(orderId).update(updates).await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // GENERATE ORDER NUMBER
     private fun generateOrderNumber(): String {
         val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
         val date = dateFormat.format(Date())

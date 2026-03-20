@@ -42,17 +42,12 @@ class ProductViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-
             try {
-                // ✅ Fetch from Firestore /products collection
                 val snapshot = firestore.collection("products")
-                    .whereEqualTo("inStock", true)  // Only show in-stock products
+                    // REMOVE .whereEqualTo("inStock", true) temporarily
                     .get()
                     .await()
-
-                val productList = snapshot.toObjects(Product::class.java)
-                _products.value = productList
-
+                _products.value = snapshot.toObjects(Product::class.java)
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load products"
             } finally {

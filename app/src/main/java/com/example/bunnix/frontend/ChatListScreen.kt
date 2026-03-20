@@ -68,6 +68,7 @@ fun ChatListScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
+
     // We get the current user ID from the ViewModel to calculate unread counts
     // (Assuming you updated ChatViewModel to expose currentUserId, or we derive it from AuthRepository inside VM)
     // For now, we assume the 'unreadCount' map in the Chat object handles the logic.
@@ -96,10 +97,9 @@ fun ChatListScreen(
         val matchesFilter = when (selectedFilter) {
             "Orders" -> chat.relatedOrderId.isNotEmpty()
             "Bookings" -> chat.relatedBookingId.isNotEmpty()
-            "Unread" -> chat.unreadCount.values.any { it > 0 } // Check if anyone has unread
+            "Unread" -> chat.unreadCount.values.any { it > 0 }
             else -> true
         }
-
         matchesSearch && matchesFilter
     }.sortedByDescending { it.lastMessageTime?.toDate() }
 
@@ -192,15 +192,18 @@ fun ChatListScreen(
                                     chat = chat,
                                     isUnread = chat.unreadCount.values.any { it > 0 },
                                     onClick = {
-                                        // ✅ 1. Get the other participant's info
+                                        // ✅ 1. Get participant info
                                         val participant = chat.participantDetails.values.firstOrNull()
 
-                                        // ✅ 2. Encode data so it navigates safely
+                                        // ✅ 2. Get Vendor ID
+                                        val vendorId = getVendorId(chat)
+
+                                        // ✅ 3. Encode data
                                         val name = Uri.encode(participant?.name ?: "Unknown")
                                         val image = Uri.encode(participant?.profilePic ?: "")
 
-                                        // ✅ 3. Navigate with REAL DATA
-                                        navController.navigate("chat_detail/${chat.chatId}/$name/$image")
+                                        // ✅ 4. Navigate with 4 parameters
+                                        navController.navigate("chat_detail/${chat.chatId}/$name/$image/$vendorId")
                                     }
                                 )
                             }
@@ -270,6 +273,8 @@ private fun ModernSearchBar(query: String, onQueryChange: (String) -> Unit, plac
             shape = RoundedCornerShape(16.dp),
             colors = TextFieldDefaults.outlinedTextFieldColors(
                 containerColor = SurfaceLight,
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black,
                 unfocusedBorderColor = Color.Transparent,
                 focusedBorderColor = OrangePrimary.copy(alpha = 0.5f)
             ),
@@ -378,6 +383,13 @@ private fun ChatListItem(chat: Chat, isUnread: Boolean, onClick: () -> Unit) {
             }
         }
     }
+}
+
+private fun getVendorId(chat: Chat): String {
+    // Logic: Find the participant ID where isVendor is true
+    return chat.participants.firstOrNull { uid ->
+        chat.participantDetails[uid]?.isVendor == true
+    } ?: ""
 }
 
 private fun formatTime(timestamp: Timestamp?): String {

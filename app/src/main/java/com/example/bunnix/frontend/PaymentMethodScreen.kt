@@ -26,6 +26,13 @@ import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import com.example.bunnix.database.firebase.collections.CartCollection
+import com.example.bunnix.database.firebase.collections.OrderCollection
+import com.example.bunnix.database.firebase.collections.UserCollection
+import com.example.bunnix.database.firebase.FirebaseManager
+import com.example.bunnix.database.models.CartItem
+import com.example.bunnix.database.models.Order
+import com.google.firebase.Timestamp
 
 // Modern Colors - ALL DEFINED HERE ONLY
 private val OrangePrimary = Color(0xFFFF6B35)
@@ -39,7 +46,7 @@ private val TextSecondary = Color(0xFF6B7280)
 private val TextTertiary = Color(0xFF9CA3AF)
 private val SuccessGreen = Color(0xFF10B981)
 private val ErrorRed = Color(0xFFEF4444)
-private val WarningYellow = Color(0xFFF59E0B) // ADDED THIS
+private val WarningYellow = Color(0xFFF59E0B)
 
 // Payment Categories
 sealed class PaymentCategory(
@@ -90,7 +97,11 @@ fun PaymentMethodScreen(
     onPaymentSuccess: () -> Unit
 ) {
     var isVisible by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope() // ADDED THIS for coroutines
+    val scope = rememberCoroutineScope()
+
+    // ✅ BACKEND: Get Current User and Cart Items
+    val userId = FirebaseManager.getCurrentUserId()
+    val cartItems by CartCollection.getCartItems(userId ?: "").collectAsState(initial = emptyList())
 
     LaunchedEffect(Unit) {
         delay(100)
@@ -141,13 +152,70 @@ fun PaymentMethodScreen(
                     isProcessing = isProcessing,
                     onPay = {
                         isProcessing = true
-                        // FIXED: Use scope.launch instead of GlobalScope
                         scope.launch {
-                            delay(2000)
-                            isProcessing = false
-                            showSuccess = true
-                            delay(1500)
-                            onPaymentSuccess()
+                            // ✅ BACKEND LOGIC: PAY ON DELIVERY
+                            if (selectedCategory == PaymentCategory.PayOnDelivery) {
+                                if (userId != null && cartItems.isNotEmpty()) {
+                                    // 1. Fetch User Data for Address
+                                    val userResult = UserCollection.getUser(userId)
+                                    val user = userResult.getOrNull()
+                                    val address = listOfNotNull(user?.address, user?.city, user?.state)
+                                        .joinToString(", ").ifEmpty { "No Address Provided" }
+
+                                    // 2. Group Items by Vendor (Bunnix creates separate orders per vendor)
+                                    val ordersByVendor = cartItems.groupBy { it.vendorId }
+
+                                    // 3. Create Order for each Vendor
+                                    ordersByVendor.forEach { (vendorId, items) ->
+                                        val vendorName = items.first().vendorName
+                                        val totalAmount = items.sumOf { it.price * it.quantity }
+
+                                        val order = Order(
+                                            customerId = userId,
+                                            customerName = user?.name ?: "Guest",
+                                            vendorId = vendorId,
+                                            vendorName = vendorName,
+                                            items = items.map {
+                                                mapOf(
+                                                    "productId" to it.productId,
+                                                    "name" to it.name,
+                                                    "quantity" to it.quantity,
+                                                    "price" to it.price
+                                                )
+                                            },
+                                            totalAmount = totalAmount,
+                                            deliveryAddress = address,
+                                            status = "Processing", // ✅ Set status to Processing immediately
+                                            paymentMethod = "Pay on Delivery",
+                                            createdAt = Timestamp.now()
+                                        )
+                                        OrderCollection.createOrder(order)
+                                    }
+
+                                    // 4. Clear Cart
+                                    CartCollection.clearCart(userId)
+
+                                    // 5. Show Success
+                                    isProcessing = false
+                                    showSuccess = true
+                                    delay(1500)
+                                    onPaymentSuccess()
+                                } else {
+                                    // Fallback if cart is empty (shouldn't happen in UI flow)
+                                    delay(1000)
+                                    isProcessing = false
+                                    showSuccess = true
+                                    delay(1500)
+                                    onPaymentSuccess()
+                                }
+                            } else {
+                                // LOGIC FOR OTHER PAYMENT METHODS (Simulated for now)
+                                delay(2000)
+                                isProcessing = false
+                                showSuccess = true
+                                delay(1500)
+                                onPaymentSuccess()
+                            }
                         }
                     }
                 )
@@ -199,7 +267,7 @@ fun PaymentMethodScreen(
                         )
 
                         PaymentCategory.BankTransfer -> BankTransferSection(
-                            orderId = orderId, // FIXED: Pass orderId
+                            orderId = orderId,
                             selectedBank = selectedTraditionalBank,
                             onBankSelect = {
                                 selectedTraditionalBank = it
@@ -774,7 +842,7 @@ private fun OnlineBankCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BankTransferSection(
-    orderId: String, // ADDED THIS PARAMETER
+    orderId: String,
     selectedBank: Pair<String, String>?,
     onBankSelect: (Pair<String, String>) -> Unit,
     showDetails: Boolean,
@@ -1324,7 +1392,7 @@ private fun formatCurrency(amount: Double): String {
     return formatter.format(amount).replace("NGN", "₦")
 }
 
-// FlowRow implementation - FIXED with proper imports
+// FlowRow implementation
 @Composable
 private fun FlowRow(
     modifier: Modifier = Modifier,

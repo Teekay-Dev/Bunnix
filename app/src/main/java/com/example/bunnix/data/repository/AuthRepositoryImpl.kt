@@ -163,36 +163,75 @@ class AuthRepositoryImpl @Inject constructor(
         password: String
     ): AuthResult<User> {
         return try {
-            // Sign in with Firebase Auth
+            // 1. Sign in with Firebase Auth
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
             val firebaseUser = authResult.user
                 ?: return AuthResult.Error("Login failed. No user signed in.")
 
             val userId = firebaseUser.uid
 
-            // Fetch user document from Firestore
+            // =======================================================
+            // NEW LOGIC: Check Vendor First!
+            // =======================================================
+
+            // 2. Check 'vendorProfiles' collection (Vendors)
+            val vendorDoc = db.collection(VENDOR_PROFILES_COLLECTION)
+                .document(userId)
+                .get()
+                .await()
+
+            if (vendorDoc.exists()) {
+                val vendorProfile = vendorDoc.toObject(VendorProfile::class.java)
+                    ?: return AuthResult.Error("Failed to load vendor data")
+
+                // Convert VendorProfile to User object
+                val vendorAsUser = User(
+                    userId = vendorProfile.vendorId,
+                    name = vendorProfile.businessName,
+                    email = vendorProfile.email,
+                    phone = vendorProfile.phone,
+                    profilePicUrl = "",
+                    isVendor = true, // IMPORTANT: Set this to true
+                    address = vendorProfile.address,
+                    city = "",
+                    state = "",
+                    country = "Nigeria",
+                    createdAt = vendorProfile.createdAt,
+                    lastActive = Timestamp.now()
+                )
+
+                // Update last active
+                db.collection(VENDOR_PROFILES_COLLECTION)
+                    .document(userId)
+                    .update("updatedAt", Timestamp.now())
+                    .await()
+
+                Log.d(TAG, "✅ Login successful (Vendor): ${vendorProfile.email}")
+                return AuthResult.Success(vendorAsUser)
+            }
+
+            // 3. If not a vendor, check 'users' collection (Customers)
             val userDoc = db.collection(USERS_COLLECTION)
                 .document(userId)
                 .get()
                 .await()
 
-            if (!userDoc.exists()) {
-                Log.e(TAG, "❌ User document not found for: $userId")
-                return AuthResult.Error("User document not found. Please contact support.")
+            if (userDoc.exists()) {
+                val user = userDoc.toObject(User::class.java)
+                    ?: return AuthResult.Error("Failed to load user data")
+
+                db.collection(USERS_COLLECTION)
+                    .document(userId)
+                    .update("lastActive", Timestamp.now())
+                    .await()
+
+                Log.d(TAG, "✅ Login successful (Customer): ${user.email}")
+                return AuthResult.Success(user)
             }
 
-            val user = userDoc.toObject(User::class.java)
-                ?: return AuthResult.Error("Failed to load user data")
-
-            // Update last active
-            db.collection(USERS_COLLECTION)
-                .document(userId)
-                .update("lastActive", Timestamp.now())
-                .await()
-
-            Log.d(TAG, "✅ Login successful: ${user.email}, isVendor: ${user.isVendor}")
-
-            AuthResult.Success(user)
+            // 4. Not found in either
+            Log.e(TAG, "❌ User document not found for: $userId")
+            return AuthResult.Error("Account profile not found. Please contact support.")
 
         } catch (e: Exception) {
             Log.e(TAG, "❌ Login failed", e)

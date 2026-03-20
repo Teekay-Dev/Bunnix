@@ -75,7 +75,7 @@ class LoginActivity : ComponentActivity() {
 fun LoginScreen(
     authViewModel: AuthViewModel,
     onSignupClick: () -> Unit,
-    onLoginSuccess: (isVendor: Boolean) -> Unit
+    onLoginSuccess: (Boolean) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -86,7 +86,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
 
-    // Google Sign-In Launcher - UNCHANGED
+    // 1. FOR GOOGLE SIGN-IN
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -101,39 +101,56 @@ fun LoginScreen(
 
                     when (authResult) {
                         is AuthResult.Success -> {
-                            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+                            val googleEmail = account.email ?: ""
+
                             try {
-                                val userDoc = firestore.collection("users")
-                                    .document(userId)
-                                    .get()
-                                    .await()
+                                // Parallel queries for performance
+                                val userQuery = firestore.collection("users")
+                                    .whereEqualTo("email", googleEmail).get().await()
+                                val vendorQuery = firestore.collection("vendorProfiles")
+                                    .whereEqualTo("email", googleEmail).get().await()
 
-                                val isVendor = userDoc.getBoolean("isVendor") ?: false
-
-                                Toast.makeText(context, "Welcome! 👋", Toast.LENGTH_SHORT).show()
-                                onLoginSuccess(isVendor)
+                                // ==========================================================
+                                // UPDATED LOGIC: CHECK VENDOR FIRST
+                                // ==========================================================
+                                when {
+                                    !vendorQuery.isEmpty -> {
+                                        // 1. Check Vendor First
+                                        // Don't set isLoading = false here, keep loading until navigation
+                                        onLoginSuccess(true) // Vendor Dashboard
+                                    }
+                                    !userQuery.isEmpty -> {
+                                        // 2. Then Check User (Customer)
+                                        // Don't set isLoading = false here
+                                        onLoginSuccess(false) // Customer Dashboard
+                                    }
+                                    else -> {
+                                        // 3. No profile found in either collection
+                                        FirebaseAuth.getInstance().signOut()
+                                        Toast.makeText(context, "No account found. Please sign up first.", Toast.LENGTH_LONG).show()
+                                        isLoading = false // Stop loading only on error
+                                    }
+                                }
                             } catch (e: Exception) {
-                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                FirebaseAuth.getInstance().signOut()
+                                Toast.makeText(context, "Error checking profile: ${e.message}", Toast.LENGTH_SHORT).show()
+                                isLoading = false // Stop loading on error
                             }
                         }
                         is AuthResult.Error -> {
-                            Toast.makeText(
-                                context,
-                                authResult.message ?: "Google Sign-In failed",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            Toast.makeText(context, authResult.message ?: "Login failed", Toast.LENGTH_LONG).show()
+                            isLoading = false // Stop loading on error
                         }
-                        else -> {}
+                        else -> isLoading = false
                     }
-                    isLoading = false
                 }
             }
         } catch (e: ApiException) {
-            Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_LONG).show()
+            isLoading = false // Stop loading on error
         }
     }
 
-    // ========== UI STARTS HERE - MATCHING YOUR IMAGE ==========
+    // ========== UI STARTS HERE ==========
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -164,13 +181,11 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(top = 40.dp)
                 ) {
-
                     Image(
                         painter = painterResource(R.drawable.bunnix_2),
                         contentDescription = "Logo",
                         modifier = Modifier.size(200.dp)
-                        )
-
+                    )
                 }
             }
 
@@ -271,47 +286,28 @@ fun LoginScreen(
                             isLoading = true
 
                             val result = authViewModel.signInWithEmail(email.trim(), password)
-
                             when (result) {
                                 is AuthResult.Success -> {
-                                    // Check email verification first
                                     val firebaseUser = FirebaseAuth.getInstance().currentUser
+
+                                    // Check Email Verification
                                     if (firebaseUser != null && !firebaseUser.isEmailVerified) {
                                         FirebaseAuth.getInstance().signOut()
-                                        isLoading = false
-                                        Toast.makeText(
-                                            context,
-                                            "Please verify your email before logging in. Check your inbox.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
+                                        isLoading = false // Stop loading on verification error
+                                        Toast.makeText(context, "Please verify your email first.", Toast.LENGTH_LONG).show()
                                         return@launch
                                     }
 
-                                    // Fetch user role from Firestore
-                                    try {
-                                        val uid = firebaseUser?.uid ?: result.data.userId
-                                        val userDoc = firestore.collection("users")
-                                            .document(uid)
-                                            .get()
-                                            .await()
+                                    // Use the user data returned by the ViewModel
+                                    val loggedInUser = result.data
 
-                                        if (!userDoc.exists()) {
-                                            Toast.makeText(context, "Account not found. Please sign up.", Toast.LENGTH_LONG).show()
-                                            FirebaseAuth.getInstance().signOut()
-                                            isLoading = false
-                                            return@launch
-                                        }
+                                    // Do NOT set isLoading = false here.
+                                    // Keep loading visible while the next activity prepares to open.
 
-                                        val isVendor = userDoc.getBoolean("isVendor") ?: false
-                                        val userName = userDoc.getString("name") ?: "User"
-
-                                        Toast.makeText(context, "Welcome back, $userName! 👋", Toast.LENGTH_SHORT).show()
-                                        isLoading = false
-                                        onLoginSuccess(isVendor)
-
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "Failed to load account: ${e.message}", Toast.LENGTH_LONG).show()
-                                        isLoading = false
+                                    if (loggedInUser.isVendor) {
+                                        onLoginSuccess(true) // Opens Vendor Dashboard
+                                    } else {
+                                        onLoginSuccess(false) // Opens Customer Dashboard
                                     }
                                 }
 
@@ -319,13 +315,12 @@ fun LoginScreen(
                                     val friendlyMessage = when {
                                         result.message?.contains("no user record") == true -> "No account found with this email."
                                         result.message?.contains("password is invalid") == true -> "Incorrect password."
-                                        result.message?.contains("badly formatted") == true -> "Please enter a valid email address."
-                                        result.message?.contains("network") == true -> "Network error. Check your connection."
-                                        result.message?.contains("too many requests") == true -> "Too many attempts. Try again later."
-                                        else -> result.message ?: "Login failed. Please try again."
+                                        result.message?.contains("badly formatted") == true -> "Please enter a valid email."
+                                        result.message?.contains("network") == true -> "Network error."
+                                        else -> result.message ?: "Login failed."
                                     }
                                     Toast.makeText(context, friendlyMessage, Toast.LENGTH_LONG).show()
-                                    isLoading = false
+                                    isLoading = false // Stop loading on error
                                 }
 
                                 else -> { isLoading = false }
@@ -352,7 +347,7 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Social Button
+                // Social Buttons
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(
                         modifier = Modifier
@@ -377,8 +372,6 @@ fun LoginScreen(
                             alpha = if (isLoading) 0.5f else 1f
                         )
                     }
-
-
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -391,7 +384,38 @@ fun LoginScreen(
                         color = Color(0xFFFF7900),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        modifier = Modifier.clickable { onSignupClick() }
+                        modifier = Modifier.clickable(enabled = !isLoading) { onSignupClick() }
+                    )
+                }
+            }
+        }
+
+        // ==========================================================
+        // FULL SCREEN LOADING OVERLAY
+        // ==========================================================
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)) // Dimmed background
+                    .clickable(enabled = false) {}, // Block clicks underneath
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFFFF7900),
+                        strokeWidth = 4.dp,
+                        modifier = Modifier.size(50.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Signing in...",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -411,7 +435,6 @@ fun LoginScreenPreview() {
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Orange Gradient Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -430,16 +453,14 @@ fun LoginScreenPreview() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(top = 10.dp)
                 ) {
-                        Image(
-                            painter = painterResource(R.drawable.bunnix_2),
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(200.dp)
-                        )
-
+                    Image(
+                        painter = painterResource(R.drawable.bunnix_2),
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(200.dp)
+                    )
                 }
             }
 
-            // White Card
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -469,15 +490,11 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(32.dp))
 
-                // Email Field Preview
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .background(
-                            Color.White,
-                            shape = RoundedCornerShape(16.dp)
-                        )
+                        .background(Color.White, shape = RoundedCornerShape(16.dp))
                         .padding(16.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -486,15 +503,11 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(16.dp))
 
-                // Password Field Preview
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .background(
-                            Color.White,
-                            shape = RoundedCornerShape(16.dp)
-                        )
+                        .background(Color.White, shape = RoundedCornerShape(16.dp))
                         .padding(16.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -503,15 +516,11 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(28.dp))
 
-                // Login Button
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .background(
-                            Color(0xFFFF7900),
-                            shape = RoundedCornerShape(28.dp)
-                        ),
+                        .background(Color(0xFFFF7900), shape = RoundedCornerShape(28.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -528,17 +537,12 @@ fun LoginScreenPreview() {
 
                 Spacer(Modifier.height(20.dp))
 
-                // Social Button
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(
                         modifier = Modifier
                             .size(65.dp)
-                            .background(
-                                Color(0xFFF0F0F0),
-                                shape = RoundedCornerShape(16.dp)
-                            )
+                            .background(Color(0xFFF0F0F0), shape = RoundedCornerShape(16.dp))
                     )
-
                 }
 
                 Spacer(Modifier.height(24.dp))

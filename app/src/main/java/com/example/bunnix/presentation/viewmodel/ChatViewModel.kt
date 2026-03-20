@@ -2,30 +2,34 @@ package com.example.bunnix.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.bunnix.data.auth.AuthResult
+import com.example.bunnix.database.firebase.FirebaseManager
+import com.example.bunnix.database.firebase.collections.ChatCollection
+import com.example.bunnix.database.firebase.collections.VendorProfileCollection
 import com.example.bunnix.database.models.Chat
 import com.example.bunnix.database.models.Message
 import com.example.bunnix.database.models.ParticipantInfo
 import com.example.bunnix.domain.repository.AuthRepository
 import com.example.bunnix.domain.repository.ChatRepository
+import com.example.bunnix.database.models.VendorProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val chatRepository: ChatRepository,
-    private val authRepository: AuthRepository
+    // You might inject a Repository here, but we will use Collection objects directly for now
 ) : ViewModel() {
 
     // ===== CHAT LIST STATE =====
     private val firestore = FirebaseFirestore.getInstance()
+    private val userId = FirebaseManager.getCurrentUserId()
+
+    // ================== CHAT LIST STATE ==================
     private val _userChats = MutableStateFlow<List<Chat>>(emptyList())
     val userChats: StateFlow<List<Chat>> = _userChats.asStateFlow()
 
@@ -35,7 +39,8 @@ class ChatViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // ===== CHAT DETAIL STATE =====
+
+    // ================== CHAT DETAIL STATE ==================
     private val _chatMessages = MutableStateFlow<List<Message>>(emptyList())
     val chatMessages: StateFlow<List<Message>> = _chatMessages.asStateFlow()
 
@@ -48,50 +53,52 @@ class ChatViewModel @Inject constructor(
     private val _messageSent = MutableStateFlow(false)
     val messageSent: StateFlow<Boolean> = _messageSent.asStateFlow()
 
-    // Current User ID (for detail screen logic)
-    private val _currentUserId = MutableStateFlow<String?>(null)
+    private val _currentUserId = MutableStateFlow<String?>(userId)
     val currentUserId: StateFlow<String?> = _currentUserId.asStateFlow()
 
+    private val _vendorProfile = MutableStateFlow<VendorProfile?>(null)
+    val vendorProfile: StateFlow<VendorProfile?> = _vendorProfile.asStateFlow()
+
+
     init {
+        // Automatically load chats when ViewModel is created
         loadCurrentUserChats()
     }
 
-    // ===== LOGIC =====
+    // ================== CHAT LIST LOGIC ==================
 
     fun loadCurrentUserChats() {
         viewModelScope.launch {
+            if (userId == null) {
+                _error.value = "User not logged in"
+                return@launch
+            }
+
             _isLoading.value = true
             _error.value = null
 
-            when (val result = authRepository.getCurrentUser()) {
-                is AuthResult.Success -> {
-                    val userId = result.data?.userId
-                    if (userId != null) {
-                        _currentUserId.value = userId
-                        observeChatsInternal(userId)
-                    } else {
-                        _error.value = "User not found"
-                        _isLoading.value = false
-                    }
-                }
-                is AuthResult.Error -> {
-                    _error.value = result.message
+            try {
+                // Observe real-time changes from ChatCollection
+                ChatCollection.getUserChats(userId).collectLatest { chats ->
+                    _userChats.value = chats
                     _isLoading.value = false
                 }
-                else -> _isLoading.value = false
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load chats"
+                _isLoading.value = false
             }
         }
     }
 
-    private fun observeChatsInternal(userId: String) {
+    // ================== CHAT DETAIL LOGIC ==================
+
+    fun observeChatMessages(chatId: String) {
         viewModelScope.launch {
-            chatRepository.observeUserChats(userId)
-                .onStart { _isLoading.value = true }
-                .catch { e -> _error.value = e.message; _isLoading.value = false }
-                .collect { chats ->
-                    _userChats.value = chats
-                    _isLoading.value = false
-                }
+            _isLoadingMessages.value = true
+            ChatCollection.getMessages(chatId).collectLatest { messages ->
+                _chatMessages.value = messages
+                _isLoadingMessages.value = false
+            }
         }
     }
 
@@ -138,34 +145,66 @@ class ChatViewModel @Inject constructor(
     // --- Detail Screen Methods ---
 
     fun observeChatMessages(chatId: String) {
+    fun loadVendorProfile(vendorId: String) {
         viewModelScope.launch {
-            chatRepository.observeChatMessages(chatId)
-                .onStart { _isLoadingMessages.value = true }
-                .catch { _isLoadingMessages.value = false }
-                .collect { messages ->
-                    _chatMessages.value = messages
-                    _isLoadingMessages.value = false
-                }
+            _vendorProfile.value = VendorProfileCollection.getVendorProfile(vendorId).getOrNull()
         }
     }
 
     fun sendTextMessage(chatId: String, senderId: String, senderName: String, text: String) {
-        if (text.isBlank()) return
         viewModelScope.launch {
             _isSendingMessage.value = true
-            chatRepository.sendMessage(chatId, senderId, senderName, text)
-            _messageSent.value = true
+            val result = ChatCollection.sendMessage(
+                chatId = chatId,
+                senderId = senderId,
+                senderName = senderName,
+                text = text,
+                messageType = "text"
+            )
+            if (result.isSuccess) {
+                _messageSent.value = true
+            }
             _isSendingMessage.value = false
         }
     }
 
-    fun markMessagesAsRead(chatId: String, userId: String) {
+    fun sendImageMessage(chatId: String, senderId: String, senderName: String, imageUrl: String) {
         viewModelScope.launch {
-            chatRepository.markMessagesAsRead(chatId, userId)
+            _isSendingMessage.value = true
+            ChatCollection.sendMessage(
+                chatId = chatId,
+                senderId = senderId,
+                senderName = senderName,
+                text = "📷 Image",
+                imageUrl = imageUrl,
+                messageType = "image"
+            )
+            _isSendingMessage.value = false
+        }
+    }
+
+    fun sendVoiceMessage(chatId: String, senderId: String, senderName: String, audioUrl: String) {
+        viewModelScope.launch {
+            _isSendingMessage.value = true
+            ChatCollection.sendMessage(
+                chatId = chatId,
+                senderId = senderId,
+                senderName = senderName,
+                text = "🎤 Voice Note",
+                imageUrl = audioUrl,
+                messageType = "voice"
+            )
+            _isSendingMessage.value = false
         }
     }
 
     fun resetMessageSent() {
         _messageSent.value = false
+    }
+
+    fun markMessagesAsRead(chatId: String, userId: String) {
+        viewModelScope.launch {
+            ChatCollection.markMessagesAsRead(chatId, userId)
+        }
     }
 }
