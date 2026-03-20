@@ -64,6 +64,8 @@ import androidx.core.view.WindowCompat
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bunnix.presentation.viewmodel.ChatViewModel
 
 
 // Color system
@@ -645,6 +647,9 @@ class MainActivity : ComponentActivity() {
                     val vendorId = entry.arguments?.getString("vendorId") ?: ""
                     val vendorViewModel: VendorViewModel = hiltViewModel()
 
+                    val chatViewModel: ChatViewModel = hiltViewModel()
+                    val userViewModel: UserViewModel = hiltViewModel()
+                    val currentUser by userViewModel.user.collectAsState()
                     val vendor by vendorViewModel.vendorProfile.collectAsState()
                     val isLoading by vendorViewModel.isLoading.collectAsState()
                     val error by vendorViewModel.error.collectAsState()
@@ -664,7 +669,19 @@ class MainActivity : ComponentActivity() {
 
                         vendor != null -> VendorDetailScreen(
                             vendor = vendor!!,
-                            onBack = { navController.popBackStack() }
+                            onBack = { navController.popBackStack() },
+                            onChat = {
+                                currentUser?.let { user ->
+                                    chatViewModel.getOrCreateChat(
+                                        currentUserId = user.userId,
+                                        vendorId = vendor!!.vendorId,
+                                        vendorName = vendor!!.businessName,
+                                        vendorImage = ""
+                                    ) { chatId ->
+                                        navController.navigate("chat_detail/$chatId")
+                                    }
+                                }
+                            }
                         )
 
                         error != null -> Box(

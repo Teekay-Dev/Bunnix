@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.bunnix.data.auth.AuthResult
 import com.example.bunnix.database.models.Chat
 import com.example.bunnix.database.models.Message
+import com.example.bunnix.database.models.ParticipantInfo
 import com.example.bunnix.domain.repository.AuthRepository
 import com.example.bunnix.domain.repository.ChatRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -23,6 +25,7 @@ class ChatViewModel @Inject constructor(
 ) : ViewModel() {
 
     // ===== CHAT LIST STATE =====
+    private val firestore = FirebaseFirestore.getInstance()
     private val _userChats = MutableStateFlow<List<Chat>>(emptyList())
     val userChats: StateFlow<List<Chat>> = _userChats.asStateFlow()
 
@@ -91,6 +94,46 @@ class ChatViewModel @Inject constructor(
                 }
         }
     }
+
+
+    fun getOrCreateChat(
+        currentUserId: String,
+        vendorId: String,
+        vendorName: String,
+        vendorImage: String,
+        onResult: (String) -> Unit
+    ) {
+        val chatId = if (currentUserId < vendorId)
+            "$currentUserId-$vendorId"
+        else
+            "$vendorId-$currentUserId"
+
+        val chatRef = firestore.collection("chats").document(chatId)
+
+        chatRef.get().addOnSuccessListener { doc ->
+            if (doc.exists()) {
+                onResult(chatId)
+            } else {
+                val newChat = Chat(
+                    chatId = chatId,
+                    participants = listOf(currentUserId, vendorId),
+                    participantDetails = mapOf(
+                        currentUserId to ParticipantInfo("You", "", false),
+                        vendorId to ParticipantInfo(vendorName, vendorImage, true)
+                    ),
+                    lastMessage = "",
+                    unreadCount = mapOf(
+                        currentUserId to 0,
+                        vendorId to 0
+                    )
+                )
+
+                chatRef.set(newChat)
+                    .addOnSuccessListener { onResult(chatId) }
+            }
+        }
+    }
+
 
     // --- Detail Screen Methods ---
 
