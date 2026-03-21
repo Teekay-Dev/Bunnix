@@ -26,7 +26,7 @@ class ChatViewModel @Inject constructor(
     private val firestore = FirebaseFirestore.getInstance()
     private val userId = FirebaseManager.getCurrentUserId()
 
-    // ================== CHAT LIST STATE ==================
+    // ===== CHAT LIST STATE =====
     private val _userChats = MutableStateFlow<List<Chat>>(emptyList())
     val userChats: StateFlow<List<Chat>> = _userChats.asStateFlow()
 
@@ -36,7 +36,7 @@ class ChatViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // ================== CHAT DETAIL STATE ==================
+    // ===== CHAT DETAIL STATE =====
     private val _chatMessages = MutableStateFlow<List<Message>>(emptyList())
     val chatMessages: StateFlow<List<Message>> = _chatMessages.asStateFlow()
 
@@ -55,11 +55,16 @@ class ChatViewModel @Inject constructor(
     private val _vendorProfile = MutableStateFlow<VendorProfile?>(null)
     val vendorProfile: StateFlow<VendorProfile?> = _vendorProfile.asStateFlow()
 
+    // ===== UNREAD COUNT STATE (for bottom nav badge) =====
+    private val _totalUnreadCount = MutableStateFlow(0)
+    val totalUnreadCount: StateFlow<Int> = _totalUnreadCount.asStateFlow()
+
     init {
         loadCurrentUserChats()
     }
 
-    // ================== CHAT LIST LOGIC ==================
+    // ===== CHAT LIST FUNCTIONS =====
+
     fun loadCurrentUserChats() {
         viewModelScope.launch {
             if (userId == null) {
@@ -71,9 +76,13 @@ class ChatViewModel @Inject constructor(
             _error.value = null
 
             try {
-                // ✅ Calls the function we will add to ChatCollection
                 ChatCollection.getUserChats(userId).collectLatest { chats ->
                     _userChats.value = chats
+
+                    // Calculate total unread count
+                    val unread = chats.sumOf { it.unreadCount[userId] ?: 0 }
+                    _totalUnreadCount.value = unread
+
                     _isLoading.value = false
                 }
             } catch (e: Exception) {
@@ -83,7 +92,32 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // ================== CHAT DETAIL LOGIC ==================
+    fun loadUnreadCount() {
+        viewModelScope.launch {
+            if (userId == null) return@launch
+
+            try {
+                ChatCollection.getUserChats(userId).collectLatest { chats ->
+                    val unread = chats.sumOf { it.unreadCount[userId] ?: 0 }
+                    _totalUnreadCount.value = unread
+                }
+            } catch (e: Exception) {
+                _totalUnreadCount.value = 0
+            }
+        }
+    }
+
+    // ===== CHAT DETAIL FUNCTIONS =====
+
+    fun observeChatMessages(chatId: String) {
+        viewModelScope.launch {
+            _isLoadingMessages.value = true
+            ChatCollection.getMessages(chatId).collectLatest { messages ->
+                _chatMessages.value = messages
+                _isLoadingMessages.value = false
+            }
+        }
+    }
 
     fun getOrCreateChat(
         currentUserId: String,
@@ -115,16 +149,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun observeChatMessages(chatId: String) {
-        viewModelScope.launch {
-            _isLoadingMessages.value = true
-            ChatCollection.getMessages(chatId).collectLatest { messages ->
-                _chatMessages.value = messages
-                _isLoadingMessages.value = false
-            }
-        }
-    }
-
     fun loadVendorProfile(vendorId: String) {
         viewModelScope.launch {
 
@@ -144,7 +168,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendImageMessage(chatId: String, senderId: String, senderName: String, imageUrl: String) {
+    fun sendImageMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        imageUrl: String
+    ) {
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
@@ -155,7 +184,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendVoiceMessage(chatId: String, senderId: String, senderName: String, audioUrl: String) {
+    fun sendVoiceMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        audioUrl: String
+    ) {
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
@@ -166,13 +200,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun resetMessageSent() {
-        _messageSent.value = false
-    }
-
     fun markMessagesAsRead(chatId: String, userId: String) {
         viewModelScope.launch {
             ChatCollection.markMessagesAsRead(chatId, userId)
         }
+    }
+
+    fun resetMessageSent() {
+        _messageSent.value = false
     }
 }
