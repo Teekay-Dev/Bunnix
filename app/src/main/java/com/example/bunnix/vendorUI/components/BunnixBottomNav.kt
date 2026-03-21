@@ -1,43 +1,33 @@
 package com.example.bunnix.vendorUI.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.bunnix.ui.theme.OrangePrimaryModern
 import com.example.bunnix.vendorUI.navigation.VendorBottomNavItem
 import com.example.bunnix.vendorUI.navigation.VendorRoutes
-import com.example.bunnix.viewmodel.ChatViewModel
 
 @Composable
 fun BunnixBottomNav(
-    navController: NavController,
-    chatViewModel: ChatViewModel = hiltViewModel()
+    navController: NavController
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Get unread message count
-    val unreadCount by chatViewModel.totalUnreadCount.collectAsState()
-
-    LaunchedEffect(Unit) {
-        chatViewModel.loadUnreadCount()
-    }
-
     NavigationBar(
         containerColor = Color.White,
         contentColor = Color.Gray,
-        tonalElevation = 8.dp
+        tonalElevation = 8.dp,
+        modifier = Modifier.height(80.dp)
     ) {
         VendorBottomNavItem.items.forEach { item ->
             val selected = currentRoute == item.route
@@ -56,32 +46,11 @@ fun BunnixBottomNav(
                     }
                 },
                 icon = {
-                    Box {
-                        Icon(
-                            imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                            contentDescription = item.label,
-                            modifier = Modifier.size(24.dp)
-                        )
-
-                        // Show badge ONLY for Messages and ONLY if unreadCount > 0
-                        if (item.route == VendorRoutes.MESSAGES && unreadCount > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = 8.dp, y = (-4).dp)
-                                    .size(18.dp)
-                                    .background(Color(0xFFF44336), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = if (unreadCount > 9) "9+" else "$unreadCount",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
+                    Icon(
+                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                        contentDescription = item.label,
+                        modifier = Modifier.size(24.dp)
+                    )
                 },
                 label = {
                     Text(
@@ -100,4 +69,13 @@ fun BunnixBottomNav(
             )
         }
     }
+}
+
+// ✅ PREVIEW
+@Preview(showBackground = true, device = "id:pixel_5")
+@Composable
+fun BunnixBottomNavPreview() {
+    val navController = rememberNavController()
+
+    BunnixBottomNav(navController = navController)
 }

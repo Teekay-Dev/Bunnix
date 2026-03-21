@@ -8,8 +8,6 @@ import com.example.bunnix.database.firebase.collections.VendorProfileCollection
 import com.example.bunnix.database.models.Chat
 import com.example.bunnix.database.models.Message
 import com.example.bunnix.database.models.ParticipantInfo
-import com.example.bunnix.domain.repository.AuthRepository
-import com.example.bunnix.domain.repository.ChatRepository
 import com.example.bunnix.database.models.VendorProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,15 +19,13 @@ import javax.inject.Inject
 import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
-class ChatViewModel @Inject constructor(
-    // You might inject a Repository here, but we will use Collection objects directly for now
-) : ViewModel() {
+class ChatViewModel @Inject constructor() : ViewModel() {
 
-    // ===== CHAT LIST STATE =====
+    // ===== FIREBASE & USER =====
     private val firestore = FirebaseFirestore.getInstance()
     private val userId = FirebaseManager.getCurrentUserId()
 
-    // ================== CHAT LIST STATE ==================
+    // ===== CHAT LIST STATE =====
     private val _userChats = MutableStateFlow<List<Chat>>(emptyList())
     val userChats: StateFlow<List<Chat>> = _userChats.asStateFlow()
 
@@ -39,8 +35,7 @@ class ChatViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-
-    // ================== CHAT DETAIL STATE ==================
+    // ===== CHAT DETAIL STATE =====
     private val _chatMessages = MutableStateFlow<List<Message>>(emptyList())
     val chatMessages: StateFlow<List<Message>> = _chatMessages.asStateFlow()
 
@@ -59,13 +54,15 @@ class ChatViewModel @Inject constructor(
     private val _vendorProfile = MutableStateFlow<VendorProfile?>(null)
     val vendorProfile: StateFlow<VendorProfile?> = _vendorProfile.asStateFlow()
 
+    // ===== UNREAD COUNT STATE (for bottom nav badge) =====
+    private val _totalUnreadCount = MutableStateFlow(0)
+    val totalUnreadCount: StateFlow<Int> = _totalUnreadCount.asStateFlow()
 
     init {
-        // Automatically load chats when ViewModel is created
         loadCurrentUserChats()
     }
 
-    // ================== CHAT LIST LOGIC ==================
+    // ===== CHAT LIST FUNCTIONS =====
 
     fun loadCurrentUserChats() {
         viewModelScope.launch {
@@ -78,9 +75,13 @@ class ChatViewModel @Inject constructor(
             _error.value = null
 
             try {
-                // Observe real-time changes from ChatCollection
                 ChatCollection.getUserChats(userId).collectLatest { chats ->
                     _userChats.value = chats
+
+                    // Calculate total unread count
+                    val unread = chats.sumOf { it.unreadCount[userId] ?: 0 }
+                    _totalUnreadCount.value = unread
+
                     _isLoading.value = false
                 }
             } catch (e: Exception) {
@@ -90,7 +91,22 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // ================== CHAT DETAIL LOGIC ==================
+    fun loadUnreadCount() {
+        viewModelScope.launch {
+            if (userId == null) return@launch
+
+            try {
+                ChatCollection.getUserChats(userId).collectLatest { chats ->
+                    val unread = chats.sumOf { it.unreadCount[userId] ?: 0 }
+                    _totalUnreadCount.value = unread
+                }
+            } catch (e: Exception) {
+                _totalUnreadCount.value = 0
+            }
+        }
+    }
+
+    // ===== CHAT DETAIL FUNCTIONS =====
 
     fun observeChatMessages(chatId: String) {
         viewModelScope.launch {
@@ -101,7 +117,6 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
-
 
     fun getOrCreateChat(
         currentUserId: String,
@@ -141,10 +156,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-
-    // --- Detail Screen Methods ---
-
-    fun observeChatMessages(chatId: String) {
     fun loadVendorProfile(vendorId: String) {
         viewModelScope.launch {
             _vendorProfile.value = VendorProfileCollection.getVendorProfile(vendorId).getOrNull()
@@ -168,7 +179,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendImageMessage(chatId: String, senderId: String, senderName: String, imageUrl: String) {
+    fun sendImageMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        imageUrl: String
+    ) {
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
@@ -183,7 +199,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendVoiceMessage(chatId: String, senderId: String, senderName: String, audioUrl: String) {
+    fun sendVoiceMessage(
+        chatId: String,
+        senderId: String,
+        senderName: String,
+        audioUrl: String
+    ) {
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
@@ -198,13 +219,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun resetMessageSent() {
-        _messageSent.value = false
-    }
-
     fun markMessagesAsRead(chatId: String, userId: String) {
         viewModelScope.launch {
             ChatCollection.markMessagesAsRead(chatId, userId)
         }
+    }
+
+    fun resetMessageSent() {
+        _messageSent.value = false
     }
 }
