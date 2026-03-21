@@ -632,15 +632,12 @@ class MainActivity : ComponentActivity() {
                 ) { entry ->
                     val vendorId = entry.arguments?.getString("vendorId") ?: ""
                     val vendorViewModel: VendorViewModel = hiltViewModel()
-
                     val chatViewModel: ChatViewModel = hiltViewModel()
-                    val userViewModel: UserViewModel = hiltViewModel()
-                    val currentUser by userViewModel.user.collectAsState()
+
                     val vendor by vendorViewModel.vendorProfile.collectAsState()
                     val isLoading by vendorViewModel.isLoading.collectAsState()
                     val error by vendorViewModel.error.collectAsState()
 
-                    // Fetch vendor when composable is first shown
                     LaunchedEffect(vendorId) {
                         if (vendorId.isNotBlank()) {
                             vendorViewModel.fetchVendor(vendorId)
@@ -657,16 +654,25 @@ class MainActivity : ComponentActivity() {
                             vendor = vendor!!,
                             onBack = { navController.popBackStack() },
                             onChat = {
-                                currentUser?.let { user ->
-                                    chatViewModel.getOrCreateChat(
-                                        currentUserId = user.userId,
-                                        vendorId = vendor!!.vendorId,
-                                        vendorName = vendor!!.businessName,
-                                        vendorImage = ""
-                                    ) { chatId ->
-                                        navController.navigate("chat_detail/$chatId")
+                                val currentUserId = FirebaseManager.getCurrentUserId() ?: return@VendorDetailScreen
+                                val vName = Uri.encode(vendor!!.businessName)
+                                val vImage = Uri.encode(vendor!!.coverPhotoUrl)
+                                val chatId = if (currentUserId < vendorId)
+                                    "$currentUserId-$vendorId"
+                                else
+                                    "$vendorId-$currentUserId"
+
+                                // Create chat first, then navigate
+                                chatViewModel.getOrCreateChat(
+                                    currentUserId = currentUserId,
+                                    vendorId = vendorId,
+                                    vendorName = vendor!!.businessName,
+                                    vendorImage = vendor!!.coverPhotoUrl,
+                                    onResult = { createdChatId ->
+                                        // Navigate on main thread
+                                        navController.navigate("chat_detail/$createdChatId/$vName/$vImage/$vendorId")
                                     }
-                                }
+                                )
                             }
                         )
 
@@ -951,10 +957,8 @@ class MainActivity : ComponentActivity() {
                     ChatListScreen(navController)
                 }
 
-                // Inside MainActivity.kt NavHost
-
                 composable(
-                    route = "chat_detail/{chatId}/{vendorName}/{vendorImage}",
+                    route = "chat_detail/{chatId}/{vendorName}/{vendorImage}/{vendorId}",
                     arguments = listOf(
                         navArgument("chatId") { type = NavType.StringType },
                         navArgument("vendorName") { type = NavType.StringType },

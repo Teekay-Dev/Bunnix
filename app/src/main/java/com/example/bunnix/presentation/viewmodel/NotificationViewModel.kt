@@ -69,10 +69,16 @@ class NotificationViewModel @Inject constructor(
      * Observe notifications in real-time
      */
     fun observeNotifications(userId: String) {
+        if (userId.isBlank()) return
         viewModelScope.launch {
-            observeUserNotifications(userId).collect { notificationList ->
-                _notifications.value = notificationList
-                _unreadCount.value = notificationList.count { !it.isRead }
+            try {
+                observeUserNotifications(userId).collect { notificationList ->
+                    _notifications.value = notificationList
+                    _unreadCount.value = notificationList.count { !it.isRead }
+                }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load notifications"
+                _isLoading.value = false
             }
         }
     }
@@ -83,14 +89,14 @@ class NotificationViewModel @Inject constructor(
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    // CHANGE: don't close the flow, just set error state and return empty
+                    _error.value = error.message
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
-
                 val notifications = snapshot?.toObjects(Notification::class.java) ?: emptyList()
                 trySend(notifications)
             }
-
         awaitClose { listener.remove() }
     }
 
