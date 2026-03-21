@@ -8,8 +8,6 @@ import com.example.bunnix.database.firebase.collections.VendorProfileCollection
 import com.example.bunnix.database.models.Chat
 import com.example.bunnix.database.models.Message
 import com.example.bunnix.database.models.ParticipantInfo
-import com.example.bunnix.domain.repository.AuthRepository
-import com.example.bunnix.domain.repository.ChatRepository
 import com.example.bunnix.database.models.VendorProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,10 +20,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    // You might inject a Repository here, but we will use Collection objects directly for now
+    // Injecting dependencies if needed, or using static references
 ) : ViewModel() {
 
-    // ===== CHAT LIST STATE =====
     private val firestore = FirebaseFirestore.getInstance()
     private val userId = FirebaseManager.getCurrentUserId()
 
@@ -38,7 +35,6 @@ class ChatViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
-
 
     // ================== CHAT DETAIL STATE ==================
     private val _chatMessages = MutableStateFlow<List<Message>>(emptyList())
@@ -59,14 +55,11 @@ class ChatViewModel @Inject constructor(
     private val _vendorProfile = MutableStateFlow<VendorProfile?>(null)
     val vendorProfile: StateFlow<VendorProfile?> = _vendorProfile.asStateFlow()
 
-
     init {
-        // Automatically load chats when ViewModel is created
         loadCurrentUserChats()
     }
 
     // ================== CHAT LIST LOGIC ==================
-
     fun loadCurrentUserChats() {
         viewModelScope.launch {
             if (userId == null) {
@@ -78,7 +71,7 @@ class ChatViewModel @Inject constructor(
             _error.value = null
 
             try {
-                // Observe real-time changes from ChatCollection
+                // ✅ Calls the function we will add to ChatCollection
                 ChatCollection.getUserChats(userId).collectLatest { chats ->
                     _userChats.value = chats
                     _isLoading.value = false
@@ -92,29 +85,15 @@ class ChatViewModel @Inject constructor(
 
     // ================== CHAT DETAIL LOGIC ==================
 
-    fun observeChatMessages(chatId: String) {
-        viewModelScope.launch {
-            _isLoadingMessages.value = true
-            ChatCollection.getMessages(chatId).collectLatest { messages ->
-                _chatMessages.value = messages
-                _isLoadingMessages.value = false
-            }
-        }
-    }
-
-
     fun getOrCreateChat(
         currentUserId: String,
         vendorId: String,
         vendorName: String,
         vendorImage: String,
+        currentUserName: String = "Customer",
         onResult: (String) -> Unit
     ) {
-        val chatId = if (currentUserId < vendorId)
-            "$currentUserId-$vendorId"
-        else
-            "$vendorId-$currentUserId"
-
+        val chatId = if (currentUserId < vendorId) "$currentUserId-$vendorId" else "$vendorId-$currentUserId"
         val chatRef = firestore.collection("chats").document(chatId)
 
         chatRef.get().addOnSuccessListener { doc ->
@@ -129,24 +108,26 @@ class ChatViewModel @Inject constructor(
                         vendorId to ParticipantInfo(vendorName, vendorImage, true)
                     ),
                     lastMessage = "",
-                    unreadCount = mapOf(
-                        currentUserId to 0,
-                        vendorId to 0
-                    )
+                    unreadCount = mapOf(currentUserId to 0, vendorId to 0)
                 )
-
-                chatRef.set(newChat)
-                    .addOnSuccessListener { onResult(chatId) }
+                chatRef.set(newChat).addOnSuccessListener { onResult(chatId) }
             }
         }
     }
 
-
-    // --- Detail Screen Methods ---
-
     fun observeChatMessages(chatId: String) {
+        viewModelScope.launch {
+            _isLoadingMessages.value = true
+            ChatCollection.getMessages(chatId).collectLatest { messages ->
+                _chatMessages.value = messages
+                _isLoadingMessages.value = false
+            }
+        }
+    }
+
     fun loadVendorProfile(vendorId: String) {
         viewModelScope.launch {
+
             _vendorProfile.value = VendorProfileCollection.getVendorProfile(vendorId).getOrNull()
         }
     }
@@ -155,15 +136,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isSendingMessage.value = true
             val result = ChatCollection.sendMessage(
-                chatId = chatId,
-                senderId = senderId,
-                senderName = senderName,
-                text = text,
-                messageType = "text"
+                chatId = chatId, senderId = senderId, senderName = senderName,
+                text = text, messageType = "text"
             )
-            if (result.isSuccess) {
-                _messageSent.value = true
-            }
+            if (result.isSuccess) { _messageSent.value = true }
             _isSendingMessage.value = false
         }
     }
@@ -172,12 +148,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
-                chatId = chatId,
-                senderId = senderId,
-                senderName = senderName,
-                text = "📷 Image",
-                imageUrl = imageUrl,
-                messageType = "image"
+                chatId = chatId, senderId = senderId, senderName = senderName,
+                text = "📷 Image", imageUrl = imageUrl, messageType = "image"
             )
             _isSendingMessage.value = false
         }
@@ -187,12 +159,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
-                chatId = chatId,
-                senderId = senderId,
-                senderName = senderName,
-                text = "🎤 Voice Note",
-                imageUrl = audioUrl,
-                messageType = "voice"
+                chatId = chatId, senderId = senderId, senderName = senderName,
+                text = "🎤 Voice Note", imageUrl = audioUrl, messageType = "voice"
             )
             _isSendingMessage.value = false
         }

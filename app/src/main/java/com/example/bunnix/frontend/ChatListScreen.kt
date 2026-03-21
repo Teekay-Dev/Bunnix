@@ -35,6 +35,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.database.models.Chat
 import com.example.bunnix.database.models.ParticipantInfo
 import com.example.bunnix.presentation.viewmodel.ChatViewModel
@@ -101,7 +102,7 @@ fun ChatListScreen(
             else -> true
         }
         matchesSearch && matchesFilter
-    }.sortedByDescending { it.lastMessageTime?.toDate() }
+    }.sortedByDescending { it.getLastMessageTimeDate() }
 
     val totalUnread = chats.sumOf { it.unreadCount.values.sum() }
 
@@ -192,18 +193,17 @@ fun ChatListScreen(
                                     chat = chat,
                                     isUnread = chat.unreadCount.values.any { it > 0 },
                                     onClick = {
-                                        // ✅ 1. Get participant info
-                                        val participant = chat.participantDetails.values.firstOrNull()
+                                        val myId = FirebaseManager.getCurrentUserId() ?: return@ChatListItem
 
-                                        // ✅ 2. Get Vendor ID
-                                        val vendorId = getVendorId(chat)
+                                        // Get the OTHER person (not current user)
+                                        val otherEntry = chat.participantDetails.entries
+                                            .firstOrNull { it.key != myId }
 
-                                        // ✅ 3. Encode data
-                                        val name = Uri.encode(participant?.name ?: "Unknown")
-                                        val image = Uri.encode(participant?.profilePic ?: "")
+                                        val vendorId = otherEntry?.key ?: return@ChatListItem
+                                        val vendorName = Uri.encode(otherEntry.value.name.ifBlank { "Vendor" })
+                                        val vendorImage = Uri.encode(otherEntry.value.profilePic ?: "")
 
-                                        // ✅ 4. Navigate with 4 parameters
-                                        navController.navigate("chat_detail/${chat.chatId}/$name/$image/$vendorId")
+                                        navController.navigate("chat_detail/${chat.chatId}/$vendorName/$vendorImage/$vendorId")
                                     }
                                 )
                             }
@@ -310,8 +310,11 @@ private fun FilterChips(filters: List<String>, selectedFilter: String, onFilterS
 // ✅ SIMPLIFIED CHAT LIST ITEM
 @Composable
 private fun ChatListItem(chat: Chat, isUnread: Boolean, onClick: () -> Unit) {
-    // Get the first participant details (usually the vendor)
-    val participantInfo = chat.participantDetails.values.firstOrNull()
+    val currentUserId = FirebaseManager.getCurrentUserId()
+    val participantInfo = chat.participantDetails.entries
+        .firstOrNull { it.key != currentUserId }
+        ?.value
+        ?: chat.participantDetails.values.firstOrNull()
     val unreadCount = chat.unreadCount.values.sum()
 
     Card(
@@ -353,7 +356,7 @@ private fun ChatListItem(chat: Chat, isUnread: Boolean, onClick: () -> Unit) {
                             Icon(Icons.Default.Verified, "Verified", tint = OrangePrimary, modifier = Modifier.size(16.dp))
                         }
                     }
-                    Text(text = formatTime(chat.lastMessageTime), fontSize = 12.sp, color = if (isUnread) OrangePrimary else TextTertiary)
+                    Text(text = formatTime(chat.getLastMessageTime()), fontSize = 12.sp, color = if (isUnread) OrangePrimary else TextTertiary)
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
