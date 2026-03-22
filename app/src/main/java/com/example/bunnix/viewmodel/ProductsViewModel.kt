@@ -3,6 +3,8 @@ package com.example.bunnix.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.bunnix.database.models.Product
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -14,19 +16,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
-data class VendorProduct(
-    val productId: String = "",
-    val vendorId: String = "",
-    val name: String = "",
-    val description: String = "",
-    val price: Double = 0.0,
-    val quantity: Int = 0,
-    val category: String = "",
-    val imageUrl: String = "",
-    val isAvailable: Boolean = true,
-    val createdAt: Long = 0L
-)
-
 @HiltViewModel
 class ProductsViewModel @Inject constructor(
     private val auth: FirebaseAuth,
@@ -34,8 +23,8 @@ class ProductsViewModel @Inject constructor(
     private val storage: FirebaseStorage
 ) : ViewModel() {
 
-    private val _products = MutableStateFlow<List<VendorProduct>>(emptyList())
-    val products: StateFlow<List<VendorProduct>> = _products.asStateFlow()
+    private val _products = MutableStateFlow<List<Product>>(emptyList())
+    val products: StateFlow<List<Product>> = _products.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -63,25 +52,7 @@ class ProductsViewModel @Inject constructor(
                             return@addSnapshotListener
                         }
 
-                        val productsList = snapshot?.documents?.mapNotNull { doc ->
-                            try {
-                                VendorProduct(
-                                    productId = doc.id,
-                                    vendorId = doc.getString("vendorId") ?: "",
-                                    name = doc.getString("name") ?: "",
-                                    description = doc.getString("description") ?: "",
-                                    price = doc.getDouble("price") ?: 0.0,
-                                    quantity = doc.getLong("quantity")?.toInt() ?: 0,
-                                    category = doc.getString("category") ?: "",
-                                    imageUrl = doc.getString("imageUrl") ?: "",
-                                    isAvailable = doc.getBoolean("isAvailable") ?: true,
-                                    createdAt = doc.getLong("createdAt") ?: 0L
-                                )
-                            } catch (e: Exception) {
-                                null
-                            }
-                        } ?: emptyList()
-
+                        val productsList = snapshot?.toObjects(Product::class.java) ?: emptyList()
                         _products.value = productsList
                         _isLoading.value = false
                     }
@@ -109,25 +80,39 @@ class ProductsViewModel @Inject constructor(
 
                 val vendorId = auth.currentUser?.uid ?: return@launch
 
+                // Get vendor name from Firestore
+                val vendorDoc = firestore.collection("vendors")
+                    .document(vendorId)
+                    .get()
+                    .await()
+                val vendorName = vendorDoc.getString("businessName") ?: "Unknown Vendor"
+
                 // Upload image to Firebase Storage
                 val imageUrl = uploadProductImage(imageUri, vendorId)
 
-                // Create product document
-                val productData = hashMapOf(
-                    "vendorId" to vendorId,
-                    "name" to name,
-                    "description" to description,
-                    "price" to price,
-                    "quantity" to quantity,
-                    "category" to category,
-                    "imageUrl" to imageUrl,
-                    "isAvailable" to true,
-                    "createdAt" to System.currentTimeMillis(),
-                    "updatedAt" to System.currentTimeMillis()
+                // Create product using the proper Product model
+                val product = Product(
+                    productId = "", // Firestore will auto-generate
+                    vendorId = vendorId,
+                    vendorName = vendorName,
+                    name = name,
+                    description = description,
+                    price = price,
+                    discountPrice = null,
+                    category = category,
+                    imageUrls = listOf(imageUrl),
+                    variants = emptyList(),
+                    totalStock = quantity,
+                    inStock = quantity > 0,
+                    tags = listOf(category.lowercase()),
+                    views = 0,
+                    sold = 0,
+                    createdAt = Timestamp.now(),
+                    updatedAt = Timestamp.now()
                 )
 
                 firestore.collection("products")
-                    .add(productData)
+                    .add(product)
                     .await()
 
                 _successMessage.value = "Product added successfully"
@@ -161,15 +146,16 @@ class ProductsViewModel @Inject constructor(
                     "name" to name,
                     "description" to description,
                     "price" to price,
-                    "quantity" to quantity,
+                    "totalStock" to quantity,
+                    "inStock" to (quantity > 0),
                     "category" to category,
-                    "updatedAt" to System.currentTimeMillis()
+                    "updatedAt" to Timestamp.now()
                 )
 
                 // Upload new image if provided
                 if (imageUri != null) {
                     val imageUrl = uploadProductImage(imageUri, vendorId)
-                    updateData["imageUrl"] = imageUrl
+                    updateData["imageUrls"] = listOf(imageUrl)
                 }
 
                 firestore.collection("products")
@@ -208,7 +194,7 @@ class ProductsViewModel @Inject constructor(
             try {
                 firestore.collection("products")
                     .document(productId)
-                    .update("isAvailable", isAvailable)
+                    .update("inStock", isAvailable)
                     .await()
 
             } catch (e: Exception) {

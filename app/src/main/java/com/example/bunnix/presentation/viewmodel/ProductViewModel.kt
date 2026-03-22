@@ -30,14 +30,39 @@ class ProductViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _featuredProducts = MutableStateFlow<List<Product>>(emptyList())
+    val featuredProducts: StateFlow<List<Product>> = _featuredProducts.asStateFlow()
+
     init {
         // Load products when ViewModel is created
         loadProducts()
+        loadFeaturedProducts()
     }
 
     /**
      * Load all products from Firestore
      */
+
+    fun loadFeaturedProducts() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val snapshot = firestore.collection("products")
+                    .orderBy("sold", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(10)
+                    .get()
+                    .await()
+                _featuredProducts.value = snapshot.toObjects(Product::class.java)
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load featured products"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+
     fun loadProducts() {
         viewModelScope.launch {
             _isLoading.value = true

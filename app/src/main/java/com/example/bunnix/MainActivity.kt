@@ -65,6 +65,7 @@ import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bunnix.database.BunnixDatabase.services
 import com.example.bunnix.presentation.viewmodel.ChatViewModel
 import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.database.firebase.collections.CartCollection
@@ -632,15 +633,23 @@ class MainActivity : ComponentActivity() {
                 ) { entry ->
                     val vendorId = entry.arguments?.getString("vendorId") ?: ""
                     val vendorViewModel: VendorViewModel = hiltViewModel()
+                    val productViewModel: ProductViewModel = hiltViewModel()
+                    val serviceViewModel: ServiceViewModel = hiltViewModel() // ✅ CUSTOMER ServiceViewModel
+
                     val chatViewModel: ChatViewModel = hiltViewModel()
 
                     val vendor by vendorViewModel.vendorProfile.collectAsState()
+                    val products by productViewModel.products.collectAsState()
+                    val services by serviceViewModel.services.collectAsState() // ✅ GET SERVICES
                     val isLoading by vendorViewModel.isLoading.collectAsState()
                     val error by vendorViewModel.error.collectAsState()
 
+                    // ✅ Fetch vendor, products, AND services
                     LaunchedEffect(vendorId) {
                         if (vendorId.isNotBlank()) {
                             vendorViewModel.fetchVendor(vendorId)
+                            productViewModel.getProductsByVendor(vendorId)
+                            serviceViewModel.getServicesByVendor(vendorId) // ✅ FETCH SERVICES
                         }
                     }
 
@@ -652,7 +661,15 @@ class MainActivity : ComponentActivity() {
 
                         vendor != null -> VendorDetailScreen(
                             vendor = vendor!!,
+                            products = products,
+                            services = services, // ✅ PASS SERVICES HERE
                             onBack = { navController.popBackStack() },
+                            onProductClick = { product ->
+                                navController.navigate("product_detail/${product.productId}")
+                            },
+                            onServiceClick = { service -> // ✅ ADD SERVICE CLICK
+                                navController.navigate("booking/${service.serviceId}")
+                            },
                             onChat = {
                                 val currentUserId = FirebaseManager.getCurrentUserId() ?: return@VendorDetailScreen
                                 val vName = Uri.encode(vendor!!.businessName)
@@ -771,132 +788,71 @@ class MainActivity : ComponentActivity() {
                 ) { entry ->
                     val productId = entry.arguments?.getString("productId") ?: ""
                     val productViewModel: ProductViewModel = hiltViewModel()
-                    // Use a CartViewModel if you have one injected, or use CartCollection directly
                     val scope = rememberCoroutineScope()
                     val userId = FirebaseManager.getCurrentUserId()
 
                     val allProducts by productViewModel.products.collectAsState()
                     val product = allProducts.find { it.productId == productId }
 
-                    if (product != null) {
-                        ProductDetailsScreen(
-                            product = product,
-                            allProducts = allProducts,
-                            onAddToCart = { prod, quantity ->
-                                val item = CartItem(
-                                    id = prod.productId,
-                                    productId = prod.productId,
-                                    name = prod.name,
-                                    vendorId = prod.vendorId,
-                                    vendorName = prod.vendorName,
-                                    price = prod.discountPrice ?: prod.price,
-                                    originalPrice = if (prod.discountPrice != null) prod.price else null,
-                                    quantity = quantity,
-                                    imageUrl = prod.imageUrls.firstOrNull() ?: "", // FIXED Type
-                                    variant = null
-                                )
+                    when {
+                        product != null -> {
+                            ProductDetailsScreen(
+                                product = product,
+                                allProducts = allProducts,
+                                onAddToCart = { prod, quantity ->
+                                    val item = CartItem(
+                                        id = prod.productId,
+                                        productId = prod.productId,
+                                        name = prod.name,
+                                        vendorId = prod.vendorId,
+                                        vendorName = prod.vendorName,
+                                        price = prod.discountPrice ?: prod.price,
+                                        originalPrice = if (prod.discountPrice != null) prod.price else null,
+                                        quantity = quantity,
+                                        imageUrl = prod.imageUrls.firstOrNull() ?: "",
+                                        variant = null
+                                    )
 
-                                // ✅ CALL CART COLLECTION DIRECTLY
-                                scope.launch {
-                                    if (userId != null) {
-                                        CartCollection.addToCart(userId, item)
+                                    scope.launch {
+                                        if (userId != null) {
+                                            CartCollection.addToCart(userId, item)
+                                        }
                                     }
+                                },
+                                onBuyNow = { prod, qty ->
+                                    // ✅ CALCULATE TOTAL AND NAVIGATE DIRECTLY TO PAYMENT
+                                    val price = prod.discountPrice ?: prod.price
+                                    val total = price * qty
+                                    val orderId = "ORD-${System.currentTimeMillis()}"
+
+                                    navController.navigate("payment/$total/$orderId")
+                                },
+                                onBack = { navController.popBackStack() },
+                                onChatWithVendor = { vId ->
+                                    val vName = Uri.encode(product.vendorName)
+                                    val vImage = Uri.encode(product.imageUrls.firstOrNull() ?: "")
+                                    navController.navigate("chat_detail/chat_${product.vendorId}_$vId/$vName/$vImage/$vId")
                                 }
-                            },
-                            onBuyNow = { prod, qty ->
-                                // Navigate to checkout
-                            },
-                            onBack = { navController.popBackStack() },
-                            onChatWithVendor = { vId ->
-                                val vName = Uri.encode(product.vendorName)
-                                val vImage = Uri.encode(product.imageUrls.firstOrNull() ?: "")
-                                navController.navigate("chat_detail/chat_${product.vendorId}_$vId/$vName/$vImage/$vId")
+                            )
+                        }
+
+                        allProducts.isEmpty() -> {
+                            // ✅ LOADING STATE
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
                             }
-                        )
-                    } else {
-                        ProductNotFoundScreen { navController.popBackStack() }
+                        }
+
+                        else -> {
+                            // ✅ PRODUCT NOT FOUND
+                            ProductNotFoundScreen { navController.popBackStack() }
+                        }
                     }
                 }
 
-//                composable(
-//                    route = "checkout/{type}/{id}/{extra}",
-//                    arguments = listOf(
-//                        navArgument("type") { type = NavType.StringType },
-//                        navArgument("id") { type = NavType.StringType },
-//                        navArgument("extra") { type = NavType.StringType }
-//                    )
-//                ) { entry ->
-//                    val type = entry.arguments?.getString("type") ?: ""
-//                    val id = entry.arguments?.getString("id") ?: ""
-//                    val extra = entry.arguments?.getString("extra") ?: ""
-//
-//                    val items = when (type) {
-//
-//                        "product" -> {
-//                            val vm: ProductViewModel = hiltViewModel()
-//                            val products by vm.products.collectAsState()
-//                            val product = products.find { it.productId == id }
-//
-//                            val qty = extra.toIntOrNull() ?: 1
-//
-//                            product?.let {
-//                                listOf(
-//                                    CheckoutItem(
-//                                        id = it.productId,
-//                                        name = it.name,
-//                                        imageUrl = it.imageUrls.firstOrNull() ?: "",
-//                                        price = it.price,
-//                                        quantity = qty,
-//                                        variant = null
-//                                    )
-//                                )
-//                            } ?: emptyList()
-//                        }
-//
-//                        "service" -> listOf(
-//                            CheckoutItem(
-//                                id = id,
-//                                name = "Service Booking ($extra)",
-//                                imageUrl = "",
-//                                price = 0.0,
-//                                quantity = 1,
-//                                variant = null
-//                            )
-//                        )
-//
-//                        "cart" -> cartItems.map {
-//                            CheckoutItem(
-//                                id = it.id,
-//                                name = it.name,
-//                                imageUrl = it.imageUrl ?: "",
-//                                price = it.price,
-//                                quantity = it.quantity,
-//                                variant = it.variant
-//                            )
-//                        }
-//
-//                        else -> emptyList()
-//                    }
-//
-//                    val total = items.sumOf { it.price * it.quantity }
-//                    val orderId = "ORD-${System.currentTimeMillis() % 100000}"
-//
-//                    CheckoutScreen(
-//                        items = items,
-//                        total = total,
-//                        isServiceBooking = type == "service",
-//                        onBack = { navController.popBackStack() },
-//                        onPaymentMethodSelect = { navController.navigate("payment/$total/$orderId") },
-//                        onApplyPromo = {
-//                            it.uppercase() in setOf(
-//                                "WELCOME10",
-//                                "SAVE20",
-//                                "BUNNIX50"
-//                            )
-//                        },
-//                        onPlaceOrder = { navController.navigate(Routes.OrderSuccess) }
-//                    )
-//                }
 
                 composable(
                     route = "payment/{total}/{orderId}",

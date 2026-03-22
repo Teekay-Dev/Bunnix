@@ -14,13 +14,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.BunnixTopBar
-import com.example.bunnix.viewmodel.ProfileViewModel
+import com.example.bunnix.viewmodel.VendorProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBusinessProfileScreen(
     navController: NavController,
-    viewModel: ProfileViewModel = hiltViewModel()
+    viewModel: VendorProfileViewModel = hiltViewModel()
 ) {
     val profile by viewModel.vendorProfile.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
