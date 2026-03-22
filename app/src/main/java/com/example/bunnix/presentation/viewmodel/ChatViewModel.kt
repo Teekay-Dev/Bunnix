@@ -19,9 +19,10 @@ import javax.inject.Inject
 import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
-class ChatViewModel @Inject constructor() : ViewModel() {
+class ChatViewModel @Inject constructor(
+    // Injecting dependencies if needed, or using static references
+) : ViewModel() {
 
-    // ===== FIREBASE & USER =====
     private val firestore = FirebaseFirestore.getInstance()
     private val userId = FirebaseManager.getCurrentUserId()
 
@@ -123,13 +124,10 @@ class ChatViewModel @Inject constructor() : ViewModel() {
         vendorId: String,
         vendorName: String,
         vendorImage: String,
+        currentUserName: String = "Customer",
         onResult: (String) -> Unit
     ) {
-        val chatId = if (currentUserId < vendorId)
-            "$currentUserId-$vendorId"
-        else
-            "$vendorId-$currentUserId"
-
+        val chatId = if (currentUserId < vendorId) "$currentUserId-$vendorId" else "$vendorId-$currentUserId"
         val chatRef = firestore.collection("chats").document(chatId)
 
         chatRef.get().addOnSuccessListener { doc ->
@@ -144,20 +142,16 @@ class ChatViewModel @Inject constructor() : ViewModel() {
                         vendorId to ParticipantInfo(vendorName, vendorImage, true)
                     ),
                     lastMessage = "",
-                    unreadCount = mapOf(
-                        currentUserId to 0,
-                        vendorId to 0
-                    )
+                    unreadCount = mapOf(currentUserId to 0, vendorId to 0)
                 )
-
-                chatRef.set(newChat)
-                    .addOnSuccessListener { onResult(chatId) }
+                chatRef.set(newChat).addOnSuccessListener { onResult(chatId) }
             }
         }
     }
 
     fun loadVendorProfile(vendorId: String) {
         viewModelScope.launch {
+
             _vendorProfile.value = VendorProfileCollection.getVendorProfile(vendorId).getOrNull()
         }
     }
@@ -166,15 +160,10 @@ class ChatViewModel @Inject constructor() : ViewModel() {
         viewModelScope.launch {
             _isSendingMessage.value = true
             val result = ChatCollection.sendMessage(
-                chatId = chatId,
-                senderId = senderId,
-                senderName = senderName,
-                text = text,
-                messageType = "text"
+                chatId = chatId, senderId = senderId, senderName = senderName,
+                text = text, messageType = "text"
             )
-            if (result.isSuccess) {
-                _messageSent.value = true
-            }
+            if (result.isSuccess) { _messageSent.value = true }
             _isSendingMessage.value = false
         }
     }
@@ -188,12 +177,8 @@ class ChatViewModel @Inject constructor() : ViewModel() {
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
-                chatId = chatId,
-                senderId = senderId,
-                senderName = senderName,
-                text = "📷 Image",
-                imageUrl = imageUrl,
-                messageType = "image"
+                chatId = chatId, senderId = senderId, senderName = senderName,
+                text = "📷 Image", imageUrl = imageUrl, messageType = "image"
             )
             _isSendingMessage.value = false
         }
@@ -208,12 +193,8 @@ class ChatViewModel @Inject constructor() : ViewModel() {
         viewModelScope.launch {
             _isSendingMessage.value = true
             ChatCollection.sendMessage(
-                chatId = chatId,
-                senderId = senderId,
-                senderName = senderName,
-                text = "🎤 Voice Note",
-                imageUrl = audioUrl,
-                messageType = "voice"
+                chatId = chatId, senderId = senderId, senderName = senderName,
+                text = "🎤 Voice Note", imageUrl = audioUrl, messageType = "voice"
             )
             _isSendingMessage.value = false
         }

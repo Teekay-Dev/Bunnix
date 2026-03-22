@@ -80,7 +80,6 @@ class ChatRepositoryImpl @Inject constructor(
                 participants = participants,
                 participantDetails = participantDetails,
                 lastMessage = "",
-                lastMessageTime = Timestamp.now(),
                 lastMessageSender = "",
                 unreadCount = mapOf(userId1 to 0, userId2 to 0),
                 relatedOrderId = relatedOrderId,
