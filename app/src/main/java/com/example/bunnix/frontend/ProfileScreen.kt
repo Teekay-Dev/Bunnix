@@ -187,7 +187,7 @@ fun ProfileScreen(
                     ) {
                         Column {
                             Text(
-                                if (isVendor) "Switch to Business" else "Become a Vendor",
+                                if (isVendor) "Switch to Business Mode" else "Become a Vendor",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
                                 color = White

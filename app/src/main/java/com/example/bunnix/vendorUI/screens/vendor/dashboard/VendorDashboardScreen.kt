@@ -17,11 +17,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import com.example.bunnix.OrangeLight
+import com.example.bunnix.OrangeSoft
 import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.*
 import com.example.bunnix.vendorUI.navigation.VendorRoutes
@@ -60,8 +65,8 @@ fun VendorDashboardScreen(
                 .background(LightGrayBg)
                 .verticalScroll(scrollState)
         ) {
-            // ✅ BIG TOP BAR (NO SEARCH BAR)
-            BigVendorTopBar(
+            // ✅ BEAUTIFUL GRADIENT TOP BAR
+            ModernVendorTopBar(
                 businessName = businessName ?: "My Business",
                 isVerified = isVerified,
                 isLoading = isLoading,
@@ -81,11 +86,11 @@ fun VendorDashboardScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Quick Actions
+            // ✅ QUICK ACTIONS (NOW WITH INVENTORY!)
             QuickActions(
+                onInventoryClick = { navController.navigate("vendor/inventory") }, // ⭐ NEW!
                 onAddProductClick = { navController.navigate(VendorRoutes.ADD_PRODUCT) },
                 onViewOrdersClick = { navController.navigate(VendorRoutes.ORDERS) },
-                onBookingsClick = { navController.navigate(VendorRoutes.ORDERS) },
                 onMessagesClick = { navController.navigate(VendorRoutes.MESSAGES) }
             )
 
@@ -124,9 +129,9 @@ fun VendorDashboardScreen(
     }
 }
 
-// ✅ BIG TOP BAR - NO SEARCH BAR
+// ✅ MODERN GRADIENT TOP BAR
 @Composable
-fun BigVendorTopBar(
+fun ModernVendorTopBar(
     businessName: String,
     isVerified: Boolean,
     isLoading: Boolean,
@@ -138,73 +143,85 @@ fun BigVendorTopBar(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFFFF8C42),
-                        OrangePrimaryModern
+                        OrangePrimaryModern,
+                        OrangeLight
                     )
                 )
             )
-            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .padding(horizontal = 20.dp, vertical = 28.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ✅ TOP ROW: Logo Circle + "Bunnix" + Notification Bell
+            // TOP ROW: Logo + Notification
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Logo + "Bunnix"
+                // Left: Logo + Brand
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // ✅ WHITE CIRCLE WITH ORANGE INSIDE
+                    // Elevated White Circle with Orange Inside
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(60.dp)
+                            .shadow(8.dp, CircleShape)
                             .background(Color.White, CircleShape)
-                            .padding(3.dp),
+                            .padding(4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(OrangePrimaryModern, CircleShape),
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            OrangePrimaryModern,
+                                            OrangeLight
+                                        )
+                                    ),
+                                    CircleShape
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Store,
                                 contentDescription = "Bunnix Logo",
                                 tint = Color.White,
-                                modifier = Modifier.size(30.dp)
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                     }
 
-                    // ✅ "Bunnix" Text
                     Column {
                         Text(
                             text = "Bunnix",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                            letterSpacing = 0.5.sp
                         )
                         Text(
-                            text = "Vendor Dashboard",
+                            text = "Vendor Portal",
                             fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.85f)
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
 
                 // Right: Notification Bell
-                IconButton(
-                    onClick = onNotificationClick,
+                Box(
                     modifier = Modifier
                         .size(50.dp)
-                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                        .shadow(4.dp, CircleShape)
+                        .background(Color.White.copy(alpha = 0.25f), CircleShape)
+                        .clickable(onClick = onNotificationClick),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Notifications,
@@ -215,16 +232,17 @@ fun BigVendorTopBar(
                 }
             }
 
-            // ✅ WELCOME MESSAGE + BUSINESS NAME
+            // WELCOME MESSAGE + BUSINESS NAME
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Welcome To Bunnix! 👋",
-                    fontSize = 20.sp,
+                    text = "Welcome! 👋",
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
+                    letterSpacing = 0.3.sp
                 )
 
                 Row(
@@ -233,20 +251,38 @@ fun BigVendorTopBar(
                 ) {
                     Text(
                         text = if (isLoading) "Loading..." else businessName,
-                        fontSize = 15.sp,
-                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 16.sp,
+                        color = Color.White.copy(alpha = 0.95f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f, fill = false)
                     )
 
                     if (isVerified) {
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = "Verified",
-                            tint = Color(0xFF2196F3),
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Surface(
+                            color = Color.White.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Verified,
+                                    contentDescription = "Verified",
+                                    tint = Color(0xFF2196F3),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    "Verified",
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -254,7 +290,7 @@ fun BigVendorTopBar(
     }
 }
 
-// ✅ STATS GRID
+// ✅ BEAUTIFIED STATS GRID
 @SuppressLint("DefaultLocale")
 @Composable
 fun StatsGrid(
@@ -269,6 +305,14 @@ fun StatsGrid(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
+        Text(
+            text = "Today's Overview",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -278,17 +322,17 @@ fun StatsGrid(
                 icon = Icons.Default.AttachMoney,
                 value = if (isLoading) "..." else "₦${String.format("%,.0f", totalSales)}",
                 label = "Total Sales",
-                iconBackgroundColor = Color(0xFFE8F5E9),
-                iconTint = Color(0xFF4CAF50)
+                gradientColors = listOf(Color(0xFF66BB6A), Color(0xFF4CAF50)),
+                iconBackgroundColor = Color(0xFFE8F5E9)
             )
 
             StatCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.ShoppingBag,
                 value = if (isLoading) "..." else "$totalOrders",
-                label = "Total Orders",
-                iconBackgroundColor = Color(0xFFE3F2FD),
-                iconTint = Color(0xFF2196F3)
+                label = "Orders",
+                gradientColors = listOf(Color(0xFF42A5F5), Color(0xFF2196F3)),
+                iconBackgroundColor = Color(0xFFE3F2FD)
             )
         }
 
@@ -303,8 +347,8 @@ fun StatsGrid(
                 icon = Icons.Default.CalendarToday,
                 value = if (isLoading) "..." else "$bookings",
                 label = "Bookings",
-                iconBackgroundColor = Color(0xFFF3E5F5),
-                iconTint = Color(0xFF9C27B0)
+                gradientColors = listOf(Color(0xFFAB47BC), Color(0xFF9C27B0)),
+                iconBackgroundColor = Color(0xFFF3E5F5)
             )
 
             StatCard(
@@ -312,8 +356,8 @@ fun StatsGrid(
                 icon = Icons.Default.People,
                 value = if (isLoading) "..." else "$customers",
                 label = "Customers",
-                iconBackgroundColor = Color(0xFFFFF3E0),
-                iconTint = OrangePrimaryModern
+                gradientColors = listOf(OrangeLight, OrangePrimaryModern),
+                iconBackgroundColor = OrangeSoft
             )
         }
     }
@@ -325,68 +369,86 @@ fun StatCard(
     icon: ImageVector,
     value: String,
     label: String,
-    iconBackgroundColor: Color,
-    iconTint: Color
+    gradientColors: List<Color>,
+    iconBackgroundColor: Color
 ) {
     Card(
         modifier = modifier
-            .height(140.dp)
+            .height(130.dp)
             .shadow(
-                elevation = 2.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(20.dp),
-                spotColor = Color.Black.copy(alpha = 0.05f)
+                spotColor = gradientColors.first().copy(alpha = 0.2f)
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Gradient Background (subtle)
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(iconBackgroundColor, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                iconBackgroundColor.copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
 
-            Column {
-                Text(
-                    text = value,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = label,
-                    fontSize = 13.sp,
-                    color = TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(iconBackgroundColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = gradientColors.last(),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = value,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = label,
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
 }
 
+// ✅ QUICK ACTIONS (NOW 6 BUTTONS WITH INVENTORY!)
 @Composable
 fun QuickActions(
+    onInventoryClick: () -> Unit, // ⭐ NEW!
     onAddProductClick: () -> Unit,
     onViewOrdersClick: () -> Unit,
-    onBookingsClick: () -> Unit,
     onMessagesClick: () -> Unit
 ) {
     Column(
@@ -402,46 +464,48 @@ fun QuickActions(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
+        // ROW 1: Inventory + Add Product
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ActionButton(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.Add,
-                label = "Add Product",
-                backgroundColor = Color(0xFF2196F3),
-                onClick = onAddProductClick
+                icon = Icons.Default.Inventory,
+                label = "Inventory",
+                backgroundColor = Color(0xFFFF6B35), // Orange
+                onClick = onInventoryClick
             )
 
             ActionButton(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.ShoppingBag,
-                label = "View Orders",
-                backgroundColor = Color(0xFF00C853),
-                onClick = onViewOrdersClick
+                icon = Icons.Default.Add,
+                label = "Add Product",
+                backgroundColor = Color(0xFF2196F3), // Blue
+                onClick = onAddProductClick
             )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // ROW 2: Orders + Messages
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ActionButton(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.CalendarToday,
-                label = "Bookings",
-                backgroundColor = Color(0xFF9C27B0),
-                onClick = onBookingsClick
+                icon = Icons.Default.ShoppingBag,
+                label = "Orders",
+                backgroundColor = Color(0xFF00C853), // Green
+                onClick = onViewOrdersClick
             )
 
             ActionButton(
                 modifier = Modifier.weight(1f),
                 icon = Icons.AutoMirrored.Filled.Message,
                 label = "Messages",
-                backgroundColor = OrangePrimaryModern,
+                backgroundColor = Color(0xFF9C27B0), // Purple
                 onClick = onMessagesClick
             )
         }
@@ -458,42 +522,59 @@ fun ActionButton(
 ) {
     Card(
         modifier = modifier
-            .height(110.dp)
+            .height(100.dp)
             .shadow(
-                elevation = 4.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = backgroundColor.copy(alpha = 0.3f)
+                elevation = 6.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = backgroundColor.copy(alpha = 0.4f)
             )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = Color.White,
-                modifier = Modifier.size(32.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Subtle gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.1f),
+                                Color.Transparent
+                            )
+                        )
+                    )
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = label,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
 
+// ✅ BEAUTIFIED RECENT ORDERS
 @Composable
 fun RecentOrdersSection(
     orders: List<DashboardOrder>,
@@ -506,9 +587,9 @@ fun RecentOrdersSection(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .shadow(
-                elevation = 2.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(20.dp),
-                spotColor = Color.Black.copy(alpha = 0.05f)
+                spotColor = Color.Black.copy(alpha = 0.08f)
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -537,6 +618,12 @@ fun RecentOrdersSection(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = OrangePrimaryModern
+                    )
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = OrangePrimaryModern
                     )
                 }
             }
@@ -625,7 +712,7 @@ fun RecentOrderItem(
 @Composable
 fun StatusBadge(status: String) {
     val (backgroundColor, textColor) = when (status.lowercase()) {
-        "pending" -> Color(0xFFFFF3E0) to OrangePrimaryModern
+        "pending" -> OrangeSoft to OrangePrimaryModern
         "processing" -> Color(0xFFE3F2FD) to Color(0xFF2196F3)
         "shipped" -> Color(0xFFF3E5F5) to Color(0xFF9C27B0)
         "completed" -> Color(0xFFE8F5E9) to Color(0xFF4CAF50)
@@ -641,11 +728,12 @@ fun StatusBadge(status: String) {
             text = status.replaceFirstChar { it.uppercase() },
             fontSize = 12.sp,
             color = textColor,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Bold
         )
     }
 }
 
+// ✅ BEAUTIFIED WEEK PERFORMANCE
 @Composable
 fun WeekPerformanceCard() {
     Card(
@@ -653,9 +741,9 @@ fun WeekPerformanceCard() {
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .shadow(
-                elevation = 2.dp,
+                elevation = 4.dp,
                 shape = RoundedCornerShape(20.dp),
-                spotColor = Color.Black.copy(alpha = 0.05f)
+                spotColor = Color.Black.copy(alpha = 0.08f)
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -666,42 +754,72 @@ fun WeekPerformanceCard() {
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            Text(
-                text = "This Week's Performance",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .background(Color(0xFFFFF8F0), RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.BottomCenter
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                Text(
+                    text = "Week Performance",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                Surface(
+                    color = Color(0xFF00C853).copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
-                    listOf("M", "T", "W", "T", "F", "S", "S").forEach { day ->
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.TrendingUp,
+                            contentDescription = null,
+                            tint = Color(0xFF00C853),
+                            modifier = Modifier.size(16.dp)
+                        )
                         Text(
-                            text = day,
-                            fontSize = 14.sp,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium
+                            "+12.5%",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00C853)
                         )
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Simple bar chart placeholder
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                OrangeSoft,
+                                Color.White
+                            )
+                        ),
+                        RoundedCornerShape(16.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Chart Coming Soon",
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
             }
         }
     }
 }
 
+// ✅ VERIFICATION DIALOG
 @Composable
 fun VerificationPromptDialog(
     onGetVerified: () -> Unit,
@@ -716,7 +834,8 @@ fun VerificationPromptDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .align(Alignment.Center),
+                .align(Alignment.Center)
+                .shadow(16.dp, RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
@@ -742,8 +861,16 @@ fun VerificationPromptDialog(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
-                            .background(Color(0xFFE3F2FD), CircleShape),
+                            .size(90.dp)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFFE3F2FD),
+                                        Color(0xFF90CAF9)
+                                    )
+                                ),
+                                CircleShape
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -757,11 +884,11 @@ fun VerificationPromptDialog(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        text = "Get Verified with Bunnix!",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = "Get Verified!",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
                         color = TextPrimary,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        textAlign = TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -770,7 +897,7 @@ fun VerificationPromptDialog(
                         text = "Build trust with customers by becoming a verified vendor. Get the blue checkmark badge today!",
                         fontSize = 14.sp,
                         color = TextSecondary,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        textAlign = TextAlign.Center,
                         lineHeight = 20.sp
                     )
 
@@ -784,8 +911,17 @@ fun VerificationPromptDialog(
                         shape = RoundedCornerShape(50.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OrangePrimaryModern
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 4.dp
                         )
                     ) {
+                        Icon(
+                            Icons.Default.Verified,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Get Verified Now",
                             fontSize = 16.sp,
@@ -798,6 +934,7 @@ fun VerificationPromptDialog(
     }
 }
 
+// Data classes
 data class DashboardStats(
     val totalSales: Double = 0.0,
     val totalOrders: Int = 0,
@@ -813,3 +950,132 @@ data class DashboardOrder(
     val itemCount: Int,
     val status: String
 )
+
+// ===== PREVIEWS =====
+// ===== PREVIEWS =====
+
+@Preview(showBackground = true, showSystemUi = true, name = "Dashboard - Full")
+@Composable
+fun VendorDashboardScreenStaticPreview() {
+    BunnixTheme {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(LightGrayBg)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Top Bar
+                ModernVendorTopBar(
+                    businessName = "Tech Store Pro",
+                    isVerified = true,
+                    isLoading = false,
+                    onNotificationClick = {}
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Stats
+                StatsGrid(
+                    totalSales = 125000.0,
+                    totalOrders = 45,
+                    bookings = 23,
+                    customers = 156,
+                    isLoading = false
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Quick Actions
+                QuickActions(
+                    onInventoryClick = {},
+                    onAddProductClick = {},
+                    onViewOrdersClick = {},
+                    onMessagesClick = {}
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Recent Orders with sample data
+                RecentOrdersSection(
+                    orders = listOf(
+                        DashboardOrder(
+                            orderId = "1",
+                            orderNumber = "#ORD-001",
+                            customerName = "John Doe",
+                            amount = 45000.0,
+                            itemCount = 3,
+                            status = "pending"
+                        ),
+                        DashboardOrder(
+                            orderId = "2",
+                            orderNumber = "#ORD-002",
+                            customerName = "Jane Smith",
+                            amount = 23000.0,
+                            itemCount = 1,
+                            status = "completed"
+                        )
+                    ),
+                    isLoading = false,
+                    onViewAllClick = {},
+                    onOrderClick = {}
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                WeekPerformanceCard()
+
+                Spacer(modifier = Modifier.height(100.dp))
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Top Bar")
+@Composable
+fun TopBarPreview() {
+    BunnixTheme {
+        ModernVendorTopBar(
+            businessName = "Tech Store Pro",
+            isVerified = true,
+            isLoading = false,
+            onNotificationClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Stats Grid")
+@Composable
+fun StatsGridPreview() {
+    BunnixTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            StatsGrid(
+                totalSales = 125000.0,
+                totalOrders = 45,
+                bookings = 23,
+                customers = 156,
+                isLoading = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Quick Actions")
+@Composable
+fun QuickActionsPreview() {
+    BunnixTheme {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LightGrayBg)
+                .padding(16.dp)
+        ) {
+            QuickActions(
+                onInventoryClick = {},
+                onAddProductClick = {},
+                onViewOrdersClick = {},
+                onMessagesClick = {}
+            )
+        }
+    }
+}

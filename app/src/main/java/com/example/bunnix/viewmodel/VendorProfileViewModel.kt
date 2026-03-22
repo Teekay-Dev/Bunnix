@@ -15,6 +15,7 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 data class VendorProfileData(
+    val vendorId: String = "",
     val name: String = "",
     val email: String = "",
     val phone: String = "",
@@ -34,7 +35,7 @@ data class BankDetails(
 )
 
 @HiltViewModel
-class ProfileViewModel @Inject constructor(
+class VendorProfileViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage
@@ -66,19 +67,20 @@ class ProfileViewModel @Inject constructor(
 
                 val userId = auth.currentUser?.uid ?: return@launch
 
-                // Load user data
+                // Load user data (for email, phone, profile pic)
                 val userDoc = firestore.collection("users")
                     .document(userId)
                     .get()
                     .await()
 
-                // Load vendor profile data
-                val vendorDoc = firestore.collection("vendorProfiles")
+                // ✅ Load vendor profile data from "vendors" collection
+                val vendorDoc = firestore.collection("vendors")
                     .document(userId)
                     .get()
                     .await()
 
                 _vendorProfile.value = VendorProfileData(
+                    vendorId = userId,
                     name = userDoc.getString("name") ?: "",
                     email = userDoc.getString("email") ?: "",
                     phone = userDoc.getString("phone") ?: "",
@@ -103,7 +105,8 @@ class ProfileViewModel @Inject constructor(
             try {
                 val userId = auth.currentUser?.uid ?: return@launch
 
-                val vendorDoc = firestore.collection("vendorProfiles")
+                // ✅ Load from "vendors" collection
+                val vendorDoc = firestore.collection("vendors")
                     .document(userId)
                     .get()
                     .await()
@@ -135,7 +138,7 @@ class ProfileViewModel @Inject constructor(
 
                 val userId = auth.currentUser?.uid ?: return@launch
 
-                // Update vendor profile
+                // ✅ Update vendor profile in "vendors" collection
                 val vendorUpdate = hashMapOf(
                     "businessName" to businessName,
                     "description" to description,
@@ -144,12 +147,12 @@ class ProfileViewModel @Inject constructor(
                     "updatedAt" to System.currentTimeMillis()
                 )
 
-                firestore.collection("vendorProfiles")
+                firestore.collection("vendors")
                     .document(userId)
                     .update(vendorUpdate as Map<String, Any>)
                     .await()
 
-                // Update user phone
+                // Update user phone in "users" collection
                 firestore.collection("users")
                     .document(userId)
                     .update("phone", phone)
@@ -187,7 +190,8 @@ class ProfileViewModel @Inject constructor(
                     "updatedAt" to System.currentTimeMillis()
                 )
 
-                firestore.collection("vendorProfiles")
+                // ✅ Update in "vendors" collection
+                firestore.collection("vendors")
                     .document(userId)
                     .update(bankUpdate as Map<String, Any>)
                     .await()
@@ -229,7 +233,7 @@ class ProfileViewModel @Inject constructor(
                 // Get download URL
                 val downloadUrl = storageRef.downloadUrl.await().toString()
 
-                // Update Firestore
+                // Update Firestore (users collection for profile pic)
                 firestore.collection("users")
                     .document(userId)
                     .update("profilePicUrl", downloadUrl)
