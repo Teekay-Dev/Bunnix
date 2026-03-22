@@ -30,8 +30,31 @@ class ServiceViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _featuredServices = MutableStateFlow<List<Service>>(emptyList())
+    val featuredServices: StateFlow<List<Service>> = _featuredServices.asStateFlow()
+
     init {
         loadServices()
+        loadFeaturedServices()
+    }
+
+
+    fun loadFeaturedServices() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val snapshot = firestore.collection("services")
+                    .limit(10)
+                    .get()
+                    .await()
+                _featuredServices.value = snapshot.toObjects(Service::class.java)
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load featured services"
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     private fun loadServices() {
