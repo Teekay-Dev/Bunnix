@@ -92,8 +92,17 @@ fun ChatDetailScreen(
     val currentUserId by viewModel.currentUserId.collectAsState()
     val vendorProfile by viewModel.vendorProfile.collectAsState()
 
-    // ✅ LOAD DATA
     LaunchedEffect(chatId) {
+        // Create chat if it doesn't exist yet
+        currentUserId?.let { uid ->
+            viewModel.getOrCreateChat(
+                currentUserId = uid,
+                vendorId = vendorId,
+                vendorName = vendorName,
+                vendorImage = vendorImageUrl,
+                onResult = { /* chat exists or created */ }
+            )
+        }
         viewModel.observeChatMessages(chatId)
         viewModel.loadVendorProfile(vendorId)
         currentUserId?.let { viewModel.markMessagesAsRead(chatId, it) }

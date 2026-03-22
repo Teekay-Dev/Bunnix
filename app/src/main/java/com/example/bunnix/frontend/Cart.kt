@@ -52,9 +52,14 @@ fun CartScreen(
     val userId = FirebaseManager.getCurrentUserId()
     val scope = rememberCoroutineScope()
 
-    // ✅ BACKEND CONNECTION: Collect real-time cart items
-    val cartItems by CartCollection.getCartItems(userId ?: "")
-        .collectAsState(initial = emptyList())
+
+    val cartItems by remember(userId) {
+        if (userId != null) {
+            CartCollection.getCartItems(userId)
+        } else {
+            kotlinx.coroutines.flow.flowOf(emptyList())
+        }
+    }.collectAsState(initial = emptyList())
 
     // Calculate totals dynamically
     val subtotal = cartItems.sumOf { it.price * it.quantity }
