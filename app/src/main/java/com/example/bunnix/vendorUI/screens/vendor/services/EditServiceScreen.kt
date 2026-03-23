@@ -232,6 +232,8 @@ fun EditServiceScreen(
                             label = { Text("Service Name *") },
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -255,6 +257,8 @@ fun EditServiceScreen(
                                 .height(140.dp),
                             maxLines = 6,
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -328,6 +332,8 @@ fun EditServiceScreen(
                                         .fillMaxWidth()
                                         .menuAnchor(),
                                     colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.Black,
+                                        unfocusedTextColor = Color.Black,
                                         focusedBorderColor = OrangePrimaryModern,
                                         focusedLabelColor = OrangePrimaryModern
                                     ),
@@ -385,6 +391,8 @@ fun EditServiceScreen(
                                     .fillMaxWidth()
                                     .menuAnchor(),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),

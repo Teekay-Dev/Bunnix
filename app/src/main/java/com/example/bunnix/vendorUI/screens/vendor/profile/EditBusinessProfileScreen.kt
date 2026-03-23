@@ -63,6 +63,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -81,6 +83,8 @@ fun EditBusinessProfileScreen(
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 5,
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -96,6 +100,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -111,6 +117,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -126,6 +134,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,

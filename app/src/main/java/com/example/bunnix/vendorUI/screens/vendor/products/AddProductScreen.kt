@@ -283,6 +283,8 @@ fun AddProductScreen(
                             placeholder = { Text("e.g., iPhone 15 Pro Max") },
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -308,6 +310,8 @@ fun AddProductScreen(
                                 .height(140.dp),
                             maxLines = 6,
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -346,6 +350,8 @@ fun AddProductScreen(
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
@@ -371,6 +377,8 @@ fun AddProductScreen(
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
@@ -415,6 +423,8 @@ fun AddProductScreen(
                                     .fillMaxWidth()
                                     .menuAnchor(),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
@@ -495,8 +505,18 @@ fun AddProductScreen(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
+                val error by viewModel.error.collectAsState()
+                if (error != null) {
+                    Text(
+                        text = "ERROR: $error",
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
                     }
                 }
+                // TEMPORARY DEBUG - remove after fixing
 
                 Spacer(modifier = Modifier.height(40.dp))
             }
