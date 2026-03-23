@@ -148,6 +148,7 @@ fun ModernVendorTopBar(
                     )
                 )
             )
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 20.dp, vertical = 28.dp)
     ) {
         Column(

@@ -302,12 +302,13 @@ private fun HeroSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(280.dp)
+            .height(300.dp)
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(OrangePrimary, OrangeDark)
                 )
             )
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(20.dp)
     ) {
         Column {
@@ -458,6 +459,7 @@ private fun StickySearchBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

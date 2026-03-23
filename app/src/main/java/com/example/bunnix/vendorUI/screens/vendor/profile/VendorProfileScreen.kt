@@ -102,13 +102,14 @@ fun VendorProfileScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .wrapContentHeight()
             ) {
                 // Orange gradient background
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(140.dp)
+                        .height(160.dp)
+                        .windowInsetsPadding(WindowInsets.statusBars)
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
@@ -123,10 +124,11 @@ fun VendorProfileScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(top = 24.dp, bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(40.dp))
+
 
                     // Profile photo with edit button
                     Box {
@@ -135,7 +137,7 @@ fun VendorProfileScreen(
                                 ?: "https://via.placeholder.com/150",
                             contentDescription = "Profile Photo",
                             modifier = Modifier
-                                .size(120.dp)
+                                .size(100.dp)
                                 .clip(CircleShape)
                                 .border(4.dp, Color.White, CircleShape)
                                 .background(Color.White),
@@ -147,7 +149,7 @@ fun VendorProfileScreen(
                             onClick = { imagePickerLauncher.launch("image/*") },
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .size(36.dp)
+                                .size(32.dp)
                                 .background(OrangePrimaryModern, CircleShape)
                                 .border(2.dp, Color.White, CircleShape)
                         ) {
@@ -155,80 +157,56 @@ fun VendorProfileScreen(
                                 imageVector = Icons.Default.CameraAlt,
                                 contentDescription = "Edit Photo",
                                 tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
-                }
-            }
+                    Spacer(modifier = Modifier.height(12.dp))
 
-            // Name and Email
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = if (isLoading) "Loading..." else (profile?.businessName ?: "Vendor Name"),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    // Blue verified badge
-                    if (profile?.isVerified == true) {
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = "Verified",
-                            tint = Color(0xFF2196F3),
-                            modifier = Modifier.size(24.dp)
+                    // Name
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (isLoading) "Loading..." else (profile?.businessName ?: "Vendor Name"),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        if (profile?.isVerified == true) {
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                tint = Color(0xFF2196F3),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Email
+                    Text(
+                        text = profile?.email ?: "",
+                        fontSize = 14.sp,
+                        color = TextSecondary
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = profile?.email ?: "",
-                    fontSize = 14.sp,
-                    color = TextSecondary
-                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // ⭐ SWITCH OR CREATE CUSTOMER ACCOUNT
             if (hasCustomerAccount) {
-                // User HAS customer account → Show SWITCH button → Go to LOGIN
                 SwitchToCustomerCard(
-                    onSwitchClick = {
-                        // Logout and navigate to login screen
-                        FirebaseAuth.getInstance().signOut()
-                        val intent = Intent(context, LoginActivity::class.java)
-                        intent.putExtra("mode", "CUSTOMER")
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        context.startActivity(intent)
-                        (context as? Activity)?.finish()
-                    }
+                    onSwitchClick = { onNavigateToLogin() }
                 )
             } else {
-                // User DOES NOT have customer account → Show CREATE button → Go to SIGNUP
                 CreateCustomerAccountCard(
-                    onCreateClick = {
-                        // Navigate to customer signup in MainActivity
-                        val intent = Intent(context, com.example.bunnix.MainActivity::class.java)
-                        intent.putExtra("navigate_to", "signup")
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        context.startActivity(intent)
-                        (context as? Activity)?.finish()
-                    }
+                    onCreateClick = { onNavigateToLogin() }
                 )
             }
 
@@ -398,11 +376,7 @@ fun VendorProfileScreen(
                         viewModel.logout()
                         showLogoutDialog = false
 
-                        // Navigate to LoginActivity
-                        val intent = Intent(context, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        context.startActivity(intent)
-                        (context as? Activity)?.finish()
+                        onNavigateToLogin()
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ErrorRed
@@ -504,7 +478,7 @@ fun CreateCustomerAccountCard(onCreateClick: () -> Unit) {
             .clickable(onClick = onCreateClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = OrangePrimaryModern // ⭐ ORANGE like customer
+            containerColor = OrangePrimaryModern
         ),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
@@ -535,7 +509,7 @@ fun CreateCustomerAccountCard(onCreateClick: () -> Unit) {
 
                 Column {
                     Text(
-                        text = "Create Customer Account",
+                        text = "Switch to Customer Account",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White

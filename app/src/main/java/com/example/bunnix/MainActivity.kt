@@ -69,6 +69,7 @@ import com.example.bunnix.database.BunnixDatabase.services
 import com.example.bunnix.presentation.viewmodel.ChatViewModel
 import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.database.firebase.collections.CartCollection
+import com.example.bunnix.vendorUI.navigation.VendorRoutes
 
 
 // Color system
@@ -302,7 +303,11 @@ class MainActivity : ComponentActivity() {
                             isSwitchingMode = true,
                             currentMode = "customer",
                             verificationStep = verificationState.currentStep,
-                            onLoginClick = { navController.popBackStack() },
+                            onLoginClick = {
+                                navController.navigate("login") {
+                                    popUpTo("vendor_signup") { inclusive = true }
+                                }
+                            },
                             onSignupSuccess = { user, password, vendorData ->
                                 val vendorUser = user.copy(isVendor = true)
                                 authViewModel.initiateSignup(vendorUser, password, vendorData)
@@ -396,13 +401,11 @@ class MainActivity : ComponentActivity() {
             composable("vendor_mode") {
                 val scope = rememberCoroutineScope()
 
+
                 VendorApp(
                     onSwitchToCustomerMode = {
-                        scope.launch {
-                            prefs.setMode("CUSTOMER")
-                            navController.navigate("customer_mode") {
-                                popUpTo("vendor_mode") { inclusive = true }
-                            }
+                        navController.navigate("vendor_signup") {
+                            popUpTo("vendor_mode") { inclusive = true }
                         }
                     }
                 )
@@ -1050,13 +1053,19 @@ class MainActivity : ComponentActivity() {
 
     // ===== VENDOR APP =====
     @Composable
-    fun VendorApp(onSwitchToCustomerMode: () -> Unit = {}) {
+    fun VendorApp(
+        onSwitchToCustomerMode: () -> Unit = {}
+    ) {
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
+        // CORRECT - matches VendorRoutes exactly
         val bottomNavRoutes = listOf(
-            "vendor_dashboard", "vendor_orders", "vendor_messages", "vendor_profile"
+            VendorRoutes.DASHBOARD,
+            VendorRoutes.ORDERS,
+            VendorRoutes.MESSAGES,
+            VendorRoutes.PROFILE
         )
         val showBottomNav = currentRoute in bottomNavRoutes
 

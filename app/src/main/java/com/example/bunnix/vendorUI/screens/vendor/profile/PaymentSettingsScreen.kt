@@ -114,6 +114,8 @@ fun PaymentSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -130,6 +132,8 @@ fun PaymentSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -146,6 +150,8 @@ fun PaymentSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -180,6 +186,8 @@ fun PaymentSettingsScreen(
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 3,
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,

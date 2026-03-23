@@ -81,7 +81,7 @@ class ServicesViewModel @Inject constructor(
                 val vendorId = auth.currentUser?.uid ?: return@launch
 
                 // Get vendor name from Firestore
-                val vendorDoc = firestore.collection("vendors")
+                val vendorDoc = firestore.collection("vendorProfiles")
                     .document(vendorId)
                     .get()
                     .await()
@@ -112,9 +112,11 @@ class ServicesViewModel @Inject constructor(
                     updatedAt = Timestamp.now()
                 )
 
-                firestore.collection("services")
+                val docRef = firestore.collection("services")
                     .add(service)
                     .await()
+
+                docRef.update("serviceId", docRef.id).await()
 
                 _successMessage.value = "Service added successfully"
 

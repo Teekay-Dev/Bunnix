@@ -287,6 +287,8 @@ fun AddServiceScreen(
                             placeholder = { Text("e.g., Hair Cut & Styling") },
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -311,6 +313,8 @@ fun AddServiceScreen(
                                 .height(140.dp),
                             maxLines = 6,
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -348,6 +352,8 @@ fun AddServiceScreen(
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
@@ -385,6 +391,8 @@ fun AddServiceScreen(
                                         .fillMaxWidth()
                                         .menuAnchor(),
                                     colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.Black,
+                                        unfocusedTextColor = Color.Black,
                                         focusedBorderColor = OrangePrimaryModern,
                                         focusedLabelColor = OrangePrimaryModern
                                     ),
@@ -443,6 +451,8 @@ fun AddServiceScreen(
                                     .fillMaxWidth()
                                     .menuAnchor(),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
@@ -529,7 +539,7 @@ fun AddServiceScreen(
                 Spacer(modifier = Modifier.height(40.dp))
             }
 
-            // ===== UPLOAD PROGRESS =====
+
             // ===== UPLOAD PROGRESS =====
             AnimatedVisibility(
                 visible = uploadProgress > 0f && uploadProgress < 1f,

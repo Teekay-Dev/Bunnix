@@ -81,11 +81,13 @@ class ProductsViewModel @Inject constructor(
                 val vendorId = auth.currentUser?.uid ?: return@launch
 
                 // Get vendor name from Firestore
-                val vendorDoc = firestore.collection("vendors")
+                val vendorDoc = firestore.collection("vendorProfiles")
                     .document(vendorId)
                     .get()
                     .await()
                 val vendorName = vendorDoc.getString("businessName") ?: "Unknown Vendor"
+
+
 
                 // Upload image to Firebase Storage
                 val imageUrl = uploadProductImage(imageUri, vendorId)
@@ -111,9 +113,11 @@ class ProductsViewModel @Inject constructor(
                     updatedAt = Timestamp.now()
                 )
 
-                firestore.collection("products")
+                val docRef = firestore.collection("products")
                     .add(product)
                     .await()
+
+                docRef.update("productId", docRef.id).await()
 
                 _successMessage.value = "Product added successfully"
 

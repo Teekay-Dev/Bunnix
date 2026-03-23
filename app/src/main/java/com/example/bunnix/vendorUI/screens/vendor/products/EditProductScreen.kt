@@ -226,6 +226,8 @@ fun EditProductScreen(
                             label = { Text("Product Name *") },
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -249,6 +251,8 @@ fun EditProductScreen(
                                 .height(140.dp),
                             maxLines = 6,
                             colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.Black,
+                                unfocusedTextColor = Color.Black,
                                 focusedBorderColor = OrangePrimaryModern,
                                 focusedLabelColor = OrangePrimaryModern
                             ),
@@ -285,6 +289,8 @@ fun EditProductScreen(
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
@@ -308,6 +314,8 @@ fun EditProductScreen(
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
@@ -350,6 +358,8 @@ fun EditProductScreen(
                                     .fillMaxWidth()
                                     .menuAnchor(),
                                 colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
                                     focusedBorderColor = OrangePrimaryModern,
                                     focusedLabelColor = OrangePrimaryModern
                                 ),
