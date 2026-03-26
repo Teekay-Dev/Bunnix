@@ -36,8 +36,8 @@ android {
         val supabaseUrl = localProperties.getProperty("sbUrl") ?: ""
         val supabaseKey = localProperties.getProperty("sbKey") ?: ""
 
-        buildConfigField("String", "SB_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SB_KEY", "\"$supabaseKey\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseKey\"")
     }
 
     buildTypes {
