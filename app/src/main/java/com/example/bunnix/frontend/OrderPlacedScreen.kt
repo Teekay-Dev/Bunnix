@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
 import kotlin.random.Random
 import com.example.bunnix.database.models.PaymentMethod
 import com.example.bunnix.database.models.PaymentStatus
+import io.ktor.client.utils.EmptyContent.status
 
 // Reuse colors from PaymentMethodScreen
 private val OrangePrimary = Color(0xFFFF6B35)
@@ -66,7 +67,8 @@ fun OrderPlacedScreen(
     onTrackOrder: (String) -> Unit = {},
     onContinueShopping: () -> Unit = {},
     viewModel: ReceiptViewModel = hiltViewModel(),
-    onViewReceipt: (String) -> Unit = {}
+    onViewReceipt: (String) -> Unit = {},
+    status: String
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var showConfetti by remember { mutableStateOf(true) }
@@ -172,7 +174,7 @@ fun OrderPlacedScreen(
 
                     // Order Confirmed Text
                     Text(
-                        "Order Placed Successfully! 🎉",
+                        text = if (orderType == "Service") "Booking Confirmed! 🎉" else "Order Placed Successfully! 🎉",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 24.sp,
                         color = TextPrimary,
@@ -197,7 +199,8 @@ fun OrderPlacedScreen(
                         orderType = orderType,
                         vendorName = vendorName,
                         totalAmount = totalAmount,
-                        estimatedDelivery = estimatedDelivery
+                        estimatedDelivery = estimatedDelivery,
+                        status = status
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -332,7 +335,8 @@ private fun OrderDetailsCard(
     orderType: String,
     vendorName: String,
     totalAmount: Double,
-    estimatedDelivery: String
+    estimatedDelivery: String,
+    status: String
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -382,8 +386,17 @@ private fun OrderDetailsCard(
             // Details
             OrderDetailRow(Icons.Default.Store, "Vendor", vendorName)
             OrderDetailRow(Icons.Default.Payments, "Total Amount", formatCurrency(totalAmount))
-            OrderDetailRow(Icons.Default.Schedule, "Estimated Delivery", estimatedDelivery)
-            OrderDetailRow(Icons.Default.Info, "Status", "Awaiting Payment Confirmation", SuccessGreen)
+            OrderDetailRow(
+                icon = Icons.Default.Schedule,
+                label = if (orderType == "Service") "Scheduled For" else "Estimated Delivery",
+                value = estimatedDelivery
+            )
+            OrderDetailRow(
+                icon = Icons.Default.Info,
+                label = "Status",
+                value = status,
+                valueColor = if (status == "Scheduled" || status == "Confirmed") SuccessGreen else OrangePrimary
+            )
 
             Divider(modifier = Modifier.padding(vertical = 16.dp), color = TextTertiary.copy(alpha = 0.2f))
 
@@ -615,6 +628,6 @@ private fun formatCurrency(amount: Double): String {
 @Composable
 fun OrderPlacedScreenPreview() {
     BunnixTheme {
-        OrderPlacedScreen()
+//        OrderPlacedScreen()
     }
 }

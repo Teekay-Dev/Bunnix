@@ -163,15 +163,17 @@ fun VendorProfile.toUiModel(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
-    onVendorClick: (String) -> Unit, // CHANGED: Int to String
+    onVendorClick: (String) -> Unit,
     onBookServiceClick: () -> Unit,
     onShopProductClick: () -> Unit,
     onSearchClick: (String) -> Unit,
     featuredProducts: List<Product> = emptyList(),
     featuredServices: List<Service> = emptyList(),
     bottomBar: @Composable () -> Unit = {},
+    onProductClick: (Product) -> Unit,
+    onServiceClick: (Service) -> Unit,
     vendorViewModel: VendorViewModel = hiltViewModel(),
-    productViewModel: ProductViewModel = hiltViewModel(), // ⭐ ADD THIS
+    productViewModel: ProductViewModel = hiltViewModel(),
     serviceViewModel: ServiceViewModel = hiltViewModel()
 
 
@@ -1148,14 +1150,20 @@ private fun ProductCard(
         onClick = onClick,
         modifier = Modifier.width(160.dp),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(120.dp)
-                    .background(SurfaceLight)
+                    // ✅ CHANGED: Light Orange Gradient Background instead of Gray
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(OrangeSoft, OrangeLight.copy(alpha = 0.3f))
+                        )
+                    )
             ) {
                 if (product.imageUrls.isNotEmpty()) {
                     AsyncImage(
@@ -1166,6 +1174,16 @@ private fun ProductCard(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // Placeholder Icon if no image
+                    Icon(
+                        imageVector = Icons.Default.Inventory,
+                        contentDescription = null,
+                        tint = OrangePrimary.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(40.dp)
                     )
                 }
 
@@ -1193,6 +1211,7 @@ private fun ProductCard(
             ) {
                 Text(
                     product.name,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1270,7 +1289,8 @@ private fun ServiceListItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -1280,7 +1300,12 @@ private fun ServiceListItem(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceLight)
+                    // ✅ CHANGED: Light Orange Gradient Background instead of Gray
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(OrangeSoft, OrangeLight.copy(alpha = 0.3f))
+                        )
+                    )
             ) {
                 if (service.imageUrl.isNotEmpty()) {
                     AsyncImage(
@@ -1291,9 +1316,9 @@ private fun ServiceListItem(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.ContentCut,
+                        imageVector = Icons.Default.MiscellaneousServices, // Changed icon
                         contentDescription = null,
-                        tint = OrangePrimary,
+                        tint = OrangePrimary.copy(alpha = 0.5f),
                         modifier = Modifier
                             .size(32.dp)
                             .align(Alignment.Center)
@@ -1307,7 +1332,8 @@ private fun ServiceListItem(
                 Text(
                     service.name,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    color = TextPrimary
                 )
 
                 Text(
@@ -1461,7 +1487,9 @@ fun HomeScreenPreview() {
             onSearchClick = {},
             featuredProducts = sampleProducts,
             featuredServices = sampleServices,
-            vendors = sampleVendors
+            vendors = sampleVendors,
+            onProductClick = {},
+            onServiceClick = {}
         )
     }
 }
@@ -1476,7 +1504,9 @@ private fun HomeScreenContentPreview(
     onSearchClick: (String) -> Unit,
     featuredProducts: List<Product>,
     featuredServices: List<Service>,
-    vendors: List<VendorUiModel>
+    vendors: List<VendorUiModel>,
+    onProductClick: (Product) -> Unit,
+    onServiceClick: (Service) -> Unit
 ) {
     val scrollState = rememberScrollState()
     val pagerState = rememberPagerState(pageCount = { specialOffers.size })
@@ -1571,14 +1601,14 @@ private fun HomeScreenContentPreview(
             if (featuredProducts.isNotEmpty()) {
                 FeaturedProductsSection(
                     products = featuredProducts,
-                    onProductClick = { }
+                    onProductClick = onProductClick
                 )
             }
 
             if (featuredServices.isNotEmpty()) {
                 FeaturedServicesSection(
                     services = featuredServices,
-                    onServiceClick = { }
+                    onServiceClick = onServiceClick
                 )
             }
 

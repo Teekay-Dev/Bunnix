@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -28,6 +29,7 @@ import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import coil.compose.AsyncImage // ✅ IMPORT COIL
 
 private val OrangePrimary = Color(0xFFFF6B35)
 private val OrangeLight = Color(0xFFFF8C61)
@@ -44,14 +46,14 @@ private val ErrorRed = Color(0xFFEF4444)
 @Composable
 fun CartScreen(
     onBack: () -> Unit = {},
-    onCheckout: () -> Unit = {},
+    // ✅ CHANGE: Accept total as a parameter to pass to MainActivity
+    onCheckout: (Double) -> Unit = {},
     onContinueShopping: () -> Unit = {},
     onStartShopping: () -> Unit
 ) {
     var isVisible by remember { mutableStateOf(false) }
     val userId = FirebaseManager.getCurrentUserId()
     val scope = rememberCoroutineScope()
-
 
     val cartItems by remember(userId) {
         if (userId != null) {
@@ -64,7 +66,10 @@ fun CartScreen(
     // Calculate totals dynamically
     val subtotal = cartItems.sumOf { it.price * it.quantity }
     val discount = cartItems.sumOf { (it.originalPrice ?: it.price) - it.price } * cartItems.sumOf { it.quantity }
-    val deliveryFee = if (subtotal > 50000) 0.0 else 2500.0
+
+    // ✅ FIX 2: Remove delivery fee
+    val deliveryFee = 0.0
+
     val total = subtotal - discount + deliveryFee
 
     LaunchedEffect(Unit) {
@@ -111,7 +116,8 @@ fun CartScreen(
                 CartBottomBar(
                     total = total,
                     itemCount = cartItems.sumOf { it.quantity },
-                    onCheckout = onCheckout
+                    // ✅ PASS total to callback
+                    onCheckout = { onCheckout(total) }
                 )
             }
         },
@@ -311,18 +317,28 @@ private fun CartItemCard(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // ✅ FIX 3: Show Product Image
                     Surface(
                         color = OrangeSoft,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.size(90.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Inventory,
-                                contentDescription = null,
-                                tint = OrangePrimary,
-                                modifier = Modifier.size(32.dp)
+                        if (item.imageUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = item.imageUrl,
+                                contentDescription = item.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
+                        } else {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                Icon(
+                                    Icons.Default.Inventory,
+                                    contentDescription = null,
+                                    tint = OrangePrimary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
                         }
                     }
 
@@ -460,7 +476,10 @@ private fun OrderSummaryCard(
                 SummaryRow("Discount", -discount, isDiscount = true)
             }
 
-            SummaryRow("Delivery Fee", deliveryFee, isFree = deliveryFee == 0.0)
+            // ✅ Only show delivery fee if it's > 0
+            if (deliveryFee > 0) {
+                SummaryRow("Delivery Fee", deliveryFee, isFree = false)
+            }
 
             Divider(modifier = Modifier.padding(vertical = 12.dp), color = TextTertiary.copy(alpha = 0.2f))
 
@@ -483,34 +502,7 @@ private fun OrderSummaryCard(
                 )
             }
 
-            if (deliveryFee == 0.0) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    color = SuccessGreen.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = SuccessGreen,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            "You got FREE delivery!",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = SuccessGreen
-                        )
-                    }
-                }
-            }
+            // Removed the "Free Delivery" banner logic since fee is always 0
         }
     }
 }

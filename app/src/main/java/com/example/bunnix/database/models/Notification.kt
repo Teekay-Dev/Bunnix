@@ -6,15 +6,14 @@ import com.google.firebase.firestore.DocumentId
 data class Notification(
     @DocumentId
     val notificationId: String = "",
-    val userId: String = "",
-    val type: String = "",
+    val userId: String = "",       // Customer ID
+    val vendorId: String = "",     // Vendor ID
     val title: String = "",
     val message: String = "",
-    val relatedId: String = "",
-    val relatedType: String = "",
-    val actionUrl: String = "",
+    val type: String = "",         // "ORDER", "BOOKING", "PAYMENT"
+    val relatedId: String = "",    // OrderId or BookingId
+    val relatedType: String = "",   // "order", "booking"
     val imageUrl: String = "",
     val isRead: Boolean = false,
-    val createdAt: Timestamp? = null,
-    val expiresAt: Timestamp? = null
+    val createdAt: Timestamp? = null
 )

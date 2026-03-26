@@ -51,6 +51,7 @@ fun AddServiceScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val uploadProgress by viewModel.uploadProgress.collectAsState()
     val successMessage by viewModel.successMessage.collectAsState()
+    val errorMessage by viewModel.error.collectAsState()
 
     val categories = listOf(
         "Beauty & Spa", "Health & Fitness", "Home Services",
@@ -534,6 +535,20 @@ fun AddServiceScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
+                // ===== ERROR MESSAGE DISPLAY =====
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Error: $errorMessage",
+                        color = Color.Red,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
