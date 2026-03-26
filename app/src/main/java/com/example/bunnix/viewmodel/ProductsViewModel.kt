@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bunnix.database.models.Product
+import com.example.bunnix.database.supabase.storage.ProductStorage
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -20,7 +21,9 @@ import javax.inject.Inject
 class ProductsViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage, // Kept if you use it elsewhere, otherwise can be removed
+    @dagger.hilt.android.qualifiers.ApplicationContext
+    private val context: android.content.Context
 ) : ViewModel() {
 
     private val _products = MutableStateFlow<List<Product>>(emptyList())
@@ -80,21 +83,29 @@ class ProductsViewModel @Inject constructor(
 
                 val vendorId = auth.currentUser?.uid ?: return@launch
 
-                // Get vendor name from Firestore
+                // 1. Get vendor name
                 val vendorDoc = firestore.collection("vendorProfiles")
                     .document(vendorId)
                     .get()
                     .await()
                 val vendorName = vendorDoc.getString("businessName") ?: "Unknown Vendor"
 
+                // 2. Generate a Firestore Document Reference FIRST to get the real ID
+                val docRef = firestore.collection("products").document()
+                val productId = docRef.id
 
+                // 3. Upload Image to Supabase using the Firestore ID
+                // WARNING: Ensure ProductStorage ONLY uploads. If it inserts to DB, that causes your RLS error.
+                val imageUrl = ProductStorage.uploadProductImage(
+                    context = context,
+                    productId = productId, // Use the real Firestore ID for consistency
+                    imageUri = imageUri,
+                    imageIndex = 0
+                ).getOrThrow()
 
-                // Upload image to Firebase Storage
-                val imageUrl = uploadProductImage(imageUri, vendorId)
-
-                // Create product using the proper Product model
+                // 4. Create the Product object
                 val product = Product(
-                    productId = "", // Firestore will auto-generate
+                    productId = productId, // Use the ID we generated
                     vendorId = vendorId,
                     vendorName = vendorName,
                     name = name,
@@ -113,11 +124,8 @@ class ProductsViewModel @Inject constructor(
                     updatedAt = Timestamp.now()
                 )
 
-                val docRef = firestore.collection("products")
-                    .add(product)
-                    .await()
-
-                docRef.update("productId", docRef.id).await()
+                // 5. Save to Firebase Firestore (Set the document using the ID we generated)
+                docRef.set(product).await()
 
                 _successMessage.value = "Product added successfully"
 
@@ -156,9 +164,14 @@ class ProductsViewModel @Inject constructor(
                     "updatedAt" to Timestamp.now()
                 )
 
-                // Upload new image if provided
                 if (imageUri != null) {
-                    val imageUrl = uploadProductImage(imageUri, vendorId)
+                    // Upload new image if provided
+                    val imageUrl = ProductStorage.uploadProductImage(
+                        context = context,
+                        productId = productId,
+                        imageUri = imageUri,
+                        imageIndex = 0
+                    ).getOrThrow()
                     updateData["imageUrls"] = listOf(imageUrl)
                 }
 
@@ -205,22 +218,6 @@ class ProductsViewModel @Inject constructor(
                 _error.value = e.message
             }
         }
-    }
-
-    private suspend fun uploadProductImage(imageUri: Uri, vendorId: String): String {
-        val storageRef = storage.reference
-            .child("products/$vendorId/product_${System.currentTimeMillis()}.jpg")
-
-        val uploadTask = storageRef.putFile(imageUri)
-
-        uploadTask.addOnProgressListener { taskSnapshot ->
-            val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toFloat()
-            _uploadProgress.value = progress / 100f
-        }
-
-        uploadTask.await()
-
-        return storageRef.downloadUrl.await().toString()
     }
 
     fun clearMessages() {

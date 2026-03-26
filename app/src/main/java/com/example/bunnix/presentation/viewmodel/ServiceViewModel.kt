@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.bunnix.database.models.Service
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -57,7 +59,7 @@ class ServiceViewModel @Inject constructor(
         }
     }
 
-    private fun loadServices() {
+    fun loadServices() {
         firestore.collection("services")
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null) {
@@ -68,14 +70,18 @@ class ServiceViewModel @Inject constructor(
             }
     }
 
-    fun getService(serviceId: String): StateFlow<Service?> {
-        return services.map { list ->
-            list.find { it.serviceId == serviceId }
-        }.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            null
-        )
+    fun getService(serviceId: String): Flow<Service?> = flow {
+        try {
+            val snapshot = firestore.collection("services")
+                .document(serviceId)
+                .get()
+                .await()
+
+            val service = snapshot.toObject(Service::class.java)
+            emit(service)
+        } catch (e: Exception) {
+            emit(null)
+        }
     }
 
     // ✅ FIXED - Now has _isLoading and _error

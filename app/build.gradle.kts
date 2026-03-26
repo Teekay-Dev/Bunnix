@@ -3,6 +3,7 @@ import kotlin.apply
 
 plugins {
     id("com.android.application")
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
@@ -22,6 +23,8 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        multiDexEnabled = true
 
         val localProperties = Properties().apply {
             val localFile = rootProject.file("local.properties")
@@ -159,8 +162,11 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt")
 
     // Ktor Client (Required by Supabase)
-    implementation("io.ktor:ktor-client-android:2.3.7")
-
+    implementation("io.ktor:ktor-client-android:2.3.6")
+    implementation("io.ktor:ktor-client-core:2.3.6")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.6")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.6")
+    implementation("androidx.multidex:multidex:2.0.1")
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
@@ -170,3 +176,11 @@ dependencies {
     implementation("eu.bambooapps:compose-material3-pullrefresh:1.1.1")
 }
 
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.ktor") {
+            // Force Ktor to stay on the latest stable 2.x version
+            useVersion("2.3.12")
+        }
+    }
+}

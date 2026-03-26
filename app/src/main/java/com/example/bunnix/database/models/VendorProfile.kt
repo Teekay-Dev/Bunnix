@@ -18,6 +18,7 @@ data class VendorProfile(
     val coverPhotoUrl: String = "",
     val category: String = "",
     val subCategories: List<String> = emptyList(),
+    val profilePhotoUrl: String = "",
     val bankName: String = "",
     val accountNumber: String = "",
     val accountName: String = "",

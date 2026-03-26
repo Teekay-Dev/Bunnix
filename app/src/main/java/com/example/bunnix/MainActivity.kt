@@ -37,8 +37,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.bunnix.backend.Routes
-import com.example.bunnix.database.models.Service
-import com.example.bunnix.database.models.VendorProfile
 import com.example.bunnix.database.models.VerificationStep
 import com.example.bunnix.frontend.*
 import com.example.bunnix.presentation.viewmodel.AuthUiState
@@ -61,15 +59,18 @@ import com.example.bunnix.presentation.viewmodel.UserViewModel
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.core.view.WindowCompat
-import android.os.Build
-import android.view.WindowManager
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.bunnix.database.BunnixDatabase.services
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import com.example.bunnix.presentation.viewmodel.ChatViewModel
 import com.example.bunnix.database.firebase.FirebaseManager
+import com.example.bunnix.database.firebase.collections.BookingCollection
 import com.example.bunnix.database.firebase.collections.CartCollection
+import com.example.bunnix.database.firebase.collections.OrderCollection
+import com.example.bunnix.presentation.viewmodel.NotificationViewModel
 import com.example.bunnix.vendorUI.navigation.VendorRoutes
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 // Color system
@@ -80,6 +81,7 @@ val TealAccent = Color(0xFF2EC4B6)
 val SurfaceLight = Color(0xFFFAFAFA)
 val TextPrimary = Color(0xFF1A1A2E)
 val TextSecondary = Color(0xFF6B7280)
+val ErrorRed = Color(0xFFE71111)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -264,6 +266,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+
+
+
 
             // ===== VENDOR SIGNUP =====
             composable("vendor_signup") {
@@ -589,10 +594,21 @@ class MainActivity : ComponentActivity() {
         onSwitchToVendor: () -> Unit,
         onLogout: () -> Unit
     ) {
+        val notificationViewModel: NotificationViewModel = hiltViewModel()
+        val unreadCount by notificationViewModel.unreadCount.collectAsState()
         val cartViewModel: CartViewModel = hiltViewModel()
         val cartItems by cartViewModel.cartItems.collectAsState()
         val navController = rememberNavController()
         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+        val userId = FirebaseManager.getCurrentUserId() // Get userId here
+
+        // ✅ 2. START LISTENING FOR NOTIFICATIONS
+        LaunchedEffect(userId) {
+            if (userId != null) {
+                notificationViewModel.observeNotifications(userId)
+            }
+        }
 
         val bottomBarScreens = listOf(
             Routes.Home,
@@ -610,7 +626,7 @@ class MainActivity : ComponentActivity() {
                     enter = slideInVertically { it },
                     exit = slideOutVertically { it }
                 ) {
-                    ModernBottomNavBar(navController, currentRoute)
+                    ModernBottomNavBar(navController, currentRoute, unreadCount)
                 }
             }
         ) { padding ->
@@ -625,11 +641,16 @@ class MainActivity : ComponentActivity() {
                         onBookServiceClick = { navController.navigate(Routes.ServiceList) },
                         onShopProductClick = { navController.navigate(Routes.ProductList) },
                         onSearchClick = { query -> navController.navigate("search/${Uri.encode(query)}") },
-//                        bottomBar = { ModernBottomNavBar(navController, Routes.Home) }
+                        onProductClick = { product ->
+                            navController.navigate("product_detail/${product.productId}")
+                        },
+                        onServiceClick = { service ->
+                            navController.navigate("booking/${service.serviceId}")
+                        }
                     )
                 }
 
-
+                // --- Vendor Detail ---
                 composable(
                     route = "vendor_detail/{vendorId}",
                     arguments = listOf(navArgument("vendorId") { type = NavType.StringType })
@@ -637,154 +658,228 @@ class MainActivity : ComponentActivity() {
                     val vendorId = entry.arguments?.getString("vendorId") ?: ""
                     val vendorViewModel: VendorViewModel = hiltViewModel()
                     val productViewModel: ProductViewModel = hiltViewModel()
-                    val serviceViewModel: ServiceViewModel = hiltViewModel() // ✅ CUSTOMER ServiceViewModel
-
+                    val serviceViewModel: ServiceViewModel = hiltViewModel()
                     val chatViewModel: ChatViewModel = hiltViewModel()
 
                     val vendor by vendorViewModel.vendorProfile.collectAsState()
                     val products by productViewModel.products.collectAsState()
-                    val services by serviceViewModel.services.collectAsState() // ✅ GET SERVICES
+                    val services by serviceViewModel.services.collectAsState()
                     val isLoading by vendorViewModel.isLoading.collectAsState()
                     val error by vendorViewModel.error.collectAsState()
 
-                    // ✅ Fetch vendor, products, AND services
                     LaunchedEffect(vendorId) {
                         if (vendorId.isNotBlank()) {
                             vendorViewModel.fetchVendor(vendorId)
                             productViewModel.getProductsByVendor(vendorId)
-                            serviceViewModel.getServicesByVendor(vendorId) // ✅ FETCH SERVICES
+                            serviceViewModel.getServicesByVendor(vendorId)
                         }
                     }
 
                     when {
-                        isLoading -> Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) { CircularProgressIndicator() }
-
+                        isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                         vendor != null -> VendorDetailScreen(
                             vendor = vendor!!,
                             products = products,
-                            services = services, // ✅ PASS SERVICES HERE
+                            services = services,
                             onBack = { navController.popBackStack() },
-                            onProductClick = { product ->
-                                navController.navigate("product_detail/${product.productId}")
-                            },
-                            onServiceClick = { service -> // ✅ ADD SERVICE CLICK
-                                navController.navigate("booking/${service.serviceId}")
-                            },
+                            onProductClick = { product -> navController.navigate("product_detail/${product.productId}") },
+                            onServiceClick = { service -> navController.navigate("booking/${service.serviceId}") },
                             onChat = {
                                 val currentUserId = FirebaseManager.getCurrentUserId() ?: return@VendorDetailScreen
                                 val vName = Uri.encode(vendor!!.businessName)
                                 val vImage = Uri.encode(vendor!!.coverPhotoUrl)
-                                val chatId = if (currentUserId < vendorId)
-                                    "$currentUserId-$vendorId"
-                                else
-                                    "$vendorId-$currentUserId"
-
-                                // Create chat first, then navigate
-                                chatViewModel.getOrCreateChat(
-                                    currentUserId = currentUserId,
-                                    vendorId = vendorId,
-                                    vendorName = vendor!!.businessName,
-                                    vendorImage = vendor!!.coverPhotoUrl,
-                                    onResult = { createdChatId ->
-                                        // Navigate on main thread
-                                        navController.navigate("chat_detail/$createdChatId/$vName/$vImage/$vendorId")
-                                    }
-                                )
+                                val chatId = if (currentUserId < vendorId) "$currentUserId-$vendorId" else "$vendorId-$currentUserId"
+                                chatViewModel.getOrCreateChat(currentUserId, vendorId, vendor!!.businessName, vendor!!.coverPhotoUrl) { createdChatId ->
+                                    navController.navigate("chat_detail/$createdChatId/$vName/$vImage/$vendorId")
+                                }
                             }
                         )
-
-                        error != null -> Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) { Text("Error: $error") }
-
-                        else -> Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) { Text("Vendor not found") }
+                        error != null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Error: $error") }
+                        else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Vendor not found") }
                     }
                 }
 
-
+                // --- Search ---
                 composable(
                     route = "search/{query}",
                     arguments = listOf(navArgument("query") { type = NavType.StringType })
                 ) { entry ->
                     val query = entry.arguments?.getString("query") ?: ""
+
+                    // 1. Get ViewModels
                     val productViewModel: ProductViewModel = hiltViewModel()
+                    val serviceViewModel: ServiceViewModel = hiltViewModel()
+                    val vendorViewModel: VendorViewModel = hiltViewModel()
+
+                    // 2. ✅ CRITICAL: Load the data so the lists aren't empty
+                    LaunchedEffect(Unit) {
+                        productViewModel.loadProducts()
+                        serviceViewModel.loadServices()
+                        vendorViewModel.loadAllVendors()
+                    }
+
+                    // 3. Collect the data
                     val products by productViewModel.products.collectAsState()
+                    val services by serviceViewModel.services.collectAsState()
+                    val vendors by vendorViewModel.vendorList.collectAsState()
 
                     SearchScreen(
                         query = query,
                         products = products,
-                        services = emptyList(),
-                        onProductClick = { id -> navController.navigate("product_detail/$id") },
-                        onServiceClick = { _, _ -> }
-                    )
-                }
-
-                composable(Routes.ServiceList) {
-
-                    val serviceViewModel: ServiceViewModel = hiltViewModel() // BUT SEE NOTE BELOW
-                    val services by serviceViewModel.services.collectAsState()
-
-                    ServiceListScreen(
                         services = services,
-                        onBack = { navController.popBackStack() },
-                        onServiceClick = { service ->
-                            navController.navigate("booking/${Uri.encode(service.serviceId)}")
-                        }
+                        vendors = vendors, // ✅ Pass Vendors
+                        onProductClick = { id -> navController.navigate("product_detail/$id") },
+                        onServiceClick = { id, _ -> navController.navigate("booking/$id") },
+                        onVendorClick = { id -> navController.navigate("vendor_detail/$id") }
                     )
                 }
 
+                // --- Service List ---
+                composable(Routes.ServiceList) {
+                    val serviceViewModel: ServiceViewModel = hiltViewModel()
+                    val services by serviceViewModel.services.collectAsState()
+                    ServiceListScreen(services = services, onBack = { navController.popBackStack() }, onServiceClick = { service -> navController.navigate("booking/${Uri.encode(service.serviceId)}") })
+                }
+
+                // --- Booking ---
                 composable(
                     route = "booking/{serviceId}",
                     arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
                 ) { entry ->
                     val serviceId = entry.arguments?.getString("serviceId") ?: ""
-
                     val serviceViewModel: ServiceViewModel = hiltViewModel()
-                    val serviceState by serviceViewModel.getService(serviceId).collectAsState(initial = null)
-                    val service = serviceState
+                    val service by serviceViewModel.getService(serviceId).collectAsState(initial = null)
 
                     if (service == null) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                     } else {
                         BookingScreen(
-                            service = service,
+                            service = service!!,
                             onBack = { navController.popBackStack() },
                             onContinue = { details ->
-
-                                val total = service.price
-                                val orderId = "ORD-${System.currentTimeMillis()}"
-
-                                navController.navigate("payment/$total/$orderId")
+                                val total = service!!.price
+                                val orderId = "TEMP-${System.currentTimeMillis()}"
+                                val notesParam = if (details.notes.isBlank()) "empty" else details.notes
+                                navController.navigate(
+                                    "payment_booking/$total/$orderId/${service!!.serviceId}/${details.date.time}/${Uri.encode(details.time)}/${Uri.encode(notesParam)}"
+                                )
                             }
                         )
                     }
                 }
 
-                composable(Routes.ProductList) {
-                    val productViewModel: ProductViewModel = hiltViewModel()
-                    val products by productViewModel.products.collectAsState()
 
-                    ProductListScreen(
-                        products = products,
-                        onBack = { navController.popBackStack() },
-                        onProductClick = { product ->
-                            navController.navigate("product_detail/${product.productId}")
+                composable(
+                    route = "booking_placed/{bookingId}",
+                    arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
+                ) { entry ->
+                    val bookingId = entry.arguments?.getString("bookingId") ?: ""
+
+                    // ✅ FETCH REAL BOOKING DATA
+                    val booking by BookingCollection.getBookingByIdFlow(bookingId)
+                        .collectAsState(initial = null)
+
+                    if (booking == null) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = OrangePrimaryModern)
                         }
+                    } else {
+                        val b = booking!!
+
+                        // Format the scheduled date/time
+                        val formattedDate = b.scheduledDate?.toDate()?.let {
+                            SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", Locale.getDefault()).format(it)
+                        } ?: b.scheduledTime
+
+                        OrderPlacedScreen(
+                            orderId = b.bookingId,
+                            orderType = "Service",
+                            vendorName = b.vendorName, // ✅ REAL NAME
+                            totalAmount = b.servicePrice, // ✅ REAL PRICE
+                            estimatedDelivery = formattedDate, // ✅ REAL DATE
+                            status = b.status, // ✅ REAL STATUS (e.g., Scheduled)
+                            onTrackOrder = { id ->
+                                navController.navigate("track_booking/$id")
+                            },
+                            onContinueShopping = {
+                                navController.navigate(Routes.Home) {
+                                    popUpTo(Routes.Home) { inclusive = true }
+                                }
+                            },
+                            onViewReceipt = { /* Optional */ }
+                        )
+                    }
+                }
+
+                composable(
+                    route = "track_booking/{bookingId}",
+                    arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
+                ) { entry ->
+                    val bookingId = entry.arguments?.getString("bookingId") ?: ""
+                    TrackBookingScreen(
+                        bookingId = bookingId,
+                        onBack = { navController.popBackStack() }
                     )
                 }
 
+
+                // ✅✅✅ ADD payment_booking HERE (INSIDE CustomerApp NavHost) ✅✅✅
+                composable(
+                    route = "payment_booking/{total}/{orderId}/{serviceId}/{date}/{time}/{notes}",
+                    arguments = listOf(
+                        navArgument("total") { type = NavType.StringType },
+                        navArgument("orderId") { type = NavType.StringType },
+                        navArgument("serviceId") { type = NavType.StringType },
+                        navArgument("date") { type = NavType.LongType },
+                        navArgument("time") { type = NavType.StringType },
+                        navArgument("notes") { type = NavType.StringType }
+                    )
+                ) { entry ->
+                    val total = entry.arguments?.getString("total")?.toDoubleOrNull() ?: 0.0
+                    val orderId = entry.arguments?.getString("orderId") ?: ""
+                    val serviceId = entry.arguments?.getString("serviceId") ?: ""
+                    val dateLong = entry.arguments?.getLong("date") ?: 0L
+                    val time = Uri.decode(entry.arguments?.getString("time") ?: "")
+                    var notes = Uri.decode(entry.arguments?.getString("notes") ?: "")
+
+                    if (notes == "empty") notes = ""
+                    val bookingDetails = BookingDetails(
+                        serviceId = serviceId,
+                        date = Date(dateLong),
+                        time = time,
+                        notes = notes
+                    )
+
+                    val serviceViewModel: ServiceViewModel = hiltViewModel()
+                    val service by serviceViewModel.getService(serviceId).collectAsState(initial = null)
+
+                    if (service != null) {
+                        PaymentMethodScreen(
+                            total = total,
+                            orderId = orderId,
+                            onBack = { navController.popBackStack() },
+                            onPaymentSuccess = { realBookingId ->
+                                navController.navigate("booking_placed/$realBookingId") {
+                                    popUpTo(Routes.Home) { inclusive = false }
+                                }
+                            },
+                            bookingDetails = bookingDetails,
+                            service = service
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    }
+                }
+                // ✅✅✅ END OF payment_booking ✅✅✅
+
+                // --- Product List ---
+                composable(Routes.ProductList) {
+                    val productViewModel: ProductViewModel = hiltViewModel()
+                    val products by productViewModel.products.collectAsState()
+                    ProductListScreen(products = products, onBack = { navController.popBackStack() }, onProductClick = { product -> navController.navigate("product_detail/${product.productId}") })
+                }
+
+                // --- Product Detail ---
                 composable(
                     route = "product_detail/{productId}",
                     arguments = listOf(navArgument("productId") { type = NavType.StringType })
@@ -793,7 +888,6 @@ class MainActivity : ComponentActivity() {
                     val productViewModel: ProductViewModel = hiltViewModel()
                     val scope = rememberCoroutineScope()
                     val userId = FirebaseManager.getCurrentUserId()
-
                     val allProducts by productViewModel.products.collectAsState()
                     val product = allProducts.find { it.productId == productId }
 
@@ -803,31 +897,13 @@ class MainActivity : ComponentActivity() {
                                 product = product,
                                 allProducts = allProducts,
                                 onAddToCart = { prod, quantity ->
-                                    val item = CartItem(
-                                        id = prod.productId,
-                                        productId = prod.productId,
-                                        name = prod.name,
-                                        vendorId = prod.vendorId,
-                                        vendorName = prod.vendorName,
-                                        price = prod.discountPrice ?: prod.price,
-                                        originalPrice = if (prod.discountPrice != null) prod.price else null,
-                                        quantity = quantity,
-                                        imageUrl = prod.imageUrls.firstOrNull() ?: "",
-                                        variant = null
-                                    )
-
-                                    scope.launch {
-                                        if (userId != null) {
-                                            CartCollection.addToCart(userId, item)
-                                        }
-                                    }
+                                    val item = CartItem(id = prod.productId, productId = prod.productId, name = prod.name, vendorId = prod.vendorId, vendorName = prod.vendorName, price = prod.discountPrice ?: prod.price, originalPrice = if (prod.discountPrice != null) prod.price else null, quantity = quantity, imageUrl = prod.imageUrls.firstOrNull() ?: "", variant = null)
+                                    scope.launch { if (userId != null) CartCollection.addToCart(userId, item) }
                                 },
                                 onBuyNow = { prod, qty ->
-                                    // ✅ CALCULATE TOTAL AND NAVIGATE DIRECTLY TO PAYMENT
                                     val price = prod.discountPrice ?: prod.price
                                     val total = price * qty
                                     val orderId = "ORD-${System.currentTimeMillis()}"
-
                                     navController.navigate("payment/$total/$orderId")
                                 },
                                 onBack = { navController.popBackStack() },
@@ -838,25 +914,12 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-
-                        allProducts.isEmpty() -> {
-                            // ✅ LOADING STATE
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                            }
-                        }
-
-                        else -> {
-                            // ✅ PRODUCT NOT FOUND
-                            ProductNotFoundScreen { navController.popBackStack() }
-                        }
+                        allProducts.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                        else -> ProductNotFoundScreen { navController.popBackStack() }
                     }
                 }
 
-
+                // --- Payment (For Products) ---
                 composable(
                     route = "payment/{total}/{orderId}",
                     arguments = listOf(
@@ -871,179 +934,158 @@ class MainActivity : ComponentActivity() {
                         total = total,
                         orderId = orderId,
                         onBack = { navController.popBackStack() },
-                        onPaymentSuccess = {
+                        // ✅ FIX: Receive the realOrderId
+                        onPaymentSuccess = { realOrderId ->
                             cartViewModel.clearCart()
-                            navController.navigate(Routes.OrderSuccess) {
+                            navController.navigate("order_placed/$realOrderId") {
                                 popUpTo(Routes.Home) { inclusive = false }
                             }
                         }
                     )
                 }
 
-                composable(Routes.OrderSuccess) {
-                    OrderPlacedScreen(
-                        orderId = "ORD-${System.currentTimeMillis() % 10000}",
-                        onTrackOrder = { id ->
-                            navController.navigate("track_order/$id") {
-                                popUpTo(Routes.Home) { inclusive = false }
-                            }
-                        },
-                        onContinueShopping = {
-                            navController.navigate(Routes.Home) {
-                                popUpTo(Routes.Home) { inclusive = true }
-                            }
-                        },
-
-                        onViewReceipt = { id ->
-                            navController.navigate("receipt/$id")
-                        }
-
-                    )
-                }
-
+                // ✅ NEW: Success Screen for Products
                 composable(
-                    route = "track_order/{orderId}",
+                    route = "order_placed/{orderId}",
                     arguments = listOf(navArgument("orderId") { type = NavType.StringType })
                 ) { entry ->
                     val orderId = entry.arguments?.getString("orderId") ?: ""
-                    TrackOrderScreen(
-                        orderId = orderId,
-                        onBack = { navController.popBackStack() }
+
+                    // Fetch Real Order Data
+                    val order by OrderCollection.getOrderByIdFlow(orderId)
+                        .collectAsState(initial = null)
+
+                    if (order == null) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = OrangePrimaryModern)
+                        }
+                    } else {
+                        val o = order!!
+                        OrderPlacedScreen(
+                            orderId = o.orderId,
+                            orderType = "Product",
+                            vendorName = o.vendorName, // ✅ REAL NAME
+                            totalAmount = o.totalAmount, // ✅ REAL PRICE
+                            estimatedDelivery = "Processing",
+                            status = o.status, // ✅ REAL STATUS
+                            onTrackOrder = { id ->
+                                navController.navigate("track_order/$id")
+                            },
+                            onContinueShopping = {
+                                navController.navigate(Routes.Home) {
+                                    popUpTo(Routes.Home) { inclusive = true }
+                                }
+                            },
+                            onViewReceipt = { /* Optional */ }
+                        )
+                    }
+                }
+
+                // --- Order Success ---
+                composable(Routes.OrderSuccess) {
+                    OrderPlacedScreen(
+                        orderId = "ORD-${System.currentTimeMillis() % 10000}",
+                        onTrackOrder = { id -> navController.navigate("track_order/$id") { popUpTo(Routes.Home) { inclusive = false } } },
+                        onContinueShopping = { navController.navigate(Routes.Home) { popUpTo(Routes.Home) { inclusive = true } } },
+                        onViewReceipt = { id -> navController.navigate("receipt/$id") },
+                        orderType = "",
+                        vendorName = "",
+                        totalAmount = 0.0,
+                        estimatedDelivery = "",
+                        status = ""
                     )
                 }
 
-                composable(Routes.Chat) {
-                    ChatListScreen(navController)
+                // --- Track Order ---
+                composable(route = "track_order/{orderId}", arguments = listOf(navArgument("orderId") { type = NavType.StringType })) { entry ->
+                    val orderId = entry.arguments?.getString("orderId") ?: ""
+                    TrackOrderScreen(orderId = orderId, onBack = { navController.popBackStack() })
                 }
 
+                // --- Chat List ---
+                composable(Routes.Chat) { ChatListScreen(navController) }
+
+                // --- Chat Detail ---
                 composable(
                     route = "chat_detail/{chatId}/{vendorName}/{vendorImage}/{vendorId}",
-                    arguments = listOf(
-                        navArgument("chatId") { type = NavType.StringType },
-                        navArgument("vendorName") { type = NavType.StringType },
-                        navArgument("vendorImage") { type = NavType.StringType },
-                        navArgument("vendorId") { type = NavType.StringType }
-                    )
+                    arguments = listOf(navArgument("chatId") { type = NavType.StringType }, navArgument("vendorName") { type = NavType.StringType }, navArgument("vendorImage") { type = NavType.StringType }, navArgument("vendorId") { type = NavType.StringType })
                 ) { entry ->
                     val chatId = entry.arguments?.getString("chatId") ?: ""
                     val vendorName = Uri.decode(entry.arguments?.getString("vendorName") ?: "Unknown")
                     val vendorImage = Uri.decode(entry.arguments?.getString("vendorImage") ?: "")
                     val vendorId = entry.arguments?.getString("vendorId") ?: ""
-
-                    ChatDetailScreen(
-                        navController = navController,
-                        chatId = chatId,
-                        vendorName = vendorName,
-                        vendorImageUrl = vendorImage,
-                        vendorId = vendorId
-                    )
+                    ChatDetailScreen(navController = navController, chatId = chatId, vendorName = vendorName, vendorImageUrl = vendorImage, vendorId = vendorId)
                 }
 
+                // --- Notifications ---
                 composable(Routes.Notifications) {
                     val userId = FirebaseManager.getCurrentUserId() ?: ""
                     NotificationScreen(navController, userId)
                 }
 
+                // --- Profile ---
                 composable(Routes.Profile) {
                     val userViewModel: UserViewModel = hiltViewModel()
                     val user by userViewModel.user.collectAsState()
                     val vendorProfile by userViewModel.vendorProfile.collectAsState()
                     val isVendor by userViewModel.isVendor.collectAsState()
+                    val authPhotoUrl by userViewModel.authPhotoUrl.collectAsState()
+                    val uploadProgress by userViewModel.uploadProgress.collectAsState()
+                    val context = LocalContext.current
 
-                    var showEditDialog by remember { mutableStateOf(false) }
-
-                    // Use vendor data if available, otherwise user data
                     val displayName = vendorProfile?.businessName ?: user?.name ?: ""
                     val displayEmail = vendorProfile?.email ?: user?.email ?: ""
                     val displayPhone = vendorProfile?.phone ?: user?.phone ?: ""
-                    val displayAddress = vendorProfile?.address ?: user?.address ?: ""
 
                     ProfileScreen(
                         userName = displayName,
                         userEmail = displayEmail,
                         userPhone = displayPhone,
+                        // Firestore custom photo takes priority over Google photo
+                        customPhotoUrl = user?.profilePicUrl?.ifBlank { null },
+                        googlePhotoUrl = authPhotoUrl,
+                        uploadProgress = uploadProgress,
                         isVendor = isVendor,
                         vendorBusinessName = vendorProfile?.businessName,
                         onBack = { navController.popBackStack() },
-                        onEditProfile = { showEditDialog = true },
+                        onEditProfile = { /* TODO: navigate to edit profile */ },
                         onViewOrders = { navController.navigate("order_history") },
                         onViewNotifications = { navController.navigate(Routes.Notifications) },
                         onSwitchMode = onSwitchToVendor,
                         onBecomeVendor = onSwitchToVendor,
-                        onLogout = onLogout
+                        onLogout = onLogout,
+                        onPhotoSelected = { uri ->
+                            userViewModel.uploadProfilePhoto(context, uri)
+                        }
                     )
-
-                    if (isVendor && vendorProfile != null) {
-                        // Vendor edit dialog
-                        EditProfileDialog(
-                            showDialog = showEditDialog,
-                            onDismiss = { showEditDialog = false },
-                            isVendor = true,
-                            currentName = vendorProfile?.businessName ?: "",
-                            currentEmail = vendorProfile?.email ?: "",
-                            currentPhone = vendorProfile?.phone ?: "",
-                            currentBusinessName = vendorProfile?.businessName,
-                            currentBusinessAddress = vendorProfile?.address,
-                            currentBusinessDescription = vendorProfile?.description,
-                            onSaveProfile = { name, email, phone, businessName, address, description ->
-                                // Update vendor profile in Firestore
-                                userViewModel.updateVendorProfile(
-                                    businessName = businessName ?: name,
-                                    email = email,
-                                    phone = phone,
-                                    address = address ?: "",
-                                    description = description ?: ""
-                                )
-                                showEditDialog = false
-                            },
-                            onChangeProfilePicture = {}
-                        )
-                    } else {
-                        // Customer edit dialog
-                        EditProfileDialog(
-                            showDialog = showEditDialog,
-                            onDismiss = { showEditDialog = false },
-                            isVendor = false,
-                            currentName = user?.name ?: "",
-                            currentEmail = user?.email ?: "",
-                            currentPhone = user?.phone ?: "",
-                            currentBusinessName = null,
-                            currentBusinessAddress = null,
-                            currentBusinessDescription = null,
-                            onSaveProfile = { name, email, phone, _, _, _ ->
-                                // Update user profile in Firestore
-                                userViewModel.updateUserProfile(name, email, phone)
-                                showEditDialog = false
-                            },
-                            onChangeProfilePicture = {}
-                        )
-                    }
                 }
 
+                // --- Cart ---
                 composable(Routes.Cart) {
+                    val cartViewModel: CartViewModel = hiltViewModel()
+                    val cartItems by cartViewModel.cartItems.collectAsState()
+
                     CartScreen(
                         onBack = { navController.popBackStack() },
-                        onCheckout = { navController.navigate(Routes.Checkout) },
+                        // ✅ FIX: Handle checkout with the passed total
+                        onCheckout = { total ->
+                            if (total > 0) {
+                                val orderId = "ORD-${System.currentTimeMillis()}"
+                                navController.navigate("payment/$total/$orderId")
+                            }
+                        },
                         onStartShopping = {
                             navController.navigate(Routes.Home) {
-                                popUpTo(Routes.Home)
+                                popUpTo(Routes.Home) { inclusive = true }
                             }
                         },
                     )
                 }
 
-                // In your NavHost
-                composable(
-                    route = "receipt/{orderId}",
-                    arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-                ) { backStackEntry ->
+                // --- Receipt ---
+                composable(route = "receipt/{orderId}", arguments = listOf(navArgument("orderId") { type = NavType.StringType })) { backStackEntry ->
                     val orderId = backStackEntry.arguments?.getString("orderId")
-                    ViewReceiptScreen(
-                        orderId = orderId,
-                        onBackClick = { navController.popBackStack() },
-                        onShareClick = { receipt -> /* Share logic */ },
-                        onDownloadClick = { receipt -> /* Download PDF logic */ }
-                    )
+                    ViewReceiptScreen(orderId = orderId, onBackClick = { navController.popBackStack() }, onShareClick = { }, onDownloadClick = { })
                 }
             }
         }
@@ -1092,7 +1134,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun ModernBottomNavBar(
         navController: NavController,
-        currentRoute: String?
+        currentRoute: String?,
+        unreadCount: Int = 0
     ) {
         val items = listOf(
             BottomNavItem("Home", Icons.Default.Home, Routes.Home),
@@ -1118,12 +1161,31 @@ class MainActivity : ComponentActivity() {
 
                 NavigationBarItem(
                     icon = {
-                         Icon(
+                        if (item.label == "Alerts" && unreadCount > 0) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(
+                                        containerColor = ErrorRed,
+                                        contentColor = Color.White
+                                    ) {
+                                        Text(if (unreadCount > 99) "99+" else unreadCount.toString(), fontSize = 10.sp)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                    tint = iconColor
+                                )
+                            }
+                        } else {
+                            Icon(
                                 imageVector = item.icon,
                                 contentDescription = item.label,
                                 tint = iconColor
                             )
-                        },
+                        }
+                    },
                     label = {
                         Text(
                             item.label,

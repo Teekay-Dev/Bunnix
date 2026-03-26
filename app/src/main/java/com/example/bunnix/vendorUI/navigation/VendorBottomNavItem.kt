@@ -15,8 +15,9 @@ object VendorRoutes {
     const val PROFILE = "vendor/profile"
 
     // Child routes - Orders & Bookings
-    const val ORDER_DETAIL = "vendor/order/{orderId}"
-    const val BOOKING_DETAIL = "vendor/booking/{bookingId}"
+    const val ORDER_DETAIL = "order_detail/{orderId}"
+    const val BOOKING_DETAIL = "booking_detail/{bookingId}"
+
     const val PAYMENT_VERIFICATION = "vendor/payment_verification/{orderId}"
 
     // Product & Service routes
@@ -37,8 +38,8 @@ object VendorRoutes {
     const val GET_VERIFIED = "vendor/get_verified"
 
     // Helper functions for navigation with parameters
-    fun orderDetail(orderId: String) = "vendor/order/$orderId"
-    fun bookingDetail(bookingId: String) = "vendor/booking/$bookingId"
+    fun orderDetail(orderId: String) = "order_detail/$orderId"
+    fun bookingDetail(bookingId: String) = "booking_detail/$bookingId"
     fun paymentVerification(orderId: String) = "vendor/payment_verification/$orderId"
     fun editProduct(productId: String) = "vendor/product/edit/$productId"
     fun editService(serviceId: String) = "vendor/service/edit/$serviceId"

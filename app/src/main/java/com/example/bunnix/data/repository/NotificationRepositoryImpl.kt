@@ -54,11 +54,9 @@ class NotificationRepositoryImpl @Inject constructor(
                 message = message,
                 relatedId = relatedId,
                 relatedType = relatedType,
-                actionUrl = actionUrl,
                 imageUrl = imageUrl,
                 isRead = false,
-                createdAt = Timestamp.now(),
-                expiresAt = expiresAt
+                createdAt = Timestamp.now()
             )
 
             notificationRef.set(notification).await()
