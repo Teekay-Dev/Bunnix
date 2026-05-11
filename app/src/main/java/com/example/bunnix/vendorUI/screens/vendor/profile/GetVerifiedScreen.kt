@@ -146,6 +146,8 @@ fun GetVerifiedScreen(
                     placeholder = { Text("As it appears on government ID") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         focusedBorderColor = OrangePrimaryModern,
                         focusedLabelColor = OrangePrimaryModern
                     ),
@@ -186,6 +188,8 @@ fun GetVerifiedScreen(
                     placeholder = { Text("RC123456 or BN123456") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         focusedBorderColor = OrangePrimaryModern,
                         focusedLabelColor = OrangePrimaryModern
                     ),
@@ -201,6 +205,8 @@ fun GetVerifiedScreen(
                     placeholder = { Text("Optional") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         focusedBorderColor = OrangePrimaryModern,
                         focusedLabelColor = OrangePrimaryModern
                     ),
@@ -219,6 +225,8 @@ fun GetVerifiedScreen(
                         .height(100.dp),
                     maxLines = 3,
                     colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
                         focusedBorderColor = OrangePrimaryModern,
                         focusedLabelColor = OrangePrimaryModern
                     ),

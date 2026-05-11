@@ -27,72 +27,72 @@ import com.example.bunnix.vendorUI.components.*
 import com.example.bunnix.vendorUI.navigation.VendorRoutes
 import com.example.bunnix.viewmodel.OrdersViewModel
 
-@Composable
-fun ProductOrdersScreen(
-    navController: NavController,
-    viewModel: OrdersViewModel = hiltViewModel()
-) {
-    val orders by viewModel.productOrders.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val successMessage by viewModel.successMessage.collectAsState()
-    val error by viewModel.error.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadProductOrders()
-    }
-
-    // Show success message
-    LaunchedEffect(successMessage) {
-        successMessage?.let {
-            // Toast or Snackbar can be shown here
-            viewModel.clearMessages()
-        }
-    }
-
-    // Show error message
-    LaunchedEffect(error) {
-        error?.let {
-            // Toast or Snackbar can be shown here
-            viewModel.clearMessages()
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (isLoading && orders.isEmpty()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(5) {
-                    ShimmerOrderCard()
-                }
-            }
-        } else if (orders.isEmpty()) {
-            EmptyState(
-                icon = Icons.Default.ShoppingBag,
-                title = "No Product Orders",
-                message = "When customers order your products,\nthey will appear here"
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(orders) { order ->
-                    ProductOrderCard(
-                        order = order,
-                        viewModel = viewModel,
-                        onClick = {
-                            navController.navigate(VendorRoutes.orderDetail(order.orderId))
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
+//@Composable
+//fun ProductOrdersScreen(
+//    navController: NavController,
+//    viewModel: OrdersViewModel = hiltViewModel()
+//) {
+//    val orders by viewModel.productOrders.collectAsState()
+//    val isLoading by viewModel.isLoading.collectAsState()
+//    val successMessage by viewModel.successMessage.collectAsState()
+//    val error by viewModel.error.collectAsState()
+//
+//    LaunchedEffect(Unit) {
+//        viewModel.loadProductOrders()
+//    }
+//
+//    // Show success message
+//    LaunchedEffect(successMessage) {
+//        successMessage?.let {
+//            // Toast or Snackbar can be shown here
+//            viewModel.clearMessages()
+//        }
+//    }
+//
+//    // Show error message
+//    LaunchedEffect(error) {
+//        error?.let {
+//            // Toast or Snackbar can be shown here
+//            viewModel.clearMessages()
+//        }
+//    }
+//
+//    Box(modifier = Modifier.fillMaxSize()) {
+//        if (isLoading && orders.isEmpty()) {
+//            LazyColumn(
+//                modifier = Modifier.fillMaxSize(),
+//                contentPadding = PaddingValues(16.dp),
+//                verticalArrangement = Arrangement.spacedBy(12.dp)
+//            ) {
+//                items(5) {
+//                    ShimmerOrderCard()
+//                }
+//            }
+//        } else if (orders.isEmpty()) {
+//            EmptyState(
+//                icon = Icons.Default.ShoppingBag,
+//                title = "No Product Orders",
+//                message = "When customers order your products,\nthey will appear here"
+//            )
+//        } else {
+//            LazyColumn(
+//                modifier = Modifier.fillMaxSize(),
+//                contentPadding = PaddingValues(16.dp),
+//                verticalArrangement = Arrangement.spacedBy(12.dp)
+//            ) {
+//                items(orders) { order ->
+//                    ProductOrderCard(
+//                        order = order,
+//                        viewModel = viewModel,
+//                        onClick = {
+//                            navController.navigate(VendorRoutes.orderDetail(order.orderId))
+//                        }
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}
 
 @Composable
 fun ProductOrderCard(

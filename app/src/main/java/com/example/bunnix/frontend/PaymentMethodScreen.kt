@@ -33,6 +33,13 @@ import com.example.bunnix.database.firebase.FirebaseManager
 import com.example.bunnix.database.models.CartItem
 import com.example.bunnix.database.models.Order
 import com.google.firebase.Timestamp
+import com.example.bunnix.database.models.Booking
+import com.example.bunnix.database.models.Service
+import com.example.bunnix.database.firebase.collections.NotificationCollection
+import com.example.bunnix.database.firebase.collections.BookingCollection
+import com.example.bunnix.frontend.BookingDetails
+import io.github.jan.supabase.gotrue.providers.invoke
+import kotlinx.coroutines.flow.first
 
 // Modern Colors - ALL DEFINED HERE ONLY
 private val OrangePrimary = Color(0xFFFF6B35)
@@ -94,7 +101,9 @@ fun PaymentMethodScreen(
     total: Double,
     orderId: String,
     onBack: () -> Unit,
-    onPaymentSuccess: () -> Unit
+    onPaymentSuccess: (String) -> Unit,
+    bookingDetails: BookingDetails? = null,
+    service: Service? = null
 ) {
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -153,68 +162,121 @@ fun PaymentMethodScreen(
                     onPay = {
                         isProcessing = true
                         scope.launch {
-                            // ✅ BACKEND LOGIC: PAY ON DELIVERY
-                            if (selectedCategory == PaymentCategory.PayOnDelivery) {
-                                if (userId != null && cartItems.isNotEmpty()) {
-                                    // 1. Fetch User Data for Address
-                                    val userResult = UserCollection.getUser(userId)
-                                    val user = userResult.getOrNull()
-                                    val address = listOfNotNull(user?.address, user?.city, user?.state)
-                                        .joinToString(", ").ifEmpty { "No Address Provided" }
-
-                                    // 2. Group Items by Vendor (Bunnix creates separate orders per vendor)
-                                    val ordersByVendor = cartItems.groupBy { it.vendorId }
-
-                                    // 3. Create Order for each Vendor
-                                    ordersByVendor.forEach { (vendorId, items) ->
-                                        val vendorName = items.first().vendorName
-                                        val totalAmount = items.sumOf { it.price * it.quantity }
-
-                                        val order = Order(
-                                            customerId = userId,
-                                            customerName = user?.name ?: "Guest",
-                                            vendorId = vendorId,
-                                            vendorName = vendorName,
-                                            items = items.map {
-                                                mapOf(
-                                                    "productId" to it.productId,
-                                                    "name" to it.name,
-                                                    "quantity" to it.quantity,
-                                                    "price" to it.price
-                                                )
-                                            },
-                                            totalAmount = totalAmount,
-                                            deliveryAddress = address,
-                                            status = "Processing", // ✅ Set status to Processing immediately
-                                            paymentMethod = "Pay on Delivery",
-                                            createdAt = Timestamp.now()
-                                        )
-                                        OrderCollection.createOrder(order)
-                                    }
-
-                                    // 4. Clear Cart
-                                    CartCollection.clearCart(userId)
-
-                                    // 5. Show Success
+                            try {
+                                val currentUserId = FirebaseManager.getCurrentUserId()
+                                if (currentUserId == null) {
                                     isProcessing = false
-                                    showSuccess = true
-                                    delay(1500)
-                                    onPaymentSuccess()
-                                } else {
-                                    // Fallback if cart is empty (shouldn't happen in UI flow)
-                                    delay(1000)
-                                    isProcessing = false
-                                    showSuccess = true
-                                    delay(1500)
-                                    onPaymentSuccess()
+                                    return@launch
                                 }
-                            } else {
-                                // LOGIC FOR OTHER PAYMENT METHODS (Simulated for now)
-                                delay(2000)
+
+                                // ============================
+                                // SCENARIO 1: BOOKING FLOW
+                                // ============================
+                                if (bookingDetails != null && service != null) {
+                                    val booking = Booking(
+                                        customerId = currentUserId,
+                                        customerName = UserCollection.getUser(currentUserId).getOrNull()?.name ?: "Customer",
+                                        vendorId = service.vendorId,
+                                        vendorName = service.vendorName,
+                                        serviceId = service.serviceId,
+                                        serviceName = service.name,
+                                        servicePrice = service.price,
+                                        scheduledDate = Timestamp(bookingDetails.date), // ✅ FIXED: Pass Date object
+                                        scheduledTime = bookingDetails.time,
+                                        customerNotes = bookingDetails.notes,
+                                        status = "Scheduled",
+                                        paymentMethod = "Pay when Done",
+                                        createdAt = Timestamp.now()
+                                    )
+
+                                    // ✅ FIXED: createBooking returns String directly
+                                    val newBookingId = BookingCollection.createBooking(booking)
+
+                                    // Send Notifications
+                                    NotificationCollection.sendNotification(
+                                        userId = currentUserId,
+                                        vendorId = service.vendorId,
+                                        title = "New Booking Request",
+                                        message = "A customer booked ${service.name}",
+                                        type = "BOOKING",
+                                        relatedId = newBookingId, // ✅ This is now a String
+                                        relatedType = "booking"
+                                    )
+
+                                    isProcessing = false
+                                    showSuccess = true
+                                    delay(1500)
+                                    onPaymentSuccess(newBookingId)
+                                }
+
+                                // ============================
+                                // SCENARIO 2: ORDER FLOW
+                                // ============================
+                                else {
+                                    val cartItems = CartCollection.getCartItems(currentUserId).first()
+                                    if (cartItems.isNotEmpty()) {
+                                        val userResult = UserCollection.getUser(currentUserId)
+                                        val user = userResult.getOrNull()
+                                        val address = listOfNotNull(user?.address, user?.city, user?.state)
+                                            .joinToString(", ").ifEmpty { "No Address Provided" }
+
+                                        val ordersByVendor = cartItems.groupBy { it.vendorId }
+
+                                        // ✅ FIX: Declare variable OUTSIDE the loop
+                                        var lastOrderId = ""
+
+                                        ordersByVendor.forEach { (vendorId, items) ->
+                                            val vendorName = items.first().vendorName
+                                            val totalAmount = items.sumOf { it.price * it.quantity }
+
+                                            val order = Order(
+                                                customerId = currentUserId,
+                                                customerName = user?.name ?: "Guest",
+                                                vendorId = vendorId,
+                                                vendorName = vendorName,
+                                                items = items.map {
+                                                    mapOf(
+                                                        "productId" to it.productId,
+                                                        "name" to it.name,
+                                                        "quantity" to it.quantity,
+                                                        "price" to it.price
+                                                    )
+                                                },
+                                                totalAmount = totalAmount,
+                                                deliveryAddress = address,
+                                                status = "Processing",
+                                                paymentMethod = "Pay on Delivery",
+                                                createdAt = Timestamp.now()
+                                            )
+
+                                            val newOrderId = OrderCollection.createOrder(order)
+
+                                            // ✅ FIX: Update the variable inside the loop
+                                            lastOrderId = newOrderId
+
+                                            NotificationCollection.sendNotification(
+                                                userId = currentUserId,
+                                                vendorId = vendorId,
+                                                title = "New Order Received",
+                                                message = "Order #$newOrderId placed",
+                                                type = "ORDER",
+                                                relatedId = newOrderId,
+                                                relatedType = "order"
+                                            )
+                                        }
+
+                                        CartCollection.clearCart(currentUserId)
+                                        isProcessing = false
+                                        showSuccess = true
+                                        delay(1500)
+
+                                        // ✅ FIX: Pass the captured ID
+                                        onPaymentSuccess(lastOrderId)
+                                    }
+                                }
+                            } catch (e: Exception) {
                                 isProcessing = false
-                                showSuccess = true
-                                delay(1500)
-                                onPaymentSuccess()
+                                println("Payment Error: ${e.message}")
                             }
                         }
                     }

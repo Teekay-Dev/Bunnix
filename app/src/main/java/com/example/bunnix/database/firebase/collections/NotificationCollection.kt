@@ -1,73 +1,55 @@
 package com.example.bunnix.database.firebase.collections
 
-import com.example.bunnix.database.config.FirebaseConfig
 import com.example.bunnix.database.models.Notification
-import com.google.firebase.firestore.Query
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 object NotificationCollection {
+    private val db = FirebaseFirestore.getInstance()
+    private val notificationsRef = db.collection("notifications")
 
-    private val collection = FirebaseConfig.firestore.collection(FirebaseConfig.Collections.NOTIFICATIONS)
+    suspend fun sendNotification(
+        userId: String,      // Customer ID
+        vendorId: String,    // Vendor ID
+        title: String,
+        message: String,
+        type: String,
+        relatedId: String,
+        relatedType: String
+    ) {
+        val timestamp = Timestamp.now()
 
-    // GET USER NOTIFICATIONS
-    fun getUserNotifications(userId: String): Flow<List<Notification>> = callbackFlow {
-        val listener = collection
-            .whereEqualTo("userId", userId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .limit(50)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                val notifications = snapshot?.toObjects(Notification::class.java) ?: emptyList()
-                trySend(notifications)
-            }
-        awaitClose { listener.remove() }
-    }
+        // 1. Notification for the VENDOR
+        val vendorNotification = Notification(
+            notificationId = db.collection("notifications").document().id,
+            userId = vendorId, // For vendor, userId field acts as recipient ID in your ViewModel logic
+            vendorId = vendorId,
+            title = title,
+            message = message,
+            type = type,
+            relatedId = relatedId,
+            relatedType = relatedType,
+            createdAt = timestamp
+        )
 
-    // CREATE NOTIFICATION
-    suspend fun createNotification(notification: Notification): Result<String> {
-        return try {
-            val docRef = collection.add(notification).await()
-            Result.success(docRef.id)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+        // 2. Notification for the CUSTOMER
+        val customerNotification = Notification(
+            notificationId = db.collection("notifications").document().id,
+            userId = userId,
+            vendorId = vendorId,
+            title = title,
+            message = "Your $relatedType has been updated.",
+            type = type,
+            relatedId = relatedId,
+            relatedType = relatedType,
+            createdAt = timestamp
+        )
 
-    // MARK AS READ
-    suspend fun markAsRead(notificationId: String): Result<Unit> {
-        return try {
-            val updates = mapOf("isRead" to true)
-            collection.document(notificationId).update(updates).await()
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    // MARK ALL AS READ
-    suspend fun markAllAsRead(userId: String): Result<Unit> {
-        return try {
-            val unreadNotifications = collection
-                .whereEqualTo("userId", userId)
-                .whereEqualTo("isRead", false)
-                .get()
-                .await()
-
-            val batch = FirebaseConfig.firestore.batch()
-            unreadNotifications.documents.forEach { doc ->
-                batch.update(doc.reference, "isRead", true)
-            }
-            batch.commit().await()
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        // Send both in parallel
+        val batch = db.batch()
+        batch.set(notificationsRef.document(vendorNotification.notificationId), vendorNotification)
+        batch.set(notificationsRef.document(customerNotification.notificationId), customerNotification)
+        batch.commit().await()
     }
 }

@@ -255,7 +255,8 @@ private fun ProductDetailTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .windowInsetsPadding(WindowInsets.statusBars),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             // Back Button
@@ -695,6 +696,7 @@ private fun DescriptionTab(description: String, tags: List<String>) {
         // Description
         Text(
             "About this product",
+            color = TextPrimary,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             modifier = Modifier.padding(bottom = 12.dp)
@@ -713,6 +715,7 @@ private fun DescriptionTab(description: String, tags: List<String>) {
         if (tags.isNotEmpty()) {
             Text(
                 "Tags",
+                color = TextPrimary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -1196,6 +1199,7 @@ private fun ModernBottomBar(
             ) {
                 Text(
                     "Quantity",
+                    color = TextPrimary,
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp
                 )
@@ -1222,6 +1226,7 @@ private fun ModernBottomBar(
 
                         Text(
                             quantity.toString(),
+                            color = TextPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             modifier = Modifier.widthIn(min = 32.dp),

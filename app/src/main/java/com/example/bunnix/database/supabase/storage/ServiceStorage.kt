@@ -41,9 +41,9 @@ object ServiceStorage {
     }
 
     // DELETE SERVICE IMAGE
-    suspend fun deleteServiceImage(serviceId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun deleteServiceImage(serviceId: String, imageIndex: Int): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val path = "$serviceId/image.jpg"
+            val path = "$serviceId/$imageIndex.jpg"
             val bucket = storage.from(SupabaseConfig.Buckets.SERVICE_IMAGES)
             bucket.delete(path)
             Result.success(Unit)

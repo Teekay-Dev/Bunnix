@@ -2,21 +2,45 @@ package com.example.bunnix.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.bunnix.vendorUI.screens.vendor.orders.ProductOrder
-import com.example.bunnix.vendorUI.screens.vendor.orders.ServiceBooking
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
+
+// UI Models
+data class ProductOrder(
+    val orderId: String,
+    val orderNumber: String,
+    val customerName: String,
+    val customerImageUrl: String,
+    val timeAgo: String,
+    val items: List<String>,
+    val amount: Double,
+    val status: String
+)
+
+data class ServiceBooking(
+    val bookingId: String,
+    val bookingNumber: String,
+    val customerName: String,
+    val customerImageUrl: String,
+    val bookingDate: String,
+    val serviceName: String,
+    val amount: Double,
+    val status: String
+)
 
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
@@ -33,356 +57,150 @@ class OrdersViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    init {
+        loadProductOrders()
+        loadServiceBookings()
+    }
 
-    private val _successMessage = MutableStateFlow<String?>(null)
-    val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
-
+    // ✅ REAL-TIME LISTENER FOR ORDERS
     fun loadProductOrders() {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                _error.value = null
+        val vendorId = auth.currentUser?.uid ?: return
 
-                val vendorId = auth.currentUser?.uid ?: return@launch
+        firestore.collection("orders")
+            .whereEqualTo("vendorId", vendorId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
 
-                val ordersSnapshot = firestore.collection("orders")
-                    .whereEqualTo("vendorId", vendorId)
-                    .orderBy("createdAt", Query.Direction.DESCENDING)
-                    .get()
-                    .await()
-
-                val orders = mutableListOf<ProductOrder>()
-
-                for (doc in ordersSnapshot.documents) {
+                val orders = snapshot.documents.mapNotNull { doc ->
                     try {
-                        val userId = doc.getString("userId") ?: continue
-
-                        val userDoc = firestore.collection("users")
-                            .document(userId)
-                            .get()
-                            .await()
-
-                        val customerName = userDoc.getString("name") ?: "Unknown Customer"
-                        val customerImageUrl = userDoc.getString("profilePicUrl") ?: ""
-
                         val items = doc.get("items") as? List<Map<String, Any>> ?: emptyList()
-                        val itemNames = items.mapNotNull { it["productName"] as? String }
-
+                        val itemNames = items.mapNotNull { it["name"] as? String }
                         val createdAt = doc.getTimestamp("createdAt")
-                        val timeAgo = createdAt?.let { calculateTimeAgo(it.toDate()) } ?: "Just now"
 
-                        orders.add(
-                            ProductOrder(
-                                orderId = doc.id,
-                                orderNumber = doc.getString("orderNumber") ?: "#${doc.id.take(6).uppercase()}",
-                                customerName = customerName,
-                                customerImageUrl = customerImageUrl,
-                                timeAgo = timeAgo,
-                                items = itemNames,
-                                amount = doc.getDouble("totalAmount") ?: 0.0,
-                                status = doc.getString("status") ?: "pending"
-                            )
+                        // ✅ FETCH IMAGE: Get customerId, then fetch user doc
+                        val customerId = doc.getString("customerId") ?: ""
+                        // Note: Fetching user doc inside a loop is not ideal for performance,
+                        // but necessary if 'customerImageUrl' is not saved on the Order document.
+                        // For now, we rely on the 'customerName' stored on the Order.
+
+                        ProductOrder(
+                            orderId = doc.id,
+                            orderNumber = doc.getString("orderNumber") ?: "#${doc.id.take(6)}",
+                            customerName = doc.getString("customerName") ?: "Customer", // Use value from Order
+                            customerImageUrl = "", // Set to empty if not stored on Order.
+                            // Ideally, you should save 'customerImageUrl' on the Order document when placing order.
+                            // For now, we will show a placeholder icon.
+                            timeAgo = createdAt?.let { calculateTimeAgo(it.toDate()) } ?: "Just now",
+                            items = itemNames,
+                            amount = doc.getDouble("totalAmount") ?: 0.0,
+                            status = doc.getString("status") ?: "Processing"
                         )
-                    } catch (e: Exception) {
-                        continue
-                    }
+                    } catch (e: Exception) { null }
                 }
-
                 _productOrders.value = orders
-
-            } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to load orders"
-                _productOrders.value = emptyList()
-            } finally {
-                _isLoading.value = false
             }
-        }
     }
 
+    // ✅ REAL-TIME LISTENER FOR BOOKINGS (UPDATED)
     fun loadServiceBookings() {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                _error.value = null
+        val vendorId = auth.currentUser?.uid ?: return
 
-                val vendorId = auth.currentUser?.uid ?: return@launch
+        firestore.collection("bookings")
+            .whereEqualTo("vendorId", vendorId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
 
-                val bookingsSnapshot = firestore.collection("bookings")
-                    .whereEqualTo("vendorId", vendorId)
-                    .orderBy("createdAt", Query.Direction.DESCENDING)
-                    .get()
-                    .await()
-
-                val bookings = mutableListOf<ServiceBooking>()
-
-                for (doc in bookingsSnapshot.documents) {
+                val bookings = snapshot.documents.mapNotNull { doc ->
                     try {
-                        val userId = doc.getString("userId") ?: continue
-
-                        val userDoc = firestore.collection("users")
-                            .document(userId)
-                            .get()
-                            .await()
-
-                        val customerName = userDoc.getString("name") ?: "Unknown Customer"
-                        val customerImageUrl = userDoc.getString("profilePicUrl") ?: ""
-
-                        val serviceId = doc.getString("serviceId") ?: ""
-                        val serviceDoc = firestore.collection("services")
-                            .document(serviceId)
-                            .get()
-                            .await()
-
-                        val serviceName = serviceDoc.getString("name") ?: "Unknown Service"
-
-                        val bookingDate = doc.getTimestamp("bookingDate")
+                        val bookingDate = doc.getTimestamp("scheduledDate")
+                        val time = doc.getString("scheduledTime") ?: ""
                         val formattedDate = bookingDate?.let {
-                            SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()).format(it.toDate())
-                        } ?: "Date not set"
+                            SimpleDateFormat("MMM dd", Locale.getDefault()).format(it.toDate())
+                        } ?: ""
 
-                        bookings.add(
-                            ServiceBooking(
-                                bookingId = doc.id,
-                                bookingNumber = doc.getString("bookingNumber") ?: "#${doc.id.take(6).uppercase()}",
-                                customerName = customerName,
-                                customerImageUrl = customerImageUrl,
-                                bookingDate = formattedDate,
-                                serviceName = serviceName,
-                                amount = doc.getDouble("totalAmount") ?: 0.0,
-                                status = doc.getString("status") ?: "pending"
-                            )
+                        ServiceBooking(
+                            bookingId = doc.id,
+                            bookingNumber = doc.getString("bookingNumber") ?: "#${doc.id.take(6)}",
+                            customerName = doc.getString("customerName") ?: "Customer", // Use value from Booking
+                            customerImageUrl = "",
+                            bookingDate = "$formattedDate $time",
+                            serviceName = doc.getString("serviceName") ?: "Service",
+                            amount = doc.getDouble("servicePrice") ?: 0.0,
+                            status = doc.getString("status") ?: "Requested"
                         )
-                    } catch (e: Exception) {
-                        continue
-                    }
+                    } catch (e: Exception) { null }
                 }
-
                 _serviceBookings.value = bookings
-
-            } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to load bookings"
-                _serviceBookings.value = emptyList()
-            } finally {
-                _isLoading.value = false
             }
-        }
     }
 
-    // ✅ ACCEPT ORDER - FULLY IMPLEMENTED
     fun acceptOrder(orderId: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-
-                // Update order status
-                firestore.collection("orders")
-                    .document(orderId)
-                    .update(
-                        mapOf(
-                            "status" to "processing",
-                            "acceptedAt" to FieldValue.serverTimestamp()
-                        )
-                    )
-                    .await()
-
-                // Send notification to customer
-                val orderDoc = firestore.collection("orders").document(orderId).get().await()
-                val customerId = orderDoc.getString("userId") ?: ""
-
-                sendNotificationToCustomer(
-                    customerId = customerId,
-                    title = "Order Accepted",
-                    message = "Your order has been accepted and is being processed!"
-                )
-
-                _successMessage.value = "Order accepted successfully!"
-                loadProductOrders()
-
-            } catch (e: Exception) {
-                _error.value = "Failed to accept order: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        updateStatus("orders", orderId, "Processing", "Order Accepted")
     }
 
-    // ✅ DECLINE ORDER - FULLY IMPLEMENTED
-    fun declineOrder(orderId: String, reason: String = "Vendor declined") {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-
-                firestore.collection("orders")
-                    .document(orderId)
-                    .update(
-                        mapOf(
-                            "status" to "declined",
-                            "declineReason" to reason,
-                            "declinedAt" to FieldValue.serverTimestamp()
-                        )
-                    )
-                    .await()
-
-                // Notify customer
-                val orderDoc = firestore.collection("orders").document(orderId).get().await()
-                val customerId = orderDoc.getString("userId") ?: ""
-
-                sendNotificationToCustomer(
-                    customerId = customerId,
-                    title = "Order Declined",
-                    message = "Unfortunately, your order could not be processed."
-                )
-
-                _successMessage.value = "Order declined"
-                loadProductOrders()
-
-            } catch (e: Exception) {
-                _error.value = "Failed to decline order"
-            } finally {
-                _isLoading.value = false
-            }
-        }
+    fun declineOrder(orderId: String) {
+        updateStatus("orders", orderId, "Cancelled", "Order Declined")
     }
 
-    // ✅ ACCEPT BOOKING - FULLY IMPLEMENTED
+    fun markDelivered(orderId: String) {
+        updateStatus("orders", orderId, "Delivered", "Order Delivered")
+    }
+
     fun acceptBooking(bookingId: String) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-
-                firestore.collection("bookings")
-                    .document(bookingId)
-                    .update(
-                        mapOf(
-                            "status" to "confirmed",
-                            "confirmedAt" to FieldValue.serverTimestamp()
-                        )
-                    )
-                    .await()
-
-                val bookingDoc = firestore.collection("bookings").document(bookingId).get().await()
-                val customerId = bookingDoc.getString("userId") ?: ""
-
-                sendNotificationToCustomer(
-                    customerId = customerId,
-                    title = "Booking Confirmed",
-                    message = "Your service booking has been confirmed!"
-                )
-
-                _successMessage.value = "Booking accepted successfully!"
-                loadServiceBookings()
-
-            } catch (e: Exception) {
-                _error.value = "Failed to accept booking"
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        updateStatus("bookings", bookingId, "Confirmed", "Booking Confirmed")
     }
 
-    // ✅ DECLINE BOOKING - FULLY IMPLEMENTED
     fun declineBooking(bookingId: String) {
+        updateStatus("bookings", bookingId, "Cancelled", "Booking Declined")
+    }
+
+    fun markCompleted(bookingId: String) {
+        updateStatus("bookings", bookingId, "Completed", "Service Completed")
+    }
+
+    private fun updateStatus(collection: String, docId: String, status: String, msg: String) {
         viewModelScope.launch {
             try {
-                _isLoading.value = true
-
-                firestore.collection("bookings")
-                    .document(bookingId)
-                    .update(
-                        mapOf(
-                            "status" to "declined",
-                            "declinedAt" to FieldValue.serverTimestamp()
-                        )
-                    )
+                firestore.collection(collection).document(docId)
+                    .update(mapOf("status" to status, "updatedAt" to FieldValue.serverTimestamp()))
                     .await()
 
-                val bookingDoc = firestore.collection("bookings").document(bookingId).get().await()
-                val customerId = bookingDoc.getString("userId") ?: ""
-
-                sendNotificationToCustomer(
-                    customerId = customerId,
-                    title = "Booking Declined",
-                    message = "Your booking request could not be accepted."
-                )
-
-                _successMessage.value = "Booking declined"
-                loadServiceBookings()
-
+                // Notify Customer
+                val doc = firestore.collection(collection).document(docId).get().await()
+                val custId = doc.getString("customerId") ?: ""
+                if (custId.isNotEmpty()) {
+                    sendNotification(custId, msg, "Your $collection status updated to $status")
+                }
             } catch (e: Exception) {
-                _error.value = "Failed to decline booking"
-            } finally {
-                _isLoading.value = false
+                e.printStackTrace()
             }
         }
     }
 
-    // ✅ UPDATE ORDER STATUS (Processing → Shipped → Delivered)
-    fun updateOrderStatus(orderId: String, newStatus: String) {
-        viewModelScope.launch {
-            try {
-                firestore.collection("orders")
-                    .document(orderId)
-                    .update("status", newStatus)
-                    .await()
-
-                _successMessage.value = "Order status updated to $newStatus"
-                loadProductOrders()
-            } catch (e: Exception) {
-                _error.value = "Failed to update status"
-            }
-        }
-    }
-
-    // ✅ SEND NOTIFICATION TO CUSTOMER
-    private suspend fun sendNotificationToCustomer(
-        customerId: String,
-        title: String,
-        message: String
-    ) {
+    private suspend fun sendNotification(userId: String, title: String, message: String) {
         try {
-            val notificationData = hashMapOf(
-                "userId" to customerId,
+            val data = hashMapOf(
+                "userId" to userId,
                 "title" to title,
                 "message" to message,
-                "type" to "order",
+                "type" to "ORDER",
                 "isRead" to false,
-                "timestamp" to FieldValue.serverTimestamp()
+                "createdAt" to FieldValue.serverTimestamp()
             )
-
-            firestore.collection("notifications")
-                .add(notificationData)
-                .await()
-        } catch (e: Exception) {
-            // Silent fail
-        }
+            firestore.collection("notifications").add(data).await()
+        } catch (e: Exception) { }
     }
 
     private fun calculateTimeAgo(date: Date): String {
         val now = Date()
-        val diffInMillis = now.time - date.time
-
-        val seconds = diffInMillis / 1000
-        val minutes = seconds / 60
-        val hours = minutes / 60
-        val days = hours / 24
-
+        val diff = (now.time - date.time) / 60000 // minutes
         return when {
-            days > 0 -> "$days day${if (days > 1) "s" else ""} ago"
-            hours > 0 -> "$hours hour${if (hours > 1) "s" else ""} ago"
-            minutes > 0 -> "$minutes min${if (minutes > 1) "s" else ""} ago"
-            else -> "Just now"
+            diff < 1 -> "Just now"
+            diff < 60 -> "$diff min ago"
+            diff < 1440 -> "${diff / 60} hr ago"
+            else -> "${diff / 1440} days ago"
         }
-    }
-
-    fun clearMessages() {
-        _error.value = null
-        _successMessage.value = null
-    }
-
-    fun refresh() {
-        loadProductOrders()
-        loadServiceBookings()
     }
 }

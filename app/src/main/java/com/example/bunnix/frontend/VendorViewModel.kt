@@ -38,7 +38,7 @@ class VendorViewModel @Inject constructor(
     }
 
     // ✅ NEW: Fetch ALL vendors for HomeScreen
-    private fun loadAllVendors() {
+    fun loadAllVendors() {
         viewModelScope.launch {
             _isLoading.value = true
             try {

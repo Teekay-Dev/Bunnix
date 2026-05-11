@@ -1,61 +1,40 @@
 package com.example.bunnix.database.firebase.collections
 
-import com.example.bunnix.database.config.FirebaseConfig
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.example.bunnix.database.models.Booking
-import com.google.firebase.Timestamp
-import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
-import java.util.*
 
 object BookingCollection {
+    val db = FirebaseFirestore.getInstance()
+    private val bookingsRef = db.collection("bookings")
 
-    private val collection = FirebaseConfig.firestore.collection(FirebaseConfig.Collections.BOOKINGS)
+    suspend fun createBooking(booking: Booking): String {
+        val docRef = bookingsRef.document()
 
-    // CREATE BOOKING (Customer Side)
-    suspend fun createBooking(booking: Booking): Result<String> {
-        return try {
-            val bookingNumber = generateBookingNumber()
-            val bookingData = booking.copy(
-                bookingNumber = bookingNumber,
-                status = "Booking Requested",
-                createdAt = Timestamp.now()
-            )
-            val docRef = collection.add(bookingData).await()
-            Result.success(docRef.id)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        // ✅ CRITICAL: Set the ID inside the object before saving
+        val newBooking = booking.copy(bookingId = docRef.id, bookingNumber = generateBookingNumber())
+
+        docRef.set(newBooking).await()
+        return docRef.id
     }
 
-    // GET CUSTOMER BOOKINGS (Real-time)
-    fun getCustomerBookings(customerId: String): Flow<List<Booking>> = callbackFlow {
-        val listener = collection
-            .whereEqualTo("customerId", customerId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                val bookings = snapshot?.toObjects(Booking::class.java) ?: emptyList()
-                trySend(bookings)
+    // ✅ REAL-TIME LISTENER
+    fun getBookingByIdFlow(bookingId: String): Flow<Booking?> = callbackFlow {
+        val listener = bookingsRef.document(bookingId).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
             }
-        awaitClose { listener.remove() }
-    }
-
-    // GET SINGLE BOOKING
-    suspend fun getBookingById(bookingId: String): Result<Booking> {
-        return try {
-            val snapshot = collection.document(bookingId).get().await()
-            val booking = snapshot.toObject(Booking::class.java)
-            if (booking != null) Result.success(booking) else Result.failure(Exception("Booking not found"))
-        } catch (e: Exception) {
-            Result.failure(e)
+            val booking = snapshot?.toObject(Booking::class.java)
+            trySend(booking)
         }
+        awaitClose { listener.remove() }
     }
 
     private fun generateBookingNumber(): String {

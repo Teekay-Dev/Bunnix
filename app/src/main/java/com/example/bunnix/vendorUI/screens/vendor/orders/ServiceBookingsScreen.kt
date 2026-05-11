@@ -26,71 +26,71 @@ import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.*
 import com.example.bunnix.vendorUI.navigation.VendorRoutes
 import com.example.bunnix.viewmodel.OrdersViewModel
-
-@Composable
-fun ServiceBookingsScreen(
-    navController: NavController,
-    viewModel: OrdersViewModel = hiltViewModel()
-) {
-    val bookings by viewModel.serviceBookings.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val successMessage by viewModel.successMessage.collectAsState()
-    val error by viewModel.error.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadServiceBookings()
-    }
-
-    // Show success message
-    LaunchedEffect(successMessage) {
-        successMessage?.let {
-            viewModel.clearMessages()
-        }
-    }
-
-    // Show error message
-    LaunchedEffect(error) {
-        error?.let {
-            viewModel.clearMessages()
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (isLoading && bookings.isEmpty()) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(5) {
-                    ShimmerOrderCard()
-                }
-            }
-        } else if (bookings.isEmpty()) {
-            EmptyState(
-                icon = Icons.Default.CalendarToday,
-                title = "No Service Bookings",
-                message = "When customers book your services,\nthey will appear here"
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(bookings) { booking ->
-                    ServiceBookingCard(
-                        booking = booking,
-                        viewModel = viewModel,
-                        onClick = {
-                            navController.navigate(VendorRoutes.bookingDetail(booking.bookingId))
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
+//
+//@Composable
+//fun ServiceBookingsScreen(
+//    navController: NavController,
+//    viewModel: OrdersViewModel = hiltViewModel()
+//) {
+//    val bookings by viewModel.serviceBookings.collectAsState()
+//    val isLoading by viewModel.isLoading.collectAsState()
+//    val successMessage by viewModel.successMessage.collectAsState()
+//    val error by viewModel.error.collectAsState()
+//
+//    LaunchedEffect(Unit) {
+//        viewModel.loadServiceBookings()
+//    }
+//
+//    // Show success message
+//    LaunchedEffect(successMessage) {
+//        successMessage?.let {
+//            viewModel.clearMessages()
+//        }
+//    }
+//
+//    // Show error message
+//    LaunchedEffect(error) {
+//        error?.let {
+//            viewModel.clearMessages()
+//        }
+//    }
+//
+//    Box(modifier = Modifier.fillMaxSize()) {
+//        if (isLoading && bookings.isEmpty()) {
+//            LazyColumn(
+//                modifier = Modifier.fillMaxSize(),
+//                contentPadding = PaddingValues(16.dp),
+//                verticalArrangement = Arrangement.spacedBy(12.dp)
+//            ) {
+//                items(5) {
+//                    ShimmerOrderCard()
+//                }
+//            }
+//        } else if (bookings.isEmpty()) {
+//            EmptyState(
+//                icon = Icons.Default.CalendarToday,
+//                title = "No Service Bookings",
+//                message = "When customers book your services,\nthey will appear here"
+//            )
+//        } else {
+//            LazyColumn(
+//                modifier = Modifier.fillMaxSize(),
+//                contentPadding = PaddingValues(16.dp),
+//                verticalArrangement = Arrangement.spacedBy(12.dp)
+//            ) {
+//                items(bookings) { booking ->
+//                    ServiceBookingCard(
+//                        booking = booking,
+//                        viewModel = viewModel,
+//                        onClick = {
+//                            navController.navigate(VendorRoutes.bookingDetail(booking.bookingId))
+//                        }
+//                    )
+//                }
+//            }
+//        }
+//    }
+//}
 
 @Composable
 fun ServiceBookingCard(

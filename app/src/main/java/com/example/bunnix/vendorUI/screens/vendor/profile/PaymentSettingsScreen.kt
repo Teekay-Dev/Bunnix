@@ -16,13 +16,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.BunnixTopBar
-import com.example.bunnix.viewmodel.ProfileViewModel
+import com.example.bunnix.viewmodel.VendorProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentSettingsScreen(
     navController: NavController,
-    viewModel: ProfileViewModel = hiltViewModel()
+    viewModel: VendorProfileViewModel = hiltViewModel()
 ) {
     val bankDetails by viewModel.bankDetails.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -114,6 +114,8 @@ fun PaymentSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -130,6 +132,8 @@ fun PaymentSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -146,6 +150,8 @@ fun PaymentSettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -180,6 +186,8 @@ fun PaymentSettingsScreen(
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 3,
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,

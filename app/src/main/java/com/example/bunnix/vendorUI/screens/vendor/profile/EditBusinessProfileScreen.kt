@@ -14,13 +14,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.bunnix.ui.theme.*
 import com.example.bunnix.vendorUI.components.BunnixTopBar
-import com.example.bunnix.viewmodel.ProfileViewModel
+import com.example.bunnix.viewmodel.VendorProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBusinessProfileScreen(
     navController: NavController,
-    viewModel: ProfileViewModel = hiltViewModel()
+    viewModel: VendorProfileViewModel = hiltViewModel()
 ) {
     val profile by viewModel.vendorProfile.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -63,6 +63,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -81,6 +83,8 @@ fun EditBusinessProfileScreen(
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 5,
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -96,6 +100,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -111,6 +117,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,
@@ -126,6 +134,8 @@ fun EditBusinessProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
                     unfocusedBorderColor = Color.LightGray,
                     focusedBorderColor = OrangePrimaryModern,
                     unfocusedContainerColor = Color.White,

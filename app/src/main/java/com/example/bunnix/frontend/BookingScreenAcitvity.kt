@@ -95,14 +95,18 @@ fun BookingScreen(
                 service = service,
                 isEnabled = isValidBooking,
                 onContinue = {
-                    onContinue(
-                        BookingDetails(
+                    // ✅ LOGIC MOVED HERE:
+                    // We have access to selectedDate and selectedTime here.
+                    if (selectedDate != null && selectedTime != null) {
+                        val details = BookingDetails(
                             serviceId = service.serviceId,
                             date = selectedDate!!,
                             time = selectedTime!!,
                             notes = customerNotes
                         )
-                    )
+                        // Pass the details up to MainActivity
+                        onContinue(details)
+                    }
                 }
             )
         },

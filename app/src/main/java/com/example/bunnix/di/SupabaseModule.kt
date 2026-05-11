@@ -1,7 +1,7 @@
 package com.example.bunnix.di
 
-import com.example.bunnix.database.config.SupabaseConfig.SUPABASE_KEY
-import com.example.bunnix.database.config.SupabaseConfig.SUPABASE_URL
+import com.example.bunnix.BuildConfig.SUPABASE_URL
+import com.example.bunnix.BuildConfig.SUPABASE_ANON_KEY
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,7 +24,7 @@ object SupabaseModule {
     fun provideSupabaseClient(): SupabaseClient {
         return createSupabaseClient(
             supabaseUrl = SUPABASE_URL,
-            supabaseKey = SUPABASE_KEY
+            supabaseKey = SUPABASE_ANON_KEY
         ) {
             install(Postgrest)
             install(Auth)

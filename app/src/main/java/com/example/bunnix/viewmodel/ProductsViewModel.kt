@@ -3,6 +3,9 @@ package com.example.bunnix.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.bunnix.database.models.Product
+import com.example.bunnix.database.supabase.storage.ProductStorage
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -14,28 +17,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
-data class VendorProduct(
-    val productId: String = "",
-    val vendorId: String = "",
-    val name: String = "",
-    val description: String = "",
-    val price: Double = 0.0,
-    val quantity: Int = 0,
-    val category: String = "",
-    val imageUrl: String = "",
-    val isAvailable: Boolean = true,
-    val createdAt: Long = 0L
-)
-
 @HiltViewModel
 class ProductsViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage, // Kept if you use it elsewhere, otherwise can be removed
+    @dagger.hilt.android.qualifiers.ApplicationContext
+    private val context: android.content.Context
 ) : ViewModel() {
 
-    private val _products = MutableStateFlow<List<VendorProduct>>(emptyList())
-    val products: StateFlow<List<VendorProduct>> = _products.asStateFlow()
+    private val _products = MutableStateFlow<List<Product>>(emptyList())
+    val products: StateFlow<List<Product>> = _products.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -63,25 +55,7 @@ class ProductsViewModel @Inject constructor(
                             return@addSnapshotListener
                         }
 
-                        val productsList = snapshot?.documents?.mapNotNull { doc ->
-                            try {
-                                VendorProduct(
-                                    productId = doc.id,
-                                    vendorId = doc.getString("vendorId") ?: "",
-                                    name = doc.getString("name") ?: "",
-                                    description = doc.getString("description") ?: "",
-                                    price = doc.getDouble("price") ?: 0.0,
-                                    quantity = doc.getLong("quantity")?.toInt() ?: 0,
-                                    category = doc.getString("category") ?: "",
-                                    imageUrl = doc.getString("imageUrl") ?: "",
-                                    isAvailable = doc.getBoolean("isAvailable") ?: true,
-                                    createdAt = doc.getLong("createdAt") ?: 0L
-                                )
-                            } catch (e: Exception) {
-                                null
-                            }
-                        } ?: emptyList()
-
+                        val productsList = snapshot?.toObjects(Product::class.java) ?: emptyList()
                         _products.value = productsList
                         _isLoading.value = false
                     }
@@ -109,26 +83,49 @@ class ProductsViewModel @Inject constructor(
 
                 val vendorId = auth.currentUser?.uid ?: return@launch
 
-                // Upload image to Firebase Storage
-                val imageUrl = uploadProductImage(imageUri, vendorId)
+                // 1. Get vendor name
+                val vendorDoc = firestore.collection("vendorProfiles")
+                    .document(vendorId)
+                    .get()
+                    .await()
+                val vendorName = vendorDoc.getString("businessName") ?: "Unknown Vendor"
 
-                // Create product document
-                val productData = hashMapOf(
-                    "vendorId" to vendorId,
-                    "name" to name,
-                    "description" to description,
-                    "price" to price,
-                    "quantity" to quantity,
-                    "category" to category,
-                    "imageUrl" to imageUrl,
-                    "isAvailable" to true,
-                    "createdAt" to System.currentTimeMillis(),
-                    "updatedAt" to System.currentTimeMillis()
+                // 2. Generate a Firestore Document Reference FIRST to get the real ID
+                val docRef = firestore.collection("products").document()
+                val productId = docRef.id
+
+                // 3. Upload Image to Supabase using the Firestore ID
+                // WARNING: Ensure ProductStorage ONLY uploads. If it inserts to DB, that causes your RLS error.
+                val imageUrl = ProductStorage.uploadProductImage(
+                    context = context,
+                    productId = productId, // Use the real Firestore ID for consistency
+                    imageUri = imageUri,
+                    imageIndex = 0
+                ).getOrThrow()
+
+                // 4. Create the Product object
+                val product = Product(
+                    productId = productId, // Use the ID we generated
+                    vendorId = vendorId,
+                    vendorName = vendorName,
+                    name = name,
+                    description = description,
+                    price = price,
+                    discountPrice = null,
+                    category = category,
+                    imageUrls = listOf(imageUrl),
+                    variants = emptyList(),
+                    totalStock = quantity,
+                    inStock = quantity > 0,
+                    tags = listOf(category.lowercase()),
+                    views = 0,
+                    sold = 0,
+                    createdAt = Timestamp.now(),
+                    updatedAt = Timestamp.now()
                 )
 
-                firestore.collection("products")
-                    .add(productData)
-                    .await()
+                // 5. Save to Firebase Firestore (Set the document using the ID we generated)
+                docRef.set(product).await()
 
                 _successMessage.value = "Product added successfully"
 
@@ -161,15 +158,21 @@ class ProductsViewModel @Inject constructor(
                     "name" to name,
                     "description" to description,
                     "price" to price,
-                    "quantity" to quantity,
+                    "totalStock" to quantity,
+                    "inStock" to (quantity > 0),
                     "category" to category,
-                    "updatedAt" to System.currentTimeMillis()
+                    "updatedAt" to Timestamp.now()
                 )
 
-                // Upload new image if provided
                 if (imageUri != null) {
-                    val imageUrl = uploadProductImage(imageUri, vendorId)
-                    updateData["imageUrl"] = imageUrl
+                    // Upload new image if provided
+                    val imageUrl = ProductStorage.uploadProductImage(
+                        context = context,
+                        productId = productId,
+                        imageUri = imageUri,
+                        imageIndex = 0
+                    ).getOrThrow()
+                    updateData["imageUrls"] = listOf(imageUrl)
                 }
 
                 firestore.collection("products")
@@ -208,29 +211,13 @@ class ProductsViewModel @Inject constructor(
             try {
                 firestore.collection("products")
                     .document(productId)
-                    .update("isAvailable", isAvailable)
+                    .update("inStock", isAvailable)
                     .await()
 
             } catch (e: Exception) {
                 _error.value = e.message
             }
         }
-    }
-
-    private suspend fun uploadProductImage(imageUri: Uri, vendorId: String): String {
-        val storageRef = storage.reference
-            .child("products/$vendorId/product_${System.currentTimeMillis()}.jpg")
-
-        val uploadTask = storageRef.putFile(imageUri)
-
-        uploadTask.addOnProgressListener { taskSnapshot ->
-            val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toFloat()
-            _uploadProgress.value = progress / 100f
-        }
-
-        uploadTask.await()
-
-        return storageRef.downloadUrl.await().toString()
     }
 
     fun clearMessages() {

@@ -3,39 +3,33 @@ package com.example.bunnix.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.bunnix.database.models.Service
+import com.example.bunnix.database.supabase.storage.ServiceStorage
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
-
-data class VendorService(
-    val serviceId: String = "",
-    val vendorId: String = "",
-    val name: String = "",
-    val description: String = "",
-    val price: Double = 0.0,
-    val duration: String = "",
-    val category: String = "",
-    val imageUrl: String = "",
-    val isAvailable: Boolean = true,
-    val createdAt: Long = 0L
-)
 
 @HiltViewModel
 class ServicesViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage,
+    @dagger.hilt.android.qualifiers.ApplicationContext
+    private val context: android.content.Context
 ) : ViewModel() {
 
-    private val _services = MutableStateFlow<List<VendorService>>(emptyList())
-    val services: StateFlow<List<VendorService>> = _services.asStateFlow()
+    private val _services = MutableStateFlow<List<Service>>(emptyList())
+    val services: StateFlow<List<Service>> = _services.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -63,25 +57,7 @@ class ServicesViewModel @Inject constructor(
                             return@addSnapshotListener
                         }
 
-                        val servicesList = snapshot?.documents?.mapNotNull { doc ->
-                            try {
-                                VendorService(
-                                    serviceId = doc.id,
-                                    vendorId = doc.getString("vendorId") ?: "",
-                                    name = doc.getString("name") ?: "",
-                                    description = doc.getString("description") ?: "",
-                                    price = doc.getDouble("price") ?: 0.0,
-                                    duration = doc.getString("duration") ?: "",
-                                    category = doc.getString("category") ?: "",
-                                    imageUrl = doc.getString("imageUrl") ?: "",
-                                    isAvailable = doc.getBoolean("isAvailable") ?: true,
-                                    createdAt = doc.getLong("createdAt") ?: 0L
-                                )
-                            } catch (e: Exception) {
-                                null
-                            }
-                        } ?: emptyList()
-
+                        val servicesList = snapshot?.toObjects(Service::class.java) ?: emptyList()
                         _services.value = servicesList
                         _isLoading.value = false
                     }
@@ -109,26 +85,49 @@ class ServicesViewModel @Inject constructor(
 
                 val vendorId = auth.currentUser?.uid ?: return@launch
 
-                // Upload image
-                val imageUrl = uploadServiceImage(imageUri, vendorId)
+                // 1. Get vendor name
+                val vendorDoc = firestore.collection("vendorProfiles")
+                    .document(vendorId)
+                    .get()
+                    .await()
+                val vendorName = vendorDoc.getString("businessName") ?: "Unknown Vendor"
 
-                // Create service document
-                val serviceData = hashMapOf(
-                    "vendorId" to vendorId,
-                    "name" to name,
-                    "description" to description,
-                    "price" to price,
-                    "duration" to duration,
-                    "category" to category,
-                    "imageUrl" to imageUrl,
-                    "isAvailable" to true,
-                    "createdAt" to System.currentTimeMillis(),
-                    "updatedAt" to System.currentTimeMillis()
+                // 2. Generate Firestore Document Reference FIRST
+                // This is the fix: We get the ID now, not after upload.
+                val docRef = firestore.collection("services").document()
+                val serviceId = docRef.id
+
+                // 3. Upload Image to Supabase using the REAL Firestore ID
+                val imageUrl = ServiceStorage.uploadServiceImage(
+                    context = context,
+                    serviceId = serviceId, // Use real ID
+                    imageUri = imageUri
+                ).getOrThrow()
+
+                // 4. Parse duration
+                val durationMinutes = parseDurationToMinutes(duration)
+
+                // 5. Create the Service object with the correct ID
+                val service = Service(
+                    serviceId = serviceId, // Set the ID we generated
+                    vendorId = vendorId,
+                    vendorName = vendorName,
+                    name = name,
+                    description = description,
+                    price = price,
+                    duration = durationMinutes,
+                    category = category,
+                    imageUrl = imageUrl,
+                    availability = listOf("Mon-Fri: 9AM-5PM"),
+                    totalBookings = 0,
+                    rating = 0.0,
+                    isActive = true,
+                    createdAt = Timestamp.now(),
+                    updatedAt = Timestamp.now()
                 )
 
-                firestore.collection("services")
-                    .add(serviceData)
-                    .await()
+                // 6. Save to Firebase Firestore (Set the document, no need to update later)
+                docRef.set(service).await()
 
                 _successMessage.value = "Service added successfully"
 
@@ -156,18 +155,23 @@ class ServicesViewModel @Inject constructor(
                 _error.value = null
 
                 val vendorId = auth.currentUser?.uid ?: return@launch
+                val durationMinutes = parseDurationToMinutes(duration)
 
                 val updateData = mutableMapOf<String, Any>(
                     "name" to name,
                     "description" to description,
                     "price" to price,
-                    "duration" to duration,
+                    "duration" to durationMinutes,
                     "category" to category,
-                    "updatedAt" to System.currentTimeMillis()
+                    "updatedAt" to Timestamp.now()
                 )
 
                 if (imageUri != null) {
-                    val imageUrl = uploadServiceImage(imageUri, vendorId)
+                    val imageUrl = ServiceStorage.uploadServiceImage(
+                        context = context,
+                        serviceId = serviceId,
+                        imageUri = imageUri
+                    ).getOrThrow()
                     updateData["imageUrl"] = imageUrl
                 }
 
@@ -202,12 +206,12 @@ class ServicesViewModel @Inject constructor(
         }
     }
 
-    fun toggleServiceAvailability(serviceId: String, isAvailable: Boolean) {
+    fun toggleServiceAvailability(serviceId: String, isActive: Boolean) {
         viewModelScope.launch {
             try {
                 firestore.collection("services")
                     .document(serviceId)
-                    .update("isAvailable", isAvailable)
+                    .update("isActive", isActive)
                     .await()
 
             } catch (e: Exception) {
@@ -216,20 +220,19 @@ class ServicesViewModel @Inject constructor(
         }
     }
 
-    private suspend fun uploadServiceImage(imageUri: Uri, vendorId: String): String {
-        val storageRef = storage.reference
-            .child("services/$vendorId/service_${System.currentTimeMillis()}.jpg")
-
-        val uploadTask = storageRef.putFile(imageUri)
-
-        uploadTask.addOnProgressListener { taskSnapshot ->
-            val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toFloat()
-            _uploadProgress.value = progress / 100f
+    private fun parseDurationToMinutes(duration: String): Int {
+        return when {
+            duration.contains("15 minutes") -> 15
+            duration.contains("30 minutes") -> 30
+            duration.contains("45 minutes") -> 45
+            duration.contains("1 hour") -> 60
+            duration.contains("1.5 hours") -> 90
+            duration.contains("2 hours") -> 120
+            duration.contains("3 hours") -> 180
+            duration.contains("4 hours") -> 240
+            duration.contains("Full Day") -> 480
+            else -> 60 // Default 1 hour
         }
-
-        uploadTask.await()
-
-        return storageRef.downloadUrl.await().toString()
     }
 
     fun clearMessages() {

@@ -77,11 +77,9 @@ fun VendorNavHost(
 
         composable(
             route = VendorRoutes.ORDER_DETAIL,
-            arguments = listOf(
-                navArgument("orderId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId") ?: return@composable
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
             OrderDetailScreen(
                 navController = navController,
                 orderId = orderId
@@ -90,11 +88,9 @@ fun VendorNavHost(
 
         composable(
             route = VendorRoutes.BOOKING_DETAIL,
-            arguments = listOf(
-                navArgument("bookingId") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: return@composable
+            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
             BookingDetailScreen(
                 navController = navController,
                 bookingId = bookingId

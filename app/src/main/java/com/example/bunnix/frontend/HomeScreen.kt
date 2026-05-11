@@ -43,6 +43,9 @@ import com.example.bunnix.database.models.Service
 import com.example.bunnix.database.models.VendorProfile // FIXED: Use VendorProfile
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlin.math.absoluteValue
+import androidx.compose.foundation.layout.WindowInsets
+import com.example.bunnix.presentation.viewmodel.ProductViewModel
+import com.example.bunnix.presentation.viewmodel.ServiceViewModel
 
 // ===== MODERN COLOR SYSTEM =====
 private val OrangePrimary = Color(0xFFFF6B35)
@@ -160,20 +163,29 @@ fun VendorProfile.toUiModel(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
-    onVendorClick: (String) -> Unit, // CHANGED: Int to String
+    onVendorClick: (String) -> Unit,
     onBookServiceClick: () -> Unit,
     onShopProductClick: () -> Unit,
     onSearchClick: (String) -> Unit,
     featuredProducts: List<Product> = emptyList(),
     featuredServices: List<Service> = emptyList(),
     bottomBar: @Composable () -> Unit = {},
-    vendorViewModel: VendorViewModel = hiltViewModel()
+    onProductClick: (Product) -> Unit,
+    onServiceClick: (Service) -> Unit,
+    vendorViewModel: VendorViewModel = hiltViewModel(),
+    productViewModel: ProductViewModel = hiltViewModel(),
+    serviceViewModel: ServiceViewModel = hiltViewModel()
+
 
 ) {
     val scrollState = rememberScrollState()
     val rawVendors by vendorViewModel.vendorList.collectAsState()
     val vendors = rawVendors.map { it.toUiModel() }
     val pagerState = rememberPagerState(pageCount = { specialOffers.size })
+    // ⭐ ADD THESE - Load products and services
+    val featuredProducts by productViewModel.featuredProducts.collectAsState()
+    val featuredServices by serviceViewModel.featuredServices.collectAsState()
+
 
     LaunchedEffect(pagerState) {
         while (true) {
@@ -208,7 +220,8 @@ fun HomeScreen(
             }
         },
 //        bottomBar = bottomBar,
-        containerColor = SurfaceLight
+        containerColor = SurfaceLight,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
             modifier = Modifier
@@ -291,12 +304,13 @@ private fun HeroSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(280.dp)
+            .height(300.dp)
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(OrangePrimary, OrangeDark)
                 )
             )
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(20.dp)
     ) {
         Column {
@@ -347,28 +361,6 @@ private fun HeroSection(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-//                IconButton(
-//                    onClick = { },
-//                    modifier = Modifier
-//                        .background(Color.White.copy(alpha = 0.2f), CircleShape)
-//                ) {
-//                    BadgedBox(
-//                        badge = {
-//                            Badge(
-//                                containerColor = Color(0xFFEF4444),
-//                                modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
-//                            ) {
-//                                Text("3", fontSize = 10.sp, color = Color.White)
-//                            }
-//                        }
-//                    ) {
-//                        Icon(
-//                            imageVector = Icons.Default.Notifications,
-//                            contentDescription = "Notifications",
-//                            tint = Color.White
-//                        )
-//                    }
-//                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -395,6 +387,7 @@ private fun HeroSection(
         }
     }
 }
+
 
 // ===== MODERN SEARCH BAR =====
 @OptIn(ExperimentalMaterial3Api::class)
@@ -462,12 +455,14 @@ private fun StickySearchBar(
     Surface(
         color = Color.White,
         tonalElevation = 4.dp,
-        shadowElevation = 4.dp
+        shadowElevation = 4.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
@@ -1155,14 +1150,20 @@ private fun ProductCard(
         onClick = onClick,
         modifier = Modifier.width(160.dp),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(120.dp)
-                    .background(SurfaceLight)
+                    // ✅ CHANGED: Light Orange Gradient Background instead of Gray
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(OrangeSoft, OrangeLight.copy(alpha = 0.3f))
+                        )
+                    )
             ) {
                 if (product.imageUrls.isNotEmpty()) {
                     AsyncImage(
@@ -1173,6 +1174,16 @@ private fun ProductCard(
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // Placeholder Icon if no image
+                    Icon(
+                        imageVector = Icons.Default.Inventory,
+                        contentDescription = null,
+                        tint = OrangePrimary.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(40.dp)
                     )
                 }
 
@@ -1200,6 +1211,7 @@ private fun ProductCard(
             ) {
                 Text(
                     product.name,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1277,7 +1289,8 @@ private fun ServiceListItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -1287,7 +1300,12 @@ private fun ServiceListItem(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceLight)
+                    // ✅ CHANGED: Light Orange Gradient Background instead of Gray
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(OrangeSoft, OrangeLight.copy(alpha = 0.3f))
+                        )
+                    )
             ) {
                 if (service.imageUrl.isNotEmpty()) {
                     AsyncImage(
@@ -1298,9 +1316,9 @@ private fun ServiceListItem(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.ContentCut,
+                        imageVector = Icons.Default.MiscellaneousServices, // Changed icon
                         contentDescription = null,
-                        tint = OrangePrimary,
+                        tint = OrangePrimary.copy(alpha = 0.5f),
                         modifier = Modifier
                             .size(32.dp)
                             .align(Alignment.Center)
@@ -1314,7 +1332,8 @@ private fun ServiceListItem(
                 Text(
                     service.name,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    color = TextPrimary
                 )
 
                 Text(
@@ -1369,16 +1388,231 @@ private fun ServiceListItem(
     }
 }
 
+
 // ===== PREVIEWS =====
-@Preview(showBackground = true, device = "id:pixel_5")
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_5")
 @Composable
 fun HomeScreenPreview() {
     BunnixTheme {
-        HomeScreen(
+        // Create sample data for preview
+        val sampleVendors = listOf(
+            VendorUiModel(
+                id = "1",
+                businessName = "Tech Hub Store",
+                category = "Tech",
+                coverImageUrl = "",
+                logoImageRes = R.drawable.bunnix_2,
+                rating = 4.8,
+                reviewCount = 234,
+                distance = "Port Harcourt",
+                isVerified = true
+            ),
+            VendorUiModel(
+                id = "2",
+                businessName = "Fashion Boutique",
+                category = "Fashion",
+                coverImageUrl = "",
+                logoImageRes = R.drawable.bunnix_2,
+                rating = 4.5,
+                reviewCount = 156,
+                distance = "GRA",
+                isVerified = true
+            ),
+            VendorUiModel(
+                id = "3",
+                businessName = "Foodie Paradise",
+                category = "Food",
+                coverImageUrl = "",
+                logoImageRes = R.drawable.bunnix_2,
+                rating = 4.9,
+                reviewCount = 512,
+                distance = "D-Line",
+                isVerified = true
+            )
+        )
+
+        val sampleProducts = listOf(
+            Product(
+                productId = "1",
+                vendorId = "1",
+                name = "Wireless Headphones",
+                description = "Premium noise-cancelling headphones",
+                price = 45000.0,
+                imageUrls = listOf(""),
+                category = "Electronics",
+                totalStock = 25,
+                sold = 150
+            ),
+            Product(
+                productId = "2",
+                vendorId = "2",
+                name = "Summer Dress",
+                description = "Elegant floral print dress",
+                price = 15000.0,
+                imageUrls = listOf(""),
+                category = "Fashion",
+                totalStock = 8,
+                sold = 89
+            )
+        )
+
+        val sampleServices = listOf(
+            Service(
+                serviceId = "1",
+                vendorId = "3",
+                name = "Hair Styling",
+                description = "Professional hair styling and treatment",
+                price = 5000.0,
+                duration = 60,
+                category = "Beauty",
+                imageUrl = ""
+            ),
+            Service(
+                serviceId = "2",
+                vendorId = "1",
+                name = "Phone Repair",
+                description = "Expert phone screen and battery replacement",
+                price = 8000.0,
+                duration = 45,
+                category = "Tech",
+                imageUrl = ""
+            )
+        )
+
+        // Use the content composable directly
+        HomeScreenContentPreview(
             onVendorClick = {},
             onBookServiceClick = {},
             onShopProductClick = {},
-            onSearchClick = {}
+            onSearchClick = {},
+            featuredProducts = sampleProducts,
+            featuredServices = sampleServices,
+            vendors = sampleVendors,
+            onProductClick = {},
+            onServiceClick = {}
         )
+    }
+}
+
+// ===== PREVIEW CONTENT (No ViewModel) =====
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun HomeScreenContentPreview(
+    onVendorClick: (String) -> Unit,
+    onBookServiceClick: () -> Unit,
+    onShopProductClick: () -> Unit,
+    onSearchClick: (String) -> Unit,
+    featuredProducts: List<Product>,
+    featuredServices: List<Service>,
+    vendors: List<VendorUiModel>,
+    onProductClick: (Product) -> Unit,
+    onServiceClick: (Service) -> Unit
+) {
+    val scrollState = rememberScrollState()
+    val pagerState = rememberPagerState(pageCount = { specialOffers.size })
+
+    LaunchedEffect(pagerState) {
+        while (true) {
+            delay(4000)
+            val nextPage = (pagerState.currentPage + 1) % specialOffers.size
+            pagerState.animateScrollToPage(
+                page = nextPage,
+                animationSpec = tween(800, easing = EaseInOutCubic)
+            )
+        }
+    }
+
+    val showStickySearch by remember {
+        derivedStateOf { scrollState.value > 200 }
+    }
+
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+
+    Scaffold(
+        topBar = {
+            AnimatedVisibility(
+                visible = showStickySearch,
+                enter = slideInVertically { -it } + fadeIn(),
+                exit = slideOutVertically { -it } + fadeOut()
+            ) {
+                StickySearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    onSearch = { onSearchClick(searchQuery) }
+                )
+            }
+        },
+        containerColor = SurfaceLight,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(scrollState)
+        ) {
+            HeroSection(
+                searchQuery = searchQuery,
+                onQueryChange = { searchQuery = it },
+                onSearch = { onSearchClick(searchQuery) }
+            )
+
+            QuickActionSection(
+                onBookService = onBookServiceClick,
+                onShopProducts = onShopProductClick
+            )
+
+            SpecialOffersCarousel(
+                pagerState = pagerState,
+                offers = specialOffers,
+                onOfferClick = { offer ->
+                    when (offer.id) {
+                        "1" -> onBookServiceClick()
+                        "2" -> onSearchClick("new vendors")
+                        "3" -> onShopProductClick()
+                        else -> onShopProductClick()
+                    }
+                }
+            )
+
+            CategoriesSection(
+                selectedCategory = selectedCategory,
+                onCategorySelect = { selectedCategory = it }
+            )
+
+            AnimatedVisibility(
+                visible = selectedCategory != null,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                ClearFilterButton(
+                    category = selectedCategory ?: "",
+                    onClear = { selectedCategory = null }
+                )
+            }
+
+            FeaturedVendorsSection(
+                vendors = vendors,
+                selectedCategory = selectedCategory,
+                onVendorClick = onVendorClick
+            )
+
+            if (featuredProducts.isNotEmpty()) {
+                FeaturedProductsSection(
+                    products = featuredProducts,
+                    onProductClick = onProductClick
+                )
+            }
+
+            if (featuredServices.isNotEmpty()) {
+                FeaturedServicesSection(
+                    services = featuredServices,
+                    onServiceClick = onServiceClick
+                )
+            }
+
+            Spacer(modifier = Modifier.height(100.dp))
+        }
     }
 }

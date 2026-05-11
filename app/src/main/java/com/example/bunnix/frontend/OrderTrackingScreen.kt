@@ -547,7 +547,7 @@ private fun OrderItemRow(name: String, quantity: Int, price: Double) {
         Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextPrimary)
             Text("Qty: $quantity", fontSize = 12.sp, color = TextTertiary)
         }
 
