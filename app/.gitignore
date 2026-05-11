@@ -2,3 +2,5 @@
 build/
 bin/
 out/
+*.apk
+app/release/
