@@ -1,12 +1,8 @@
 package com.example.bunnix.frontend
 
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,8 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -29,6 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.bunnix.R
@@ -60,6 +56,7 @@ enum class VendorTab {
 @Composable
 fun VendorDetailScreen(
     vendor: VendorProfile,
+    navController: NavController,
     products: List<Product> = emptyList(),
     services: List<Service> = emptyList(),
     onBack: () -> Unit = {},
@@ -67,7 +64,8 @@ fun VendorDetailScreen(
     onProductClick: (Product) -> Unit = {},
     onServiceClick: (Service) -> Unit = {},
     onBookService: () -> Unit = {},
-    @DrawableRes fallbackCoverRes: Int = R.drawable.bites_background_pic // ✅ ADDED HERE
+    onSeeAllProducts: () -> Unit = {},
+    @DrawableRes fallbackCoverRes: Int = R.drawable.splash_screen_bunnix_logo__ // ✅ ADDED HERE
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(VendorTab.Products) }
@@ -106,7 +104,7 @@ fun VendorDetailScreen(
             )
 
             when (selectedTab) {
-                VendorTab.Products -> ProductsTab(products, onProductClick)
+                VendorTab.Products -> ProductsTab(products, onProductClick, onSeeAllProducts)
                 VendorTab.Services -> ServicesTab(services, onServiceClick)
                 VendorTab.Reviews -> ReviewsTab(vendor)
                 VendorTab.About -> AboutTab(vendor = vendor)
@@ -433,12 +431,24 @@ private fun TabSelection(selectedTab: VendorTab, onTabSelected: (VendorTab) -> U
 }
 
 @Composable
-private fun ProductsTab(products: List<Product>, onProductClick: (Product) -> Unit) {
+private fun ProductsTab(products: List<Product>, onProductClick: (Product) -> Unit, onSeeAllClick: () -> Unit) {
     if (products.isEmpty()) {
         EmptyTabState("No products available from this vendor.")
     } else {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            products.forEach { product ->
+            // Task 6: THE SEE ALL BUTTON
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Available Products", fontWeight = FontWeight.Bold)
+                TextButton(onClick = onSeeAllClick) {
+                    Text("See All", color = OrangePrimary)
+                }
+            }
+
+            products.take(3).forEach { product -> // Show only first 3
                 ProductRow(product, onProductClick)
                 Divider(color = Color.LightGray.copy(alpha = 0.2f))
             }
@@ -630,6 +640,7 @@ fun VendorDetailScreenPreviewProducts() {
             services = sampleServices,
             onBack = {},
             onChat = {},
+            navController = rememberNavController(),
             fallbackCoverRes = R.drawable.beauty // ✅ Use your actual drawable name here
         )
     }
@@ -645,6 +656,7 @@ fun VendorDetailScreenPreviewServices() {
             services = sampleServices,
             onBack = {},
             onChat = {},
+            navController = rememberNavController(),
             fallbackCoverRes = R.drawable.tech
         )
     }
@@ -660,6 +672,7 @@ fun VendorDetailScreenPreviewEmpty() {
             services = emptyList(),
             onBack = {},
             onChat = {},
+            navController = rememberNavController(),
             fallbackCoverRes = R.drawable.hero_pic
         )
     }

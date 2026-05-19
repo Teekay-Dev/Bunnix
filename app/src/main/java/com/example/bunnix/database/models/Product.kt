@@ -9,6 +9,7 @@ data class Product(
     val vendorId: String = "",
     val vendorName: String = "",
     val name: String = "",
+    val location: String = "",
     val description: String = "",
     val price: Double = 0.0,
     val discountPrice: Double? = null,

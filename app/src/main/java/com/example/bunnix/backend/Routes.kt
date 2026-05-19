@@ -22,6 +22,7 @@ object Routes {
     // ✅ Lists
     const val ServiceList = "service_list"
     const val ProductList = "product_list"
+    const val VendorList = "vendor_list"
 
     // ✅ Booking Flow
     const val Booking = "booking/{serviceName}/{price}"

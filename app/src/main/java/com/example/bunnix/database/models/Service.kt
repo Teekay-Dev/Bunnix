@@ -8,6 +8,7 @@ data class Service(
     val serviceId: String = "",
     val vendorId: String = "",
     val vendorName: String = "",
+    val location: String = "",
     val name: String = "",
     val description: String = "",
     val price: Double = 0.0,
