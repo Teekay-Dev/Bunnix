@@ -3,6 +3,7 @@ package com.example.bunnix.frontend
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -12,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.*
@@ -40,7 +40,7 @@ import coil.request.ImageRequest
 import com.example.bunnix.R
 import com.example.bunnix.database.models.Product
 import com.example.bunnix.database.models.Service
-import com.example.bunnix.database.models.VendorProfile // FIXED: Use VendorProfile
+import com.example.bunnix.database.models.VendorProfile
 import com.example.bunnix.ui.theme.BunnixTheme
 import kotlin.math.absoluteValue
 import androidx.compose.foundation.layout.WindowInsets
@@ -166,17 +166,16 @@ fun HomeScreen(
     onVendorClick: (String) -> Unit,
     onBookServiceClick: () -> Unit,
     onShopProductClick: () -> Unit,
-    onSearchClick: (String) -> Unit,
-    featuredProducts: List<Product> = emptyList(),
-    featuredServices: List<Service> = emptyList(),
     bottomBar: @Composable () -> Unit = {},
     onProductClick: (Product) -> Unit,
     onServiceClick: (Service) -> Unit,
+    onSeeAllVendorsClick: () -> Unit,
+    onSeeAllProductsClick: () -> Unit,
+    onSeeAllServicesClick: () -> Unit,
+    onSearchClick: (String) -> Unit,
     vendorViewModel: VendorViewModel = hiltViewModel(),
     productViewModel: ProductViewModel = hiltViewModel(),
     serviceViewModel: ServiceViewModel = hiltViewModel()
-
-
 ) {
     val scrollState = rememberScrollState()
     val rawVendors by vendorViewModel.vendorList.collectAsState()
@@ -199,7 +198,7 @@ fun HomeScreen(
     }
 
     val showStickySearch by remember {
-        derivedStateOf { scrollState.value > 200 }
+        derivedStateOf { scrollState.value > 550 }
     }
 
     var searchQuery by remember { mutableStateOf("") }
@@ -212,17 +211,27 @@ fun HomeScreen(
                 enter = slideInVertically { -it } + fadeIn(),
                 exit = slideOutVertically { -it } + fadeOut()
             ) {
-                StickySearchBar(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                    onSearch = { onSearchClick(searchQuery) }
-                )
+                // This is the structure you had for the sticky ModernSearchBar
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding(),
+                    color = Color.White,
+                    shadowElevation = 4.dp
+                ) {
+                    Box(modifier = Modifier.padding(16.dp)) {
+                        ModernSearchBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it },
+                            onSearch = { onSearchClick(searchQuery) }
+                        )
+                    }
+                }
             }
         },
-//        bottomBar = bottomBar,
-        containerColor = SurfaceLight,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { padding ->
+        containerColor = SurfaceLight, // This ensures the main Scaffold background is light
+        contentWindowInsets = WindowInsets(0, 0, 0, 0) // Allows content to draw behind system bars
+    ){padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -272,20 +281,23 @@ fun HomeScreen(
             FeaturedVendorsSection(
                 vendors = vendors, // Pass vendors list
                 selectedCategory = selectedCategory,
-                onVendorClick = onVendorClick
+                onVendorClick = onVendorClick,
+                onSeeAllClick = onSeeAllVendorsClick
             )
 
             if (featuredProducts.isNotEmpty()) {
                 FeaturedProductsSection(
                     products = featuredProducts,
-                    onProductClick = { }
+                    onProductClick = onProductClick,
+                    onSeeAllClick = onSeeAllProductsClick
                 )
             }
 
             if (featuredServices.isNotEmpty()) {
                 FeaturedServicesSection(
                     services = featuredServices,
-                    onServiceClick = { }
+                    onServiceClick = onServiceClick,
+                    onSeeAllClick = onSeeAllServicesClick
                 )
             }
 
@@ -450,7 +462,8 @@ private fun ModernSearchBar(
 private fun StickySearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         color = Color.White,
@@ -892,7 +905,8 @@ private fun ClearFilterButton(
 private fun FeaturedVendorsSection(
     vendors: List<VendorUiModel>, // CHANGED: Accept list as parameter
     selectedCategory: String?,
-    onVendorClick: (String) -> Unit // CHANGED: Int to String
+    onVendorClick: (String) -> Unit, // CHANGED: Int to String
+    onSeeAllClick: () -> Unit
 ) {
     val filteredVendors = if (selectedCategory != null) {
         vendors.filter {
@@ -920,23 +934,35 @@ private fun FeaturedVendorsSection(
                 color = TextPrimary
             )
 
-//            TextButton(onClick = { }) {
-//                Text(
-//                    "See All",
-//                    color = OrangePrimary,
-//                    fontWeight = FontWeight.Medium
-//                )
-//            }
+            TextButton(onClick = onSeeAllClick ) {
+                Text(
+                    "See All",
+                    color = OrangePrimary,
+                    fontWeight = FontWeight.Medium
+               )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        filteredVendors.forEach { vendor ->
-            ModernVendorCard(
-                vendor = vendor,
-                onClick = { onVendorClick(vendor.id) } // Pass String id
+        if (filteredVendors.isEmpty()) {
+            // Optional: Show a message if no vendors match filter
+            Text(
+                "No vendors found for '$selectedCategory'",
+                color = TextSecondary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
-            Spacer(modifier = Modifier.height(16.dp))
+        } else {
+            // Only show a subset for featured, then "See All" for full list
+            filteredVendors.take(10).forEach { vendor -> // Limit to 10 for featured
+                ModernVendorCard(
+                    vendor = vendor,
+                    onClick = { onVendorClick(vendor.id) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }
@@ -1097,7 +1123,8 @@ private fun ModernVendorCard(
 @Composable
 private fun FeaturedProductsSection(
     products: List<Product>,
-    onProductClick: (Product) -> Unit
+    onProductClick: (Product) -> Unit,
+    onSeeAllClick: () -> Unit
 ) {
     Column(
         modifier = Modifier.padding(vertical = 16.dp)
@@ -1116,7 +1143,7 @@ private fun FeaturedProductsSection(
                 color = TextPrimary
             )
 
-            TextButton(onClick = { }) {
+            TextButton(onClick = onSeeAllClick ) {
                 Text(
                     "See All",
                     color = OrangePrimary,
@@ -1239,7 +1266,8 @@ private fun ProductCard(
 @Composable
 private fun FeaturedServicesSection(
     services: List<Service>,
-    onServiceClick: (Service) -> Unit
+    onServiceClick: (Service) -> Unit,
+    onSeeAllClick: () -> Unit
 ) {
     Column(
         modifier = Modifier.padding(vertical = 16.dp)
@@ -1258,7 +1286,7 @@ private fun FeaturedServicesSection(
                 color = TextPrimary
             )
 
-            TextButton(onClick = { }) {
+            TextButton(onClick = onSeeAllClick ) {
                 Text(
                     "See All",
                     color = OrangePrimary,
@@ -1595,20 +1623,23 @@ private fun HomeScreenContentPreview(
             FeaturedVendorsSection(
                 vendors = vendors,
                 selectedCategory = selectedCategory,
-                onVendorClick = onVendorClick
+                onVendorClick = onVendorClick,
+                onSeeAllClick = { selectedCategory = null }
             )
 
             if (featuredProducts.isNotEmpty()) {
                 FeaturedProductsSection(
                     products = featuredProducts,
-                    onProductClick = onProductClick
+                    onProductClick = onProductClick,
+                    onSeeAllClick = { selectedCategory = null }
                 )
             }
 
             if (featuredServices.isNotEmpty()) {
                 FeaturedServicesSection(
                     services = featuredServices,
-                    onServiceClick = onServiceClick
+                    onServiceClick = onServiceClick,
+                    onSeeAllClick = { selectedCategory = null }
                 )
             }
 

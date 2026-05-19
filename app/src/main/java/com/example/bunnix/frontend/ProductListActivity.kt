@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,7 +49,8 @@ private val StockWarning = Color(0xFFFFA000)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductListScreen(
-    products: List<Product> = emptyList(),
+    products: List<Product> = emptyList(), // This is now your source for ALL products
+    vendorId: String? = null, // <--- ADD THIS PARAMETER
     onBack: () -> Unit,
     onProductClick: (Product) -> Unit,
     onAddToCart: () -> Unit = {}
@@ -59,23 +62,38 @@ fun ProductListScreen(
     val context = LocalContext.current
     val userId = FirebaseManager.getCurrentUserId()
 
-    // Simple filtering
-    val filteredProducts = remember(products, searchQuery, selectedFilter) {
-        var result = if (searchQuery.isBlank()) {
-            products
+    // Filter products based on vendorId first, if provided
+    val initialProducts = remember(products, vendorId) { // Use remember to avoid recalculation on every recomposition
+        if (vendorId != null) {
+            products.filter { it.vendorId == vendorId }
         } else {
-            products.filter {
-                it.name.contains(searchQuery, true) ||
-                        it.vendorName.contains(searchQuery, true) ||
-                        it.category.contains(searchQuery, true)
-            }
+            products
         }
+    }
 
-        when (selectedFilter) {
-            "Popular" -> result.sortedByDescending { it.sold }
-            "Cheap" -> result.sortedBy { it.price }
-            "Expensive" -> result.sortedByDescending { it.price }
-            else -> result
+    // Apply search and filter queries to the initialProducts list
+    val filteredProducts = remember(initialProducts, searchQuery, selectedFilter) {
+        initialProducts.filter { product ->
+            val matchesSearch = product.name.contains(searchQuery, ignoreCase = true)
+
+            val matchesFilter = when (selectedFilter) {
+                "Popular" -> product.views > 500 || product.sold > 20
+                "Ratings" -> true // Products don't have ratings in the model yet, usually tied to vendor
+                "All" -> true
+                "Cheap" -> true // Implement your sorting/filtering logic here
+                "Expensive" -> true // Implement your sorting/filtering logic here
+                else -> true
+            }
+
+            matchesSearch && matchesFilter
+        }.let { productsList ->
+            // Apply sorting based on filter
+            when (selectedFilter) {
+                "Cheap" -> productsList.sortedBy { it.discountPrice ?: it.price }
+                "Expensive" -> productsList.sortedByDescending { it.discountPrice ?: it.price }
+                // Add more sorting logic if 'Popular' or 'Ratings' imply specific ordering
+                else -> productsList
+            }
         }
     }
 

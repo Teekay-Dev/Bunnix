@@ -1,9 +1,11 @@
 package com.example.bunnix.presentation.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bunnix.database.models.Product
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,44 +65,32 @@ class ProductViewModel @Inject constructor(
     }
 
 
-    fun loadProducts() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            try {
-                val snapshot = firestore.collection("products")
-                    // REMOVE .whereEqualTo("inStock", true) temporarily
-                    .get()
-                    .await()
-                _products.value = snapshot.toObjects(Product::class.java)
-            } catch (e: Exception) {
-                _error.value = e.message ?: "Failed to load products"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    /**
-     * Get products by category
-     */
-    fun getProductsByCategory(category: String) {
+    fun loadProducts(vendorId: String? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
 
             try {
-                val snapshot = firestore.collection("products")
-                    .whereEqualTo("category", category)
-                    .whereEqualTo("inStock", true)
-                    .get()
-                    .await()
+                // 1. Build the Query
+                var query: Query = firestore.collection("products")
 
+                // 2. Task 6: Filter by Vendor if an ID is provided
+                if (!vendorId.isNullOrBlank()) {
+                    query = query.whereEqualTo("vendorId", vendorId)
+                }
+
+                // 3. Sort by Newest (make sure you have a Firestore Index for this)
+                // .orderBy("createdAt", Query.Direction.DESCENDING)
+
+                val snapshot = query.get().await()
                 val productList = snapshot.toObjects(Product::class.java)
-                _products.value = productList
+
+                // 4. Update the State
+                _products.value = productList.sortedByDescending { it.createdAt }
 
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load products"
+                Log.e("ProductViewModel", "Error loading products", e)
             } finally {
                 _isLoading.value = false
             }

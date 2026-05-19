@@ -3,6 +3,7 @@ package com.example.bunnix.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bunnix.database.models.Service
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -61,11 +62,19 @@ class ServiceViewModel @Inject constructor(
 
     fun loadServices() {
         firestore.collection("services")
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    _error.value = error.message ?: "Failed to listen for services"
+                    return@addSnapshotListener
+                }
+
                 if (snapshot != null) {
-                    _services.value = snapshot.documents.mapNotNull { doc ->
+                    val items = snapshot.documents.mapNotNull { doc ->
                         doc.toObject(Service::class.java)
                     }
+
+                    // Sort by newest first (nulls last to avoid crashes)
+                    _services.value = items.sortedByDescending { it.createdAt ?: Timestamp.now() }
                 }
             }
     }

@@ -71,6 +71,7 @@ import com.example.bunnix.vendorUI.navigation.VendorRoutes
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Map.entry
 
 
 // Color system
@@ -418,53 +419,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ===== SPLASH SCREEN =====
-    @Composable
-    fun SplashScreen(onComplete: () -> Unit) {
-        LaunchedEffect(Unit) {
-            delay(9000) // 2.5 seconds
-            onComplete()
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFFF9D5C),
-                            Color(0xFFFF7900)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // You can replace this with your logo
-                Image(
-                    painter = painterResource(R.drawable.bunnix_2),
-                    contentDescription = null,
-                    modifier = Modifier.size(300.dp)
-                )
-                Spacer(Modifier.height(24.dp))
-                Text(
-                    "Bunnix",
-                    fontSize = 56.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Shop & Book Services",
-                    fontSize = 18.sp,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
-            }
-        }
-    }
-
     // ===== ONBOARDING SCREEN =====
     @Composable
     fun OnboardingScreen(onGetStarted: () -> Unit) {
@@ -646,7 +600,15 @@ class MainActivity : ComponentActivity() {
                         },
                         onServiceClick = { service ->
                             navController.navigate("booking/${service.serviceId}")
-                        }
+                        },
+                                // ⭐ NEW: Implement "See All" navigation
+                        onSeeAllVendorsClick = { navController.navigate(Routes.VendorList) },
+                        onSeeAllProductsClick = { navController.navigate(Routes.ProductList) },
+                        onSeeAllServicesClick = { navController.navigate(Routes.ServiceList) },
+                        // Pass ViewModels to HomeScreen (if it needs to observe data directly)
+                        vendorViewModel = hiltViewModel(),
+                        productViewModel = hiltViewModel(),
+                        serviceViewModel = hiltViewModel()
                     )
                 }
 
@@ -676,32 +638,57 @@ class MainActivity : ComponentActivity() {
                     }
 
                     when {
-                        isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                        isLoading -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
+
                         vendor != null -> VendorDetailScreen(
                             vendor = vendor!!,
+                            navController = navController,
                             products = products,
                             services = services,
                             onBack = { navController.popBackStack() },
                             onProductClick = { product -> navController.navigate("product_detail/${product.productId}") },
                             onServiceClick = { service -> navController.navigate("booking/${service.serviceId}") },
                             onChat = {
-                                val currentUserId = FirebaseManager.getCurrentUserId() ?: return@VendorDetailScreen
+                                val currentUserId =
+                                    FirebaseManager.getCurrentUserId() ?: return@VendorDetailScreen
                                 val vName = Uri.encode(vendor!!.businessName)
                                 val vImage = Uri.encode(vendor!!.coverPhotoUrl)
-                                val chatId = if (currentUserId < vendorId) "$currentUserId-$vendorId" else "$vendorId-$currentUserId"
-                                chatViewModel.getOrCreateChat(currentUserId, vendorId, vendor!!.businessName, vendor!!.coverPhotoUrl) { createdChatId ->
+                                val chatId =
+                                    if (currentUserId < vendorId) "$currentUserId-$vendorId" else "$vendorId-$currentUserId"
+                                chatViewModel.getOrCreateChat(
+                                    currentUserId,
+                                    vendorId,
+                                    vendor!!.businessName,
+                                    vendor!!.coverPhotoUrl
+                                ) { createdChatId ->
                                     navController.navigate("chat_detail/$createdChatId/$vName/$vImage/$vendorId")
                                 }
-                            }
+                            },
+                            onSeeAllProducts = {
+                                val id = vendor!!.vendorId
+                                val name = Uri.encode(vendor!!.businessName)
+                                navController.navigate("${Routes.ProductList}?vendorId=$id&vendorName=$name")
+                            },
                         )
-                        error != null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Error: $error") }
-                        else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Vendor not found") }
+
+                        error != null -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { Text("Error: $error") }
+
+                        else -> Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { Text("Vendor not found") }
                     }
                 }
 
                 // --- Search ---
                 composable(
-                    route = "search/{query}",
+                    route = Routes.Search,
                     arguments = listOf(navArgument("query") { type = NavType.StringType })
                 ) { entry ->
                     val query = entry.arguments?.getString("query") ?: ""
@@ -730,7 +717,8 @@ class MainActivity : ComponentActivity() {
                         vendors = vendors, // ✅ Pass Vendors
                         onProductClick = { id -> navController.navigate("product_detail/$id") },
                         onServiceClick = { id, _ -> navController.navigate("booking/$id") },
-                        onVendorClick = { id -> navController.navigate("vendor_detail/$id") }
+                        onVendorClick = { id -> navController.navigate("vendor_detail/$id") },
+                        navController = navController
                     )
                 }
 
@@ -738,7 +726,16 @@ class MainActivity : ComponentActivity() {
                 composable(Routes.ServiceList) {
                     val serviceViewModel: ServiceViewModel = hiltViewModel()
                     val services by serviceViewModel.services.collectAsState()
-                    ServiceListScreen(services = services, onBack = { navController.popBackStack() }, onServiceClick = { service -> navController.navigate("booking/${Uri.encode(service.serviceId)}") })
+                    ServiceListScreen(
+                        services = services,
+                        onBack = { navController.popBackStack() },
+                        onServiceClick = { service ->
+                            navController.navigate(
+                                "booking/${
+                                    Uri.encode(service.serviceId)
+                                }"
+                            )
+                        })
                 }
 
                 // --- Booking ---
@@ -748,10 +745,14 @@ class MainActivity : ComponentActivity() {
                 ) { entry ->
                     val serviceId = entry.arguments?.getString("serviceId") ?: ""
                     val serviceViewModel: ServiceViewModel = hiltViewModel()
-                    val service by serviceViewModel.getService(serviceId).collectAsState(initial = null)
+                    val service by serviceViewModel.getService(serviceId)
+                        .collectAsState(initial = null)
 
                     if (service == null) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
                     } else {
                         BookingScreen(
                             service = service!!,
@@ -759,9 +760,14 @@ class MainActivity : ComponentActivity() {
                             onContinue = { details ->
                                 val total = service!!.price
                                 val orderId = "TEMP-${System.currentTimeMillis()}"
-                                val notesParam = if (details.notes.isBlank()) "empty" else details.notes
+                                val notesParam =
+                                    if (details.notes.isBlank()) "empty" else details.notes
                                 navController.navigate(
-                                    "payment_booking/$total/$orderId/${service!!.serviceId}/${details.date.time}/${Uri.encode(details.time)}/${Uri.encode(notesParam)}"
+                                    "payment_booking/$total/$orderId/${service!!.serviceId}/${details.date.time}/${
+                                        Uri.encode(
+                                            details.time
+                                        )
+                                    }/${Uri.encode(notesParam)}"
                                 )
                             }
                         )
@@ -788,7 +794,10 @@ class MainActivity : ComponentActivity() {
 
                         // Format the scheduled date/time
                         val formattedDate = b.scheduledDate?.toDate()?.let {
-                            SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", Locale.getDefault()).format(it)
+                            SimpleDateFormat(
+                                "MMM dd, yyyy 'at' h:mm a",
+                                Locale.getDefault()
+                            ).format(it)
                         } ?: b.scheduledTime
 
                         OrderPlacedScreen(
@@ -851,7 +860,8 @@ class MainActivity : ComponentActivity() {
                     )
 
                     val serviceViewModel: ServiceViewModel = hiltViewModel()
-                    val service by serviceViewModel.getService(serviceId).collectAsState(initial = null)
+                    val service by serviceViewModel.getService(serviceId)
+                        .collectAsState(initial = null)
 
                     if (service != null) {
                         PaymentMethodScreen(
@@ -867,16 +877,51 @@ class MainActivity : ComponentActivity() {
                             service = service
                         )
                     } else {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
                     }
                 }
                 // ✅✅✅ END OF payment_booking ✅✅✅
 
                 // --- Product List ---
-                composable(Routes.ProductList) {
+                composable(
+                    route = "${Routes.ProductList}?vendorId={vendorId}&vendorName={vendorName}",
+                    arguments = listOf(
+                        navArgument("vendorId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                        navArgument("vendorName") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = "Products"
+                        }
+                    )
+                ) { backStackEntry ->
+                    val vId = backStackEntry.arguments?.getString("vendorId")
+                    val vName = backStackEntry.arguments?.getString("vendorName") ?: "All Products"
                     val productViewModel: ProductViewModel = hiltViewModel()
+
+                    LaunchedEffect(vId) {
+                        if (vId != null) {
+                            productViewModel.getProductsByVendor(vId)
+                        } else {
+                            productViewModel.loadProducts()
+                        }
+                    }
+
                     val products by productViewModel.products.collectAsState()
-                    ProductListScreen(products = products, onBack = { navController.popBackStack() }, onProductClick = { product -> navController.navigate("product_detail/${product.productId}") })
+
+                    ProductListScreen(
+                        products = products,
+                        onBack = { navController.popBackStack() },
+                        onProductClick = { product ->
+                            navController.navigate("product_detail/${product.productId}")
+                        }
+                    )
                 }
 
                 // --- Product Detail ---
