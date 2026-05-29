@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -35,6 +36,9 @@ class NotificationViewModel @Inject constructor(
     private val _unreadCount = MutableStateFlow(0)
     val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
 
+    private val _transactionalUnreadCount = MutableStateFlow(0)
+    val transactionalUnreadCount: StateFlow<Int> = _transactionalUnreadCount.asStateFlow()
+
     // ===== FUNCTIONS =====
 
     /**
@@ -53,8 +57,7 @@ class NotificationViewModel @Inject constructor(
                     .await()
 
                 val notificationList = snapshot.toObjects(Notification::class.java)
-                _notifications.value = notificationList
-                _unreadCount.value = notificationList.count { !it.isRead }
+                updateState(notificationList)
 
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load notifications"
@@ -73,13 +76,22 @@ class NotificationViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 observeUserNotifications(userId).collect { notificationList ->
-                    _notifications.value = notificationList
-                    _unreadCount.value = notificationList.count { !it.isRead }
+                    updateState(notificationList)
                 }
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load notifications"
                 _isLoading.value = false
             }
+        }
+    }
+
+    private fun updateState(list: List<Notification>) {
+        _notifications.value = list
+        _unreadCount.value = list.count { !it.isRead }
+        
+        // Transactional ones for bottom nav badge
+        _transactionalUnreadCount.value = list.count { 
+            !it.isRead && it.type in listOf("ORDER", "BOOKING", "PAYMENT", "MESSAGE") 
         }
     }
 
@@ -89,7 +101,6 @@ class NotificationViewModel @Inject constructor(
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    // CHANGE: don't close the flow, just set error state and return empty
                     _error.value = error.message
                     trySend(emptyList())
                     return@addSnapshotListener
@@ -104,26 +115,36 @@ class NotificationViewModel @Inject constructor(
      * Mark a notification as read
      */
     fun markAsRead(notificationId: String) {
+        // 🌟 FIX: Use .update to guarantee that Compose catches the state change instantly!
+        _notifications.update { currentList ->
+            currentList.map { notification ->
+                if (notification.notificationId == notificationId) {
+                    notification.copy(isRead = true)
+                } else {
+                    notification
+                }
+            }
+        }
+
+        // Explicitly recalculate counts for the bottom navigation bar immediately
+        updateState(_notifications.value)
+
+        // Now securely sync the change to the Firebase Firestore Database in the background
         viewModelScope.launch {
             try {
-                firestore.collection("notifications")
+                val snapshot = firestore.collection("notifications")
                     .whereEqualTo("notificationId", notificationId)
                     .get()
                     .await()
-                    .documents
-                    .firstOrNull()
-                    ?.reference
-                    ?.update("isRead", true)
-                    ?.await()
 
-                // Update local state
-                _notifications.value = _notifications.value.map {
-                    if (it.notificationId == notificationId) it.copy(isRead = true) else it
+                for (document in snapshot.documents) {
+                    document.reference.update("isRead", true).await()
                 }
-                _unreadCount.value = _notifications.value.count { !it.isRead }
-
             } catch (e: Exception) {
-                _error.value = "Failed to mark as read"
+                _error.value = "Failed to sync read status to server"
+
+                // Optional: Rollback if the database update fails completely
+                // loadNotifications(userId)
             }
         }
     }
@@ -150,7 +171,7 @@ class NotificationViewModel @Inject constructor(
 
                 // Update local state
                 _notifications.value = _notifications.value.map { it.copy(isRead = true) }
-                _unreadCount.value = 0
+                updateState(_notifications.value)
 
             } catch (e: Exception) {
                 _error.value = "Failed to mark all as read"
@@ -164,31 +185,34 @@ class NotificationViewModel @Inject constructor(
     fun deleteNotification(notificationId: String) {
         viewModelScope.launch {
             try {
+                // Option A: If your Firestore Document ID is the notificationId:
                 firestore.collection("notifications")
+                    .document(notificationId)
+                    .delete()
+                    .await()
+
+                // Option B: If it's a custom field, make sure it matches exactly:
+                val snapshot = firestore.collection("notifications")
                     .whereEqualTo("notificationId", notificationId)
                     .get()
                     .await()
-                    .documents
-                    .firstOrNull()
-                    ?.reference
-                    ?.delete()
-                    ?.await()
 
-                // Update local state
+                for (document in snapshot.documents) {
+                    document.reference.delete().await()
+                }
+
+                // Update local state fallback
                 _notifications.value = _notifications.value.filter {
                     it.notificationId != notificationId
                 }
-                _unreadCount.value = _notifications.value.count { !it.isRead }
+                updateState(_notifications.value)
 
             } catch (e: Exception) {
-                _error.value = "Failed to delete notification"
+                _error.value = "Failed to delete notification from server"
             }
         }
     }
 
-    /**
-     * Clear error
-     */
     fun clearError() {
         _error.value = null
     }
