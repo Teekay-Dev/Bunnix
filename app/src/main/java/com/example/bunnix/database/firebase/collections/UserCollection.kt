@@ -3,6 +3,9 @@ package com.example.bunnix.database.firebase.collections
 import com.example.bunnix.database.config.FirebaseConfig
 import com.example.bunnix.database.models.User
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
 object UserCollection {
@@ -29,6 +32,20 @@ object UserCollection {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    // GET USER FLOW
+    fun getUserFlow(userId: String): Flow<User?> = callbackFlow {
+        val listener = collection.document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val user = snapshot?.toObject(User::class.java)
+                trySend(user)
+            }
+        awaitClose { listener.remove() }
     }
 
     // UPDATE USER
