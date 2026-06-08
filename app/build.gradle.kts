@@ -14,12 +14,12 @@ plugins {
 
 android {
     namespace = "com.example.bunnix"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.bunnix"
-        minSdk = 31
-        targetSdk = 36
+        minSdk = 24
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -81,7 +81,7 @@ dependencies {
     implementation(libs.androidx.compose.remote.creation.core)
 //    implementation(libs.androidx.compose.foundation)
     implementation("androidx.compose.material3:material3:1.2.0")
-    implementation("com.google.ai.edge.litertlm:litertlm:0.0.0-alpha05")
+//    implementation("com.google.ai.edge.litertlm:litertlm:0.0.0-alpha05")
     implementation(libs.androidx.tv.material)
     implementation(libs.androidx.media3.common.ktx)
 //    implementation(libs.litertlm) // or 1.3.0+

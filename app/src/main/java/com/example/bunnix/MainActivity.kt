@@ -549,17 +549,18 @@ class MainActivity : ComponentActivity() {
         onLogout: () -> Unit
     ) {
         val notificationViewModel: NotificationViewModel = hiltViewModel()
-        val unreadCount by notificationViewModel.unreadCount.collectAsState()
+        val unreadCount by notificationViewModel.transactionalUnreadCount.collectAsState(0)
         val cartViewModel: CartViewModel = hiltViewModel()
         val cartItems by cartViewModel.cartItems.collectAsState()
         val navController = rememberNavController()
         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
-        val userId = FirebaseManager.getCurrentUserId() // Get userId here
+        //  UPDATED CODE IN MAIN ACTIVITY:
+        val userId = FirebaseManager.getCurrentUserId()
 
-        // ✅ 2. START LISTENING FOR NOTIFICATIONS
-        LaunchedEffect(userId) {
-            if (userId != null) {
+        // Using Unit ensures the real-time database channel stays open across ALL sub-destinations
+        LaunchedEffect(Unit) {
+            if (!userId.isNullOrBlank()) {
                 notificationViewModel.observeNotifications(userId)
             }
         }
@@ -1065,7 +1066,13 @@ class MainActivity : ComponentActivity() {
                 // --- Notifications ---
                 composable(Routes.Notifications) {
                     val userId = FirebaseManager.getCurrentUserId() ?: ""
-                    NotificationScreen(navController, userId)
+                    NotificationScreen(
+                        navController = navController,
+                        currentUserId = userId,
+                        isGeneralMode = false, // Match parameter structure from NotificationScreen
+                        initialVisibility = false,
+                        notificationViewModel = notificationViewModel //  PASS THE TOP-LEVEL VIEWMODEL HERE
+                    )
                 }
 
                 // --- Profile ---

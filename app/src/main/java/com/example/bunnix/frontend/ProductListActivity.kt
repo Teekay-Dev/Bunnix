@@ -58,6 +58,7 @@ fun ProductListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showFilterMenu by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf("All") }
+    var showAddedToCart by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val userId = FirebaseManager.getCurrentUserId()
@@ -124,151 +125,213 @@ fun ProductListScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .padding(padding)
-        ) {
-            Row(
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .padding(padding)
             ) {
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    color = CardBackground
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = CardBackground
                     ) {
-                        Icon(Icons.Default.Search, null, tint = TextSecondary,
-                            modifier = Modifier.size(20.dp))
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier.weight(1f),
-                            textStyle = LocalTextStyle.current.copy(
-                                fontSize = 15.sp, color = TextPrimary),
-                            singleLine = true,
-                            decorationBox = { inner ->
-                                if (searchQuery.isEmpty()) {
-                                    Text("Search products...", fontSize = 15.sp, color = TextSecondary)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Search, null, tint = TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.weight(1f),
+                                textStyle = LocalTextStyle.current.copy(
+                                    fontSize = 15.sp, color = TextPrimary
+                                ),
+                                singleLine = true,
+                                decorationBox = { inner ->
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            "Search products...",
+                                            fontSize = 15.sp,
+                                            color = TextSecondary
+                                        )
+                                    }
+                                    inner()
                                 }
-                                inner()
+                            )
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close, null, tint = TextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
-                        )
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" },
-                                modifier = Modifier.size(20.dp)) {
-                                Icon(Icons.Default.Close, null, tint = TextSecondary,
-                                    modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    // Filter button with ANCHORED dropdown
+                    Box {
+                        Surface(
+                            onClick = { showFilterMenu = true },
+                            shape = RoundedCornerShape(12.dp),
+                            color = CardBackground,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Tune, null, tint = OrangePrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
+                        }
+                        DropdownMenu(
+                            expanded = showFilterMenu,
+                            onDismissRequest = { showFilterMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("All") },
+                                onClick = { selectedFilter = "All"; showFilterMenu = false })
+                            DropdownMenuItem(
+                                text = { Text("Popular") },
+                                onClick = { selectedFilter = "Popular"; showFilterMenu = false })
+                            DropdownMenuItem(
+                                text = { Text("Cheap") },
+                                onClick = { selectedFilter = "Cheap"; showFilterMenu = false })
+                            DropdownMenuItem(
+                                text = { Text("Expensive") },
+                                onClick = { selectedFilter = "Expensive"; showFilterMenu = false })
                         }
                     }
                 }
 
-                // Filter button with ANCHORED dropdown
-                Box {
-                    Surface(
-                        onClick = { showFilterMenu = true },
-                        shape = RoundedCornerShape(12.dp),
-                        color = CardBackground,
-                        modifier = Modifier.size(48.dp)
+                if (filteredProducts.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Tune, null, tint = OrangePrimary,
-                                modifier = Modifier.size(22.dp))
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.SearchOff,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Text(
+                                "No products found",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextPrimary
+                            )
+                            if (searchQuery.isNotBlank()) {
+                                TextButton(onClick = { searchQuery = "" }) {
+                                    Text("Clear search", color = OrangePrimary)
+                                }
+                            }
                         }
                     }
-                    DropdownMenu(
-                        expanded = showFilterMenu,
-                        onDismissRequest = { showFilterMenu = false }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        DropdownMenuItem(text = { Text("All") },
-                            onClick = { selectedFilter = "All"; showFilterMenu = false })
-                        DropdownMenuItem(text = { Text("Popular") },
-                            onClick = { selectedFilter = "Popular"; showFilterMenu = false })
-                        DropdownMenuItem(text = { Text("Cheap") },
-                            onClick = { selectedFilter = "Cheap"; showFilterMenu = false })
-                        DropdownMenuItem(text = { Text("Expensive") },
-                            onClick = { selectedFilter = "Expensive"; showFilterMenu = false })
+                        items(
+                            items = filteredProducts,
+                            key = { it.productId }
+                        ) { product ->
+                            SimpleProductCard(
+                                product = product,
+                                onClick = { onProductClick(product) },
+                                onAddToCart = { clickedProduct ->
+                                    if (userId != null) {
+                                        val cartItem = CartItem(
+                                            id = clickedProduct.productId,
+                                            productId = clickedProduct.productId,
+                                            name = clickedProduct.name,
+                                            vendorId = clickedProduct.vendorId,
+                                            vendorName = clickedProduct.vendorName,
+                                            price = clickedProduct.discountPrice
+                                                ?: clickedProduct.price,
+                                            originalPrice = if (clickedProduct.discountPrice != null) clickedProduct.price else null,
+                                            imageUrl = clickedProduct.imageUrls.firstOrNull() ?: "",
+                                            quantity = 1
+                                        )
+                                        scope.launch {
+                                            CartCollection.addToCart(userId, cartItem)
+
+                                            showAddedToCart = true
+                                            onAddToCart()
+
+                                            kotlinx.coroutines.delay(2000)
+                                            showAddedToCart = false
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
                     }
                 }
             }
 
-            if (filteredProducts.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+            AnimatedVisibility(
+                visible = showAddedToCart,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
+                Surface(
+                    color = Color(0xFF10B981),
+                    shape = RoundedCornerShape(12.dp),
+                    shadowElevation = 8.dp
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = 20.dp,
+                            vertical = 12.dp
+                        ),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.SearchOff,
+                            Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(64.dp)
+                            tint = Color.White
                         )
-                        Text(
-                            "No products found",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextPrimary
-                        )
-                        if (searchQuery.isNotBlank()) {
-                            TextButton(onClick = { searchQuery = "" }) {
-                                Text("Clear search", color = OrangePrimary)
-                            }
-                        }
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        items = filteredProducts,
-                        key = { it.productId }
-                    ) { product ->
-                        SimpleProductCard(
-                            product = product,
-                            onClick = { onProductClick(product) },
-                            onAddToCart = { clickedProduct ->
-                                if (userId != null) {
-                                    val cartItem = CartItem(
-                                        id = clickedProduct.productId,
-                                        productId = clickedProduct.productId,
-                                        name = clickedProduct.name,
-                                        vendorId = clickedProduct.vendorId,
-                                        vendorName = clickedProduct.vendorName,
-                                        price = clickedProduct.discountPrice ?: clickedProduct.price,
-                                        originalPrice = if(clickedProduct.discountPrice != null) clickedProduct.price else null,
-                                        imageUrl = clickedProduct.imageUrls.firstOrNull() ?: "",
-                                        quantity = 1
-                                    )
-                                    scope.launch {
-                                        CartCollection.addToCart(userId, cartItem)
-                                        onAddToCart()
-                                    }
-                                }
-                            }
-                        )
-                    }
 
-                    item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            "Added to cart!",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

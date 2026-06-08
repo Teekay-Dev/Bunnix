@@ -728,7 +728,9 @@ private fun BookingBottomBar(
         shadowElevation = 8.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(16.dp)
         ) {
             // Price Row
             Row(
