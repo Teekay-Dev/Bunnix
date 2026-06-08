@@ -297,6 +297,7 @@ fun PaymentMethodScreen(
                         .fillMaxSize()
                         .padding(padding)
                         .navigationBarsPadding()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
                         .verticalScroll(rememberScrollState())
                 ) {
                     // Total Display
@@ -1326,7 +1327,9 @@ private fun PaymentBottomBar(
         shadowElevation = 8.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(16.dp)
         ) {
             Button(
                 onClick = onPay,

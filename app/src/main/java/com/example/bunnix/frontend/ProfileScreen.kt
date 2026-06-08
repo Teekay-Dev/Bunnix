@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -42,6 +41,8 @@ private val TextPrimary = Color(0xFF1A1A2E)
 private val TextSecondary = Color(0xFF6B7280)
 private val White = Color.White
 
+
+
 @Composable
 fun ProfileScreen(
     userName: String = "",
@@ -63,9 +64,29 @@ fun ProfileScreen(
     onPhotoSelected: (Uri) -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showAddressDialog by remember { mutableStateOf(false) }
+    var showPaymentDialog by remember { mutableStateOf(false) }
+    var showProfileNotificationDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
     val context = LocalContext.current
+
+
+//    var address by remember {
+//        mutableStateOf("23 Ada George Road, Port Harcourt")
+//    }
+//
+//    var showEditAddressDialog by remember {
+//        mutableStateOf(false)
+//    }
+//
+//    var editedAddress by remember {
+//        mutableStateOf(address)
+//    }
+
 
     LaunchedEffect(Unit) {
         if (!isPreview) {
@@ -135,7 +156,7 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .windowInsetsPadding(WindowInsets.statusBars)
-                                .padding(top = 20.dp, bottom = 32.dp),
+                                .padding(top = 5.dp, bottom = 32.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             // Profile Photo
@@ -200,18 +221,18 @@ fun ProfileScreen(
                                 color = White
                             )
 
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(0.dp))
 
                             // Email
                             Text(
                                 text = userEmail,
                                 fontSize = 14.sp,
-                                color = TextPrimary // ✅ FIX 3: Changed from White to Black
+                                color = White // ✅ FIX 3: Changed from White to Black
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(0.dp))
 
                     // ── Vendor / Switch Card ──
                     Card(
@@ -269,22 +290,22 @@ fun ProfileScreen(
                             ProfileMenuItem(
                                 icon = Icons.Default.Person,
                                 title = "Edit Profile",
-                                onClick = onEditProfile
+                                onClick = { showEditProfileDialog = true }
                             ),
                             ProfileMenuItem(
                                 icon = Icons.Default.LocationOn,
                                 title = "Addresses",
-                                onClick = { onMenuItemClick("addresses") }
+                                onClick = { showAddressDialog = true }
                             ),
                             ProfileMenuItem(
                                 icon = Icons.Default.CreditCard,
                                 title = "Payment Methods",
-                                onClick = { onMenuItemClick("payments") }
+                                onClick = { showPaymentDialog = true }
                             ),
                             ProfileMenuItem(
                                 icon = Icons.Default.Notifications,
                                 title = "Notifications",
-                                onClick = onViewNotifications
+                                onClick = { showProfileNotificationDialog = true }
                             )
                         )
                     )
@@ -298,12 +319,12 @@ fun ProfileScreen(
                             ProfileMenuItem(
                                 icon = Icons.Default.Help,
                                 title = "Help Center",
-                                onClick = { onMenuItemClick("help") }
+                                onClick = { showHelpDialog = true }
                             ),
                             ProfileMenuItem(
                                 icon = Icons.Default.Security,
                                 title = "Privacy & Security",
-                                onClick = { onMenuItemClick("privacy") }
+                                onClick = { showPrivacyDialog = true }
                             )
                         )
                     )
@@ -417,6 +438,651 @@ fun ProfileScreen(
             containerColor = White
         )
     }
+
+   //  Edit Profile Dialog
+    if (showEditProfileDialog) {
+
+        var editedName by remember { mutableStateOf(userName) }
+        var editedPhone by remember { mutableStateOf(userPhone) }
+
+        AlertDialog(
+            onDismissRequest = { showEditProfileDialog = false },
+
+            containerColor = White,
+
+            title = {
+                Text(
+                    "Edit Profile",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+
+            text = {
+                Column {
+
+                    OutlinedTextField(
+                        value = editedName,
+                        onValueChange = { editedName = it },
+
+                        label = {
+                            Text(
+                                "Full Name",
+                                color = TextSecondary
+                            )
+                        },
+
+                        textStyle = LocalTextStyle.current.copy(
+                            color = TextPrimary
+                        ),
+
+                        modifier = Modifier.fillMaxWidth(),
+
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangePrimary,
+                            unfocusedBorderColor = TextSecondary,
+                            cursorColor = OrangePrimary,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = editedPhone,
+                        onValueChange = { editedPhone = it },
+
+                        label = {
+                            Text(
+                                "Phone Number",
+                                color = TextSecondary
+                            )
+                        },
+
+                        textStyle = LocalTextStyle.current.copy(
+                            color = TextPrimary
+                        ),
+
+                        modifier = Modifier.fillMaxWidth(),
+
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangePrimary,
+                            unfocusedBorderColor = TextSecondary,
+                            cursorColor = OrangePrimary,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                }
+            },
+
+            confirmButton = {
+                Button(
+                    onClick = {
+                        // SAVE TO DATABASE HERE
+                        showEditProfileDialog = false
+                    },
+
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangePrimary
+                    )
+                ) {
+                    Text(
+                        "Save",
+                        color = White
+                    )
+                }
+            },
+
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showEditProfileDialog = false
+                    }
+                ) {
+                    Text(
+                        "Cancel",
+                        color = TextPrimary
+                    )
+                }
+            }
+        )
+    }
+
+    // Addresses Dialog
+    var showEditAddressDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var address1 by remember {
+        mutableStateOf("23 Ada George Road, Port Harcourt")
+    }
+
+    var address2 by remember {
+        mutableStateOf("12 Peter Odili Road, Port Harcourt")
+    }
+
+    var currentEditingAddress by remember {
+        mutableStateOf("")
+    }
+
+    var editingAddressType by remember {
+        mutableStateOf("")
+    }
+    if (showAddressDialog) {
+
+
+
+        var showAddAddressField by remember {
+            mutableStateOf(false)
+        }
+
+        var newAddress by remember {
+            mutableStateOf("")
+        }
+
+        AlertDialog(
+            onDismissRequest = { showAddressDialog = false },
+            title = {
+                Text(
+                    "Saved Addresses",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    // Address 1
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = White
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+
+                        Column(
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+
+                            Text(
+                                text = "Home",
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = address1,
+                                color = TextSecondary
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            TextButton(
+                                onClick = {
+
+                                    editingAddressType = "home"
+
+                                    currentEditingAddress = address1
+
+                                    showEditAddressDialog = true
+                                }
+                            ) {
+                                Text(
+                                    "Edit Address",
+                                    color = OrangePrimary
+                                )
+                            }
+                        }
+                    }
+
+                    // Address 2
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = White
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+
+                        Column(
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+
+                            Text(
+                                text = "Office",
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = address2,
+                                color = TextSecondary
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            TextButton(
+                                onClick = {
+
+                                    editingAddressType = "office"
+
+                                    currentEditingAddress = address2
+
+                                    showEditAddressDialog = true
+                                }
+                            ) {
+                                Text(
+                                    "Edit Address",
+                                    color = OrangePrimary
+                                )
+                            }
+                        }
+                    }
+
+                    // Add Address Field
+                    if (showAddAddressField) {
+
+                        OutlinedTextField(
+                            value = newAddress,
+                            onValueChange = {
+                                newAddress = it
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = {
+                                Text("New Address")
+                            }
+                        )
+
+                        Button(
+                            onClick = {
+
+                                if (newAddress.isNotBlank()) {
+                                    address2 = newAddress
+                                    newAddress = ""
+                                    showAddAddressField = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = OrangePrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Save Address")
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            showAddAddressField = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "Add New Address",
+                            color = OrangePrimary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAddressDialog = false
+                    }
+                ) {
+                    Text(
+                        "Close",
+                        color = OrangePrimary
+                    )
+                }
+            },
+            containerColor = SurfaceLight
+        )
+    }
+
+    // Edit Address Dialog
+    if (showEditAddressDialog) {
+
+        AlertDialog(
+            onDismissRequest = {
+                showEditAddressDialog = false
+            },
+
+            containerColor = White,
+
+            title = {
+                Text(
+                    text = "Edit Address",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+
+            text = {
+
+                Column {
+
+                    Text(
+                        text = "Update your ${editingAddressType.replaceFirstChar { it.uppercase() }} address",
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = currentEditingAddress,
+
+                        onValueChange = {
+                            currentEditingAddress = it
+                        },
+
+                        modifier = Modifier.fillMaxWidth(),
+
+                        label = {
+                            Text("Address")
+                        },
+
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = OrangePrimary,
+                            unfocusedBorderColor = TextSecondary,
+                            cursorColor = OrangePrimary,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                }
+            },
+
+            confirmButton = {
+
+                Button(
+                    onClick = {
+
+                        if (editingAddressType == "home") {
+                            address1 = currentEditingAddress
+                        } else {
+                            address2 = currentEditingAddress
+                        }
+
+                        showEditAddressDialog = false
+                    },
+
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OrangePrimary
+                    )
+                ) {
+
+                    Text(
+                        text = "Save",
+                        color = White
+                    )
+                }
+            },
+
+            dismissButton = {
+
+                TextButton(
+                    onClick = {
+                        showEditAddressDialog = false
+                    }
+                ) {
+
+                    Text(
+                        text = "Cancel",
+                        color = TextPrimary
+                    )
+                }
+            }
+        )
+    }
+
+
+    // Payment Method Dialog
+    if (showPaymentDialog) {
+
+        AlertDialog(
+            onDismissRequest = { showPaymentDialog = false },
+
+            containerColor = White,
+
+            title = {
+                Text(
+                    "Payment Methods",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+
+            text = {
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    PaymentMethodRow(
+                        icon = Icons.Default.AccountBalanceWallet,
+                        title = "Pay On Delivery",
+                        subtitle = "Available"
+                    )
+
+                    PaymentMethodRow(
+                        icon = Icons.Default.CreditCard,
+                        title = "Debit / Credit Card",
+                        subtitle = "Visa • Mastercard"
+                    )
+
+                    PaymentMethodRow(
+                        icon = Icons.Default.Payments,
+                        title = "Bank Transfer",
+                        subtitle = "Pay with bank account"
+                    )
+
+                    PaymentMethodRow(
+                        icon = Icons.Default.PhoneAndroid,
+                        title = "Paystack",
+                        subtitle = "Secure online payment"
+                    )
+                }
+            },
+
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPaymentDialog = false
+                    }
+                ) {
+                    Text(
+                        "Close",
+                        color = OrangePrimary
+                    )
+                }
+            }
+        )
+    }
+
+    // Notification Dialog
+    if (showProfileNotificationDialog) {
+
+        AlertDialog(
+            onDismissRequest = { showProfileNotificationDialog = false },
+
+            containerColor = White,
+
+            title = {
+                Text(
+                    "Notifications",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+
+            text = {
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    ProfileNotificationItem(
+                        "🎉 Welcome to Bunnix!",
+                        color = TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "📢 Tell your friends about Bunnix",
+                        color = TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "⭐ Rate the app and share feedback",
+                        color = TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "👋 You haven't been active recently",
+                        color = TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "✅ Your account has been verified",
+                        color = TextPrimary
+                    )
+                }
+            },
+
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showProfileNotificationDialog = false
+                    }
+                ) {
+                    Text(
+                        "Close",
+                        color = OrangePrimary
+                    )
+                }
+            }
+        )
+    }
+
+    // Help Center Dialog
+    if (showHelpDialog) {
+
+        AlertDialog(
+            onDismissRequest = { showHelpDialog = false },
+            title = {
+                Text(
+                    "Help Center",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    ProfileNotificationItem(
+                        "📦 Track orders and deliveries",
+                        TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "🛒 Get help with purchases and refunds",
+                        TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "💬 Contact Bunnix Support anytime",
+                        TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "🚚 Delivery issues and complaints",
+                        TextPrimary
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showHelpDialog = false
+                    }
+                ) {
+                    Text(
+                        "Close",
+                        color = OrangePrimary
+                    )
+                }
+            },
+            containerColor = SurfaceLight
+        )
+    }
+
+    // Privacy & Security Dialog
+    if (showPrivacyDialog) {
+
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            title = {
+                Text(
+                    "Privacy & Security",
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+
+                    ProfileNotificationItem(
+                        "🔒 Your account is securely protected",
+                        TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "🛡️ All payments are encrypted",
+                        TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "📱 Enable 2-factor authentication soon",
+                        TextPrimary
+                    )
+
+                    ProfileNotificationItem(
+                        "👁️ Manage app permissions and privacy",
+                        TextPrimary
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPrivacyDialog = false
+                    }
+                ) {
+                    Text(
+                        "Close",
+                        color = OrangePrimary
+                    )
+                }
+            },
+            containerColor = SurfaceLight
+        )
+    }
+
 }
 
 // ── Reusable Section Card ──
@@ -500,6 +1166,88 @@ private fun ProfileMenuRow(item: ProfileMenuItem) {
                 modifier = Modifier.size(20.dp)
             )
         }
+    }
+}
+
+
+@Composable
+fun PaymentMethodRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String
+) {
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = White
+        ),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Surface(
+                color = OrangePrimary.copy(alpha = 0.1f),
+                shape = CircleShape,
+                modifier = Modifier.size(42.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = OrangePrimary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column {
+
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = TextSecondary
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+fun ProfileNotificationItem(
+    text: String,
+    color: Color
+) {
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = White
+        )
+    ) {
+
+        Text(
+            text = text,
+            modifier = Modifier.padding(14.dp),
+            color = TextPrimary,
+            fontSize = 14.sp,
+            lineHeight = 20.sp
+        )
     }
 }
 

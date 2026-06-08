@@ -9,6 +9,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -18,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -77,7 +78,7 @@ fun ProductDetailsScreen(
     var selectedVariant by remember { mutableStateOf<String?>(null) }
     var isFavorite by remember { mutableStateOf(false) }
     var showAddedToCart by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Description", "Reviews (${reviews.size})", "Vendor")
 
     // Image pager
@@ -86,11 +87,15 @@ fun ProductDetailsScreen(
     })
 
     // Auto-scroll images
-    LaunchedEffect(imagePagerState) {
-        while (true) {
-            delay(5000)
-            val nextPage = (imagePagerState.currentPage + 1) % imagePagerState.pageCount
-            imagePagerState.animateScrollToPage(nextPage)
+    LaunchedEffect(imagePagerState.pageCount) {
+        if (imagePagerState.pageCount > 1) {
+            while (true) {
+                delay(5000)
+                val nextPage =
+                    (imagePagerState.currentPage + 1) % imagePagerState.pageCount
+
+                imagePagerState.animateScrollToPage(nextPage)
+            }
         }
     }
 
@@ -101,139 +106,154 @@ fun ProductDetailsScreen(
         }.take(10)
     }
 
-    Scaffold(
-        topBar = {
-            ProductDetailTopBar(
-                isFavorite = isFavorite,
-                onFavoriteClick = { isFavorite = !isFavorite },
-                onShareClick = { /* Share */ },
-                onBack = onBack
-            )
-        },
-        bottomBar = {
-            ModernBottomBar(
-                product = product,
-                quantity = selectedQuantity,
-                onQuantityChange = { selectedQuantity = it },
-                onAddToCart = {
-                    onAddToCart(product, selectedQuantity)
-                    showAddedToCart = true
-                    scope.launch {
-                        delay(2000)
-                        showAddedToCart = false
-                    }
-                },
-                onBuyNow = { onBuyNow(product, selectedQuantity) }
-            )
-        },
-        containerColor = SurfaceLight
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(scrollState)
-            ) {
-                // Image Gallery
-                ImageGallery(
-                    product = product,
-                    pagerState = imagePagerState
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .windowInsetsPadding(WindowInsets.navigationBars)
+    ) {
+        Scaffold(
+            topBar = {
+                ProductDetailTopBar(
+                    isFavorite = isFavorite,
+                    onFavoriteClick = { isFavorite = !isFavorite },
+                    onShareClick = { /* Share */ },
+                    onBack = onBack
                 )
-
-                // Product Info Card
-                ProductInfoCard(
-                    product = product,
-                    reviews = reviews
-                )
-
-                // Variant Selection
-                if (product.variants.isNotEmpty()) {
-                    VariantSelector(
-                        variants = product.variants.map { it["name"] as? String ?: "" },
-                        selectedVariant = selectedVariant,
-                        onVariantSelect = { selectedVariant = it }
-                    )
-                }
-
-                // Tabs
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.White,
-                    contentColor = OrangePrimary,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = OrangePrimary,
-                            height = 3.dp
-                        )
-                    }
+            },
+            bottomBar = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = {
+                    // Added to Cart Notification - Brought down to float perfectly above the buttons
+                    AnimatedVisibility(
+                        visible = showAddedToCart,
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
+                    ) {
+                        Surface(
+                            modifier = Modifier.padding(bottom = 12.dp),
+                            color = SuccessGreen,
+                            shape = RoundedCornerShape(12.dp),
+                            shadowElevation = 4.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    title,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
+                                    "Added to cart!",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
                             }
-                        )
+                        }
                     }
-                }
-
-                // Tab Content
-                when (selectedTab) {
-                    0 -> DescriptionTab(product.description, product.tags)
-                    1 -> ReviewsTab(reviews)
-                    2 -> VendorTab(
-                        vendorId = product.vendorId,
-                        vendorName = product.vendorName,
-                        onChatClick = { onChatWithVendor(product.vendorId) }
+                    ModernBottomBar(
+                        product = product,
+                        quantity = selectedQuantity,
+                        onQuantityChange = { selectedQuantity = it },
+                        onAddToCart = {
+                            onAddToCart(product, selectedQuantity)
+                            showAddedToCart = true
+                            scope.launch {
+                                delay(2000)
+                                showAddedToCart = false
+                            }
+                        },
+                        onBuyNow = { onBuyNow(product, selectedQuantity) }
                     )
                 }
+            },
+            containerColor = SurfaceLight
+        ) { padding ->
 
-                // Related Products
-                if (relatedProducts.isNotEmpty()) {
-                    RelatedProductsSection(
-                        products = relatedProducts,
-                        onProductClick = { /* Navigate */ }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(100.dp))
-            }
-
-            // Added to Cart Snackbar
-            AnimatedVisibility(
-                visible = showAddedToCart,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
             ) {
-                Surface(
-                    color = SuccessGreen,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.padding(bottom = 100.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Added to cart!",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
+                    // Image Gallery
+                    ImageGallery(
+                        product = product,
+                        pagerState = imagePagerState
+                    )
+
+                    // Product Info Card
+                    ProductInfoCard(
+                        product = product,
+                        reviews = reviews
+                    )
+
+                    // Variant Selection
+                    if (product.variants.isNotEmpty()) {
+                        VariantSelector(
+                            variants = product.variants.map { it["name"] as? String ?: "" },
+                            selectedVariant = selectedVariant,
+                            onVariantSelect = { selectedVariant = it }
                         )
                     }
+
+                    // Tabs
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = Color.White,
+                        contentColor = OrangePrimary,
+                        indicator = { tabPositions ->
+                            TabRowDefaults.Indicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                color = OrangePrimary,
+                                height = 3.dp
+                            )
+                        }
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                text = {
+                                    Text(
+                                        title,
+                                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            )
+                        }
+                    }
+
+                    // Tab Content
+                    when (selectedTab) {
+                        0 -> DescriptionTab(product.description, product.tags)
+                        1 -> ReviewsTab(reviews)
+                        2 -> VendorTab(
+                            vendorId = product.vendorId,
+                            vendorName = product.vendorName,
+                            onChatClick = { onChatWithVendor(product.vendorId) }
+                        )
+                    }
+
+                    // Related Products
+                    if (relatedProducts.isNotEmpty()) {
+                        RelatedProductsSection(
+                            products = relatedProducts,
+                            onProductClick = { /* Navigate */ }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(100.dp))
                 }
             }
         }
@@ -267,7 +287,7 @@ private fun ProductDetailTopBar(
                     .background(Color.White.copy(alpha = 0.9f), CircleShape)
             ) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = TextPrimary
                 )
@@ -721,21 +741,55 @@ private fun DescriptionTab(description: String, tags: List<String>) {
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                tags.forEach { tag ->
-                    Surface(
-                        color = SurfaceLight,
-                        shape = RoundedCornerShape(20.dp)
-                    ) {
-                        Text(
-                            "#$tag",
-                            color = TextSecondary,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                        )
+            Layout(
+                content = {
+                    tags.forEach { tag ->
+                        Surface(
+                            color = SurfaceLight,
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Text(
+                                "#$tag",
+                                color = TextSecondary,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { measurables, constraints ->
+                val hGap = 8.dp.roundToPx()
+                val vGap = 8.dp.roundToPx()
+                val rows = mutableListOf<List<androidx.compose.ui.layout.Placeable>>()
+                val rowHeights = mutableListOf<Int>()
+                var currentRow = mutableListOf<androidx.compose.ui.layout.Placeable>()
+                var currentRowWidth = 0
+                var currentRowHeight = 0
+                measurables.forEach { measurable ->
+                    val placeable = measurable.measure(constraints)
+                    if (currentRowWidth + placeable.width > constraints.maxWidth) {
+                        rows.add(currentRow)
+                        rowHeights.add(currentRowHeight)
+                        currentRow = mutableListOf()
+                        currentRowWidth = 0
+                        currentRowHeight = 0
+                    }
+                    currentRow.add(placeable)
+                    currentRowWidth += placeable.width + hGap
+                    currentRowHeight = max(currentRowHeight, placeable.height)
+                }
+                rows.add(currentRow); rowHeights.add(currentRowHeight)
+                val totalHeight = rowHeights.sum() + (rows.size - 1) * vGap
+                layout(constraints.maxWidth, totalHeight) {
+                    var y = 0
+                    rows.forEachIndexed { i, row ->
+                        var x = 0
+                        row.forEach { placeable ->
+                            placeable.placeRelative(x, y)
+                            x += placeable.width + hGap
+                        }
+                        y += rowHeights[i] + vGap
                     }
                 }
             }
@@ -1071,7 +1125,7 @@ private fun VendorTab(
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = OrangePrimary)
         ) {
-            Icon(Icons.Default.Chat, null)
+            Icon(Icons.AutoMirrored.Filled.Chat, null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 "Chat with Vendor",
@@ -1183,6 +1237,8 @@ private fun ModernBottomBar(
     onAddToCart: () -> Unit,
     onBuyNow: () -> Unit
 ) {
+    val isProductAvailable = product.inStock && product.totalStock > 0
+
     Surface(
         color = Color.White,
         tonalElevation = 8.dp,
@@ -1261,7 +1317,7 @@ private fun ModernBottomBar(
                         .weight(1f)
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    enabled = product.inStock && product.totalStock > 0
+                    enabled = true
                 ) {
                     Icon(Icons.Default.ShoppingCart, null, tint = OrangePrimary)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1272,7 +1328,7 @@ private fun ModernBottomBar(
                     )
                 }
 
-                // Buy Now
+                // Buy Now / Out of Stock Button
                 Button(
                     onClick = onBuyNow,
                     modifier = Modifier
@@ -1280,86 +1336,19 @@ private fun ModernBottomBar(
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = OrangePrimary,
-                        disabledContainerColor = SurfaceLight
+                        containerColor = if (isProductAvailable) OrangePrimary else ErrorRed,
+                        contentColor = Color.White,
+                        disabledContainerColor = ErrorRed,
+                        disabledContentColor = Color.White.copy(alpha = 0.9f)
                     ),
-                    enabled = product.inStock && product.totalStock > 0
+                    enabled = isProductAvailable
                 ) {
                     Text(
-                        if (product.inStock) "Buy Now" else "Out of Stock",
-                        color = if (product.inStock) Color.White else TextTertiary,
+                        text = if (isProductAvailable) "Buy Now" else "Out of Stock",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
                 }
-            }
-        }
-    }
-}
-
-// FlowRow implementation - FIXED with proper imports and explicit types
-@Composable
-private fun FlowRow(
-    modifier: Modifier = Modifier,
-    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
-    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
-    content: @Composable () -> Unit
-) {
-    Layout(
-        content = content,
-        modifier = modifier
-    ) { measurables: List<androidx.compose.ui.layout.Measurable>, constraints: androidx.compose.ui.unit.Constraints ->
-        val hGapPx = 8.dp.roundToPx()
-        val vGapPx = 8.dp.roundToPx()
-
-        val rows = mutableListOf<List<androidx.compose.ui.layout.Placeable>>()
-        val rowWidths = mutableListOf<Int>()
-        val rowHeights = mutableListOf<Int>()
-
-        var row = mutableListOf<androidx.compose.ui.layout.Placeable>()
-        var rowWidth = 0
-        var rowHeight = 0
-
-        measurables.forEach { measurable ->
-            val placeable = measurable.measure(constraints)
-
-            if (row.isNotEmpty() && rowWidth + hGapPx + placeable.width > constraints.maxWidth) {
-                rows.add(row)
-                rowWidths.add(rowWidth)
-                rowHeights.add(rowHeight)
-                row = mutableListOf()
-                rowWidth = 0
-                rowHeight = 0
-            }
-
-            row.add(placeable)
-            rowWidth += if (row.size == 1) placeable.width else hGapPx + placeable.width
-            rowHeight = max(rowHeight, placeable.height)
-        }
-
-        if (row.isNotEmpty()) {
-            rows.add(row)
-            rowWidths.add(rowWidth)
-            rowHeights.add(rowHeight)
-        }
-
-        val width = rowWidths.maxOrNull()?.coerceIn(constraints.minWidth, constraints.maxWidth) ?: constraints.minWidth
-        val height = rowHeights.sum() + (rows.size - 1).coerceAtLeast(0) * vGapPx
-
-        layout(width, height) {
-            var y = 0
-            rows.forEachIndexed { rowIndex, rowPlaceables ->
-                var x = when (horizontalArrangement) {
-                    Arrangement.End -> width - rowWidths[rowIndex]
-                    Arrangement.Center -> (width - rowWidths[rowIndex]) / 2
-                    else -> 0
-                }
-
-                rowPlaceables.forEachIndexed { placeableIndex, placeable ->
-                    placeable.placeRelative(x, y)
-                    x += placeable.width + if (placeableIndex < rowPlaceables.size - 1) hGapPx else 0
-                }
-                y += rowHeights[rowIndex] + vGapPx
             }
         }
     }
